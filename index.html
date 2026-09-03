@@ -2,7 +2,15 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E6E5E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Finanças">
 <title>Control de Cuentas</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E6E5E'/%3E%3Cellipse cx='13' cy='21' rx='7.3' ry='4' fill='none' stroke='%23F4FBF8' stroke-width='2'/%3E%3Cellipse cx='13' cy='17' rx='7.3' ry='4' fill='none' stroke='%23F4FBF8' stroke-width='2'/%3E%3Cellipse cx='16.5' cy='12' rx='7.3' ry='4' fill='%230E6E5E' stroke='%23F4FBF8' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -438,6 +446,22 @@
   .cfg-tabs button.active{ background:var(--paper-raised); color:var(--ink); box-shadow:0 1px 1px var(--shadow); }
   .cfg-pane{ display:none; }
   .cfg-pane.active{ display:flex; flex-direction:column; gap:10px; }
+
+  /* ---------- Responsive (phones) ---------- */
+  .tx-scroll{ overflow-x:auto; }
+  @media (max-width: 720px){
+    .wrap{ padding:16px 12px 60px; }
+    .brand h1{ font-size:22px; }
+    .topbar{ gap:12px; }
+    .conn-block{ align-items:flex-start; width:100%; }
+    .conn-actions{ justify-content:flex-start; }
+    .field-row{ grid-template-columns:1fr; }
+    .list-head-row, .tx-row{ min-width:640px; }
+    .modal{ max-width:calc(100vw - 32px); }
+    .modal.wide, .modal.xwide{ max-width:calc(100vw - 32px); }
+    .cfg-row.cards{ grid-template-columns:1fr; row-gap:6px; }
+    .cfg-row.pessoas{ grid-template-columns:1fr; row-gap:6px; }
+  }
 </style>
 </head>
 <body>
@@ -553,10 +577,12 @@
       </div>
       <div class="panel">
         <div class="panel-head"><h2>Assinaturas ativas</h2></div>
+        <div class="tx-scroll">
         <div class="list-head-row" style="grid-template-columns:1.6fr 0.9fr 1fr 0.9fr 1fr;">
           <span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor</span><span>Cancelamento</span>
         </div>
         <div class="tx-list" id="subsList"></div>
+        </div>
       </div>
     </div>
 
@@ -584,10 +610,12 @@
           <button class="btn btn-sm btn-danger" id="debitoBulkDelete" type="button">Excluir selecionadas</button>
           <button class="btn btn-sm" id="debitoBulkClear" type="button">Cancelar seleção</button>
         </div>
+        <div class="tx-scroll">
         <div class="list-head-row" style="grid-template-columns:0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr;">
           <input type="checkbox" class="row-select" id="selectAllDebito" title="Selecionar todos"><span></span><span>Tipo</span><span>Descrição</span><span>Pessoa</span><span>Valor</span><span>Mês</span>
         </div>
         <div class="tx-list" id="debitoList"></div>
+        </div>
       </div>
     </div>
 
@@ -627,10 +655,12 @@
           <button class="btn btn-sm btn-danger" id="comprasBulkDelete" type="button">Excluir selecionadas</button>
           <button class="btn btn-sm" id="comprasBulkClear" type="button">Cancelar seleção</button>
         </div>
+        <div class="tx-scroll">
         <div class="list-head-row" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr;">
           <input type="checkbox" class="row-select" id="selectAllCompras" title="Selecionar todos"><span></span><span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor total</span><span>Valor parcela</span><span>Parcela</span><span>Data</span><span>Tipo</span>
         </div>
         <div class="tx-list" id="txList"></div>
+        </div>
       </div>
     </div>
 
