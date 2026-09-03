@@ -1,0 +1,2726 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Control de Cuentas</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E6E5E'/%3E%3Cellipse cx='13' cy='21' rx='7.3' ry='4' fill='none' stroke='%23F4FBF8' stroke-width='2'/%3E%3Cellipse cx='13' cy='17' rx='7.3' ry='4' fill='none' stroke='%23F4FBF8' stroke-width='2'/%3E%3Cellipse cx='16.5' cy='12' rx='7.3' ry='4' fill='%230E6E5E' stroke='%23F4FBF8' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --paper:#EEF1EA;
+    --paper-raised:#FBFCF9;
+    --ink:#182620;
+    --ink-soft:#54655C;
+    --ink-faint:#8A968D;
+    --line:#D7DCD1;
+    --line-strong:#C1C9B9;
+    --accent:#0E6E5E;
+    --accent-ink:#083F35;
+    --accent-soft:#DCEBE5;
+    --warn:#A8650F;
+    --warn-soft:#F3E3CB;
+    --danger:#AE3A29;
+    --danger-soft:#F3DFD9;
+    --shadow:rgba(24,38,32,0.09);
+    --focus:#0E6E5E;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#111A16;
+      --paper-raised:#182420;
+      --ink:#E9EEE9;
+      --ink-soft:#A3B2A8;
+      --ink-faint:#718075;
+      --line:#28352D;
+      --line-strong:#374539;
+      --accent:#49BE9E;
+      --accent-ink:#CFF3E6;
+      --accent-soft:#1C332C;
+      --warn:#E0A64E;
+      --warn-soft:#3B2C15;
+      --danger:#E28A79;
+      --danger-soft:#3B211C;
+      --shadow:rgba(0,0,0,0.35);
+      --focus:#49BE9E;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#111A16;
+    --paper-raised:#182420;
+    --ink:#E9EEE9;
+    --ink-soft:#A3B2A8;
+    --ink-faint:#718075;
+    --line:#28352D;
+    --line-strong:#374539;
+    --accent:#49BE9E;
+    --accent-ink:#CFF3E6;
+    --accent-soft:#1C332C;
+    --warn:#E0A64E;
+    --warn-soft:#3B2C15;
+    --danger:#E28A79;
+    --danger-soft:#3B211C;
+    --shadow:rgba(0,0,0,0.35);
+    --focus:#49BE9E;
+  }
+
+  *{box-sizing:border-box;}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+  }
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    min-height:100%;
+  }
+  h1,h2,h3{
+    font-family:"Fraunces", Georgia, "Times New Roman", serif;
+    text-wrap:balance;
+    margin:0;
+    color:var(--ink);
+    font-weight:600;
+  }
+  .num{
+    font-family:"IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+    font-variant-numeric:tabular-nums;
+  }
+  button, input, select{ font-family:inherit; font-size:inherit; color:inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible, [tabindex]:focus-visible{
+    outline:2px solid var(--focus);
+    outline-offset:2px;
+  }
+  button{cursor:pointer;}
+  button:disabled{ cursor:not-allowed; opacity:0.55; }
+
+  .wrap{
+    max-width:1180px;
+    margin:0 auto;
+    padding:28px 24px 80px;
+  }
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:20px;
+    flex-wrap:wrap;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:20px;
+  }
+  .brand{ display:flex; flex-direction:column; gap:2px; }
+  .brand .eyebrow{
+    font-size:11.5px; letter-spacing:0.09em; text-transform:uppercase;
+    color:var(--ink-faint); font-weight:600;
+  }
+  .brand-title{ display:flex; align-items:center; gap:10px; }
+  .brand-icon{ width:30px; height:30px; flex:none; }
+  .brand h1{ font-size:28px; }
+
+  .conn-block{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+  .conn-status{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft); }
+  .conn-dot{ width:8px; height:8px; border-radius:50%; background:var(--ink-faint); flex:none; }
+  .conn-dot.on{ background:var(--accent); }
+  .conn-dot.off{ background:var(--danger); }
+  .conn-actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:9px 15px; border-radius:9px; border:1px solid var(--line);
+    background:var(--paper-raised); color:var(--ink); font-weight:600; font-size:13.5px;
+    box-shadow:0 1px 2px var(--shadow);
+  }
+  .btn:hover{ border-color:var(--line-strong); }
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:#F4FBF8; }
+  .btn-primary:hover{ filter:brightness(1.06); }
+  .btn-ghost{ background:transparent; border-color:transparent; box-shadow:none; color:var(--ink-soft); }
+  .btn-ghost:hover{ background:var(--paper-raised); color:var(--ink); }
+  .btn-danger{ color:var(--danger); }
+  .btn-sm{ padding:6px 11px; font-size:12.5px; }
+
+  /* ---------- Banners ---------- */
+  .banner{
+    display:none; align-items:flex-start; gap:10px; padding:12px 16px; border-radius:9px;
+    background:var(--warn-soft); color:var(--ink); border:1px solid var(--line); font-size:13.5px; margin-bottom:20px;
+  }
+  .banner.show{ display:flex; }
+  .banner.danger{ background:var(--danger-soft); }
+
+  /* ---------- Empty state (not connected) ---------- */
+  .connect-hero{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    gap:14px; padding:64px 24px;
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:14px; box-shadow:0 1px 2px var(--shadow);
+  }
+  .connect-hero h2{ font-size:22px; }
+  .connect-hero p{ max-width:480px; color:var(--ink-soft); font-size:14px; margin:0; }
+
+  /* ---------- Page toolbar (tabs + month filter) ---------- */
+  .page-toolbar{
+    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    margin-bottom:18px;
+  }
+  .page-tabs{ display:flex; gap:4px; background:var(--paper-raised); border:1px solid var(--line); border-radius:9px; padding:4px; }
+  .page-tabs button{
+    border:none; background:transparent; padding:8px 16px; border-radius:6px;
+    font-size:13.5px; font-weight:600; color:var(--ink-soft);
+  }
+  .page-tabs button.active{ background:var(--accent-soft); color:var(--accent-ink); }
+  .month-filter{ display:flex; align-items:center; gap:8px; }
+  .month-filter label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); }
+  .month-stepper{
+    display:flex; align-items:center; gap:2px;
+    background:var(--paper-raised); border:1px solid var(--line-strong); border-radius:9px; padding:3px;
+  }
+  .month-stepper button{ padding:5px 10px; border-radius:6px; }
+  .month-stepper-label{
+    min-width:132px; text-align:center; font-size:13.5px; font-weight:600; padding:4px 6px;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ---------- Page sections ---------- */
+  .page-section{ display:none; }
+  .page-section.active{ display:block; }
+
+  /* ---------- Dashboard ---------- */
+  .dash-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width: 820px){ .dash-grid{ grid-template-columns:1fr; } }
+  .dash-card .panel-head{ padding-bottom:10px; }
+  .bar-list{ display:flex; flex-direction:column; gap:10px; padding:14px 18px 18px; }
+  .bar-row{ display:flex; flex-direction:column; gap:4px; }
+  .bar-row .bar-top{ display:flex; justify-content:space-between; font-size:13px; }
+  .bar-row .bar-name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar-row .bar-value{ font-family:"IBM Plex Mono",monospace; color:var(--ink-soft); flex:none; margin-left:10px; }
+  .bar-track{ height:7px; border-radius:5px; background:var(--paper); overflow:hidden; }
+  .bar-fill{ height:100%; background:var(--accent); border-radius:5px; }
+  .subs-list{ display:flex; flex-direction:column; padding:6px 0 6px; }
+  .subs-item{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:10px 18px; border-bottom:1px solid var(--line); font-size:13.5px;
+  }
+  .subs-item:last-child{ border-bottom:none; }
+  .subs-item .name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .subs-item .meta{ font-size:12px; color:var(--ink-faint); }
+  .subs-item .amt{ font-family:"IBM Plex Mono",monospace; flex:none; }
+
+  /* ---------- Calendário de parcelas ---------- */
+  .calendar-wrap{
+    overflow-x:auto; overflow-y:auto; max-height:640px;
+    border:1px solid var(--line); border-radius:12px; background:var(--paper-raised);
+  }
+  table.calendar{ border-collapse:collapse; width:100%; font-size:12.5px; font-family:"IBM Plex Mono",monospace; }
+  table.calendar th, table.calendar td{
+    padding:7px 12px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line);
+  }
+  table.calendar thead th{
+    background:var(--paper); font-weight:600; font-family:"IBM Plex Sans",sans-serif;
+    position:sticky; top:0; z-index:3; border-bottom:1px solid var(--line-strong);
+  }
+  table.calendar th:first-child, table.calendar td:first-child{
+    text-align:left; position:sticky; left:0; background:var(--paper-raised); z-index:2;
+    box-shadow:1px 0 0 var(--line); font-family:"IBM Plex Sans",sans-serif; max-width:220px;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+  table.calendar thead th:first-child{ z-index:4; background:var(--paper); }
+  table.calendar td.meta-cell{ color:var(--ink-soft); font-family:"IBM Plex Sans",sans-serif; font-size:11.5px; }
+  table.calendar td.empty-cell{ color:var(--line-strong); }
+  table.calendar th.current-month, table.calendar td.current-month{ background:var(--accent-soft); }
+  table.calendar td.past{ color:var(--ink-faint); }
+  table.calendar td.last-installment{ box-shadow:inset 0 -2px 0 var(--accent); }
+  table.calendar tr.totals-row td{
+    font-weight:700; background:var(--paper); border-top:2px solid var(--line-strong);
+    border-bottom:2px solid var(--line-strong); position:sticky; z-index:2;
+  }
+  table.calendar tr.totals-row td:first-child{ background:var(--paper); z-index:3; }
+
+  /* ---------- Filters ---------- */
+  .filters{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+  .filters input[type="text"], .filters select{
+    padding:8px 11px; border-radius:8px; border:1px solid var(--line-strong);
+    background:var(--paper-raised); color:var(--ink); font-size:13.5px;
+  }
+  .filters input[type="text"]{ flex:1; min-width:180px; }
+
+  /* ---------- Summary ---------- */
+  .summary{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
+  .sum-card{
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:12px;
+    padding:16px 20px; box-shadow:0 1px 2px var(--shadow);
+  }
+  .sum-card .k{
+    font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint);
+    font-weight:600; margin-bottom:8px; display:block;
+  }
+  .sum-card .v{ font-size:24px; font-weight:500; }
+  .sum-card .v.positive{ color:var(--accent); }
+  .sum-card .v.negative{ color:var(--danger); }
+  .summary-group-label{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint);
+    font-weight:600; margin:2px 2px 10px;
+  }
+  @media (max-width: 720px){ .summary{ grid-template-columns:1fr; } }
+
+  /* ---------- List ---------- */
+  .panel{
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:13px;
+    box-shadow:0 1px 2px var(--shadow); overflow:hidden;
+  }
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 18px 12px; border-bottom:1px solid var(--line); gap:10px;
+  }
+  .panel-head h2{ font-size:17px; }
+  .list-head-row, .tx-row{
+    display:grid; grid-template-columns:1.6fr 0.9fr 1fr 0.9fr 0.6fr 0.9fr 0.9fr;
+    gap:10px; align-items:center; padding:10px 18px;
+  }
+  .list-head-row{
+    font-size:11.5px; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-faint);
+    font-weight:600; border-bottom:1px solid var(--line);
+  }
+  .tx-list{ max-height:560px; overflow-y:auto; }
+  /* Compras registradas is the last thing on its page (nothing below it), so let it grow with
+     the page instead of scrolling in its own box — avoids the nested double-scrollbar problem. */
+  #txList{ max-height:none; overflow:visible; }
+  .tx-row{
+    border-bottom:1px solid var(--line); background:none; border-left:none; border-right:none; border-top:none;
+    width:100%; text-align:left; font-size:13.5px; cursor:pointer;
+  }
+  .tx-row:last-child{ border-bottom:none; }
+  .tx-row:hover{ background:var(--paper); }
+  .tx-row-static{ cursor:default; }
+  .tx-row-static:hover{ background:none; }
+  .out-check{ display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .out-check input{ width:auto; accent-color:var(--accent); cursor:pointer; }
+  .out-check .out-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); }
+  .row-select{ width:auto; accent-color:var(--accent); cursor:pointer; align-self:center; }
+  .bulk-bar{
+    display:flex; align-items:center; gap:12px; padding:9px 18px; background:var(--accent-soft);
+    border-bottom:1px solid var(--line); font-size:12.5px; color:var(--accent-ink);
+  }
+
+  .busy-overlay{
+    position:fixed; inset:0; background:rgba(10,16,13,0.35);
+    display:none; align-items:center; justify-content:center; z-index:100;
+  }
+  .busy-overlay.show{ display:flex; }
+  .busy-box{
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:12px;
+    padding:18px 24px; display:flex; align-items:center; gap:12px;
+    box-shadow:0 12px 40px rgba(0,0,0,0.22); font-size:13.5px; color:var(--ink-soft);
+  }
+  .spinner{
+    width:18px; height:18px; border-radius:50%; flex-shrink:0;
+    border:2.5px solid var(--line-strong); border-top-color:var(--accent);
+    animation:busy-spin 0.7s linear infinite;
+  }
+  @keyframes busy-spin{ to{ transform:rotate(360deg); } }
+  .tx-desc{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tx-amt{ font-weight:500; }
+  .tipo-badge{
+    display:inline-block; padding:3px 8px; border-radius:6px; font-size:11.5px; font-weight:600;
+    background:var(--accent-soft); color:var(--accent-ink); white-space:nowrap;
+  }
+  .tipo-badge.estorno{ background:var(--danger-soft); color:var(--danger); }
+  .tipo-badge.assinatura{ background:var(--warn-soft); color:var(--warn); }
+  .tag-auto{ font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:600; margin-left:8px; }
+
+  .empty{ padding:40px 18px; text-align:center; color:var(--ink-faint); font-size:13.5px; }
+  .empty .big{ font-family:"Fraunces", serif; font-size:17px; color:var(--ink-soft); display:block; margin-bottom:6px; }
+
+  /* ---------- Modal ---------- */
+  .overlay{
+    position:fixed; inset:0; background:rgba(10,16,13,0.42);
+    display:none; align-items:flex-start; justify-content:center;
+    padding:6vh 16px; z-index:50; overflow-y:auto;
+  }
+  .overlay.show{ display:flex; }
+  .modal{
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:14px;
+    width:100%; max-width:480px; box-shadow:0 12px 40px rgba(0,0,0,0.22);
+  }
+  .modal.wide{ max-width:640px; }
+  .modal.xwide{ max-width:820px; }
+  .modal-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:18px 20px 14px; border-bottom:1px solid var(--line);
+  }
+  .modal-head h3{ font-size:18px; }
+  .modal-close{ background:none; border:none; color:var(--ink-faint); font-size:18px; padding:4px 8px; border-radius:6px; }
+  .modal-close:hover{ background:var(--paper); color:var(--ink); }
+  .modal-body{ padding:18px 20px 20px; display:flex; flex-direction:column; gap:14px; }
+  .modal-foot{ padding:0 20px 20px; display:flex; gap:10px; justify-content:space-between; }
+
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); }
+  .field .opt{ font-weight:400; color:var(--ink-faint); }
+  .field input, .field select{
+    padding:9px 11px; border-radius:8px; border:1px solid var(--line-strong);
+    background:var(--paper); color:var(--ink);
+  }
+  .field .amount-wrap{ position:relative; }
+  .field .amount-wrap .cur{ position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--ink-faint); font-family:"IBM Plex Mono",monospace; }
+  .field .amount-wrap input{ padding-left:34px; font-family:"IBM Plex Mono",monospace; }
+  .field-error{ font-size:12.5px; color:var(--danger); display:none; }
+
+  .confirm-box p{ margin:0; font-size:14px; color:var(--ink-soft); }
+
+  .link-btn{
+    background:none; border:none; padding:0; margin-left:6px; font-size:11.5px; font-weight:600;
+    color:var(--accent); text-decoration:underline; cursor:pointer;
+  }
+  .link-btn:hover{ opacity:0.8; }
+
+  .import-list{ max-height:56vh; overflow-y:auto; border:1px solid var(--line); border-radius:10px; }
+  .import-row{
+    padding:11px 14px; border-bottom:1px solid var(--line); display:flex; gap:12px; align-items:flex-start;
+  }
+  .import-row:last-child{ border-bottom:none; }
+  .import-row.status-new{ background:transparent; }
+  .import-row.status-skip{ opacity:0.75; }
+  .import-row.status-warn{ background:var(--warn-soft); }
+  .import-row .imp-check{ margin-top:3px; width:auto; accent-color:var(--accent); cursor:pointer; }
+  .import-row .import-main{ flex:1; display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .import-row .import-title{ font-size:13.5px; font-weight:600; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  .import-row .import-sub{ font-size:12px; color:var(--ink-faint); }
+  .import-row .import-status-tag{
+    font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; padding:2px 7px; border-radius:6px;
+  }
+  .import-status-tag.new{ background:var(--accent-soft); color:var(--accent-ink); }
+  .import-status-tag.dup{ background:var(--paper); color:var(--ink-faint); border:1px solid var(--line-strong); }
+  .import-status-tag.cont{ background:var(--paper); color:var(--ink-faint); border:1px solid var(--line-strong); }
+  .import-status-tag.orphan{ background:var(--warn-soft); color:var(--warn); }
+  .import-status-tag.payment{ background:var(--paper); color:var(--ink-faint); border:1px solid var(--line-strong); }
+  .import-status-tag.invalid{ background:var(--danger-soft); color:var(--danger); }
+  .import-fields{ display:grid; grid-template-columns:1.6fr 0.9fr 0.9fr; gap:8px; margin-top:4px; }
+  .import-fields input, .import-fields select{
+    padding:6px 8px; border-radius:7px; border:1px solid var(--line-strong); background:var(--paper); color:var(--ink); font-size:12.5px;
+  }
+  .import-row-invalid .import-fields input, .import-row-invalid .import-fields select{ border-color:var(--danger); }
+
+  .footer-note{ margin-top:24px; text-align:center; font-size:12px; color:var(--ink-faint); }
+
+  /* ---------- Config modal ---------- */
+  .cfg-section{ display:flex; flex-direction:column; gap:8px; }
+  .cfg-section h4{ font-family:"Fraunces", serif; font-size:14.5px; font-weight:600; margin:0; }
+  .cfg-hint{ font-size:12px; color:var(--ink-faint); margin:0 0 2px; }
+  .cfg-row{ display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
+  .cfg-row.cards{ grid-template-columns:1.1fr 0.65fr 0.65fr 0.8fr auto; }
+  .cfg-row.pessoas{ grid-template-columns:1fr auto auto; }
+  .cfg-row.pessoas .cfg-check{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); white-space:nowrap; }
+  .cfg-row.pessoas .cfg-check input{ width:auto; padding:0; accent-color:var(--accent); }
+  .cfg-row input{
+    padding:7px 10px; border-radius:7px; border:1px solid var(--line-strong);
+    background:var(--paper); color:var(--ink); font-size:13px; width:100%;
+  }
+  .cfg-row .amt{ position:relative; }
+  .cfg-row .amt .cur{ position:absolute; left:9px; top:50%; transform:translateY(-50%); font-size:11px; color:var(--ink-faint); }
+  .cfg-row .amt input{ padding-left:26px; }
+  .cfg-del{
+    background:none; border:none; color:var(--ink-faint); font-size:16px; padding:4px 6px; border-radius:6px; line-height:1;
+  }
+  .cfg-del:hover{ background:var(--danger-soft); color:var(--danger); }
+  .cfg-add-row{ display:flex; gap:8px; margin-top:2px; }
+  .cfg-add-row input{
+    flex:1; padding:7px 10px; border-radius:7px; border:1px solid var(--line-strong);
+    background:var(--paper); color:var(--ink); font-size:13px;
+  }
+  .cfg-add-row input::placeholder{ color:var(--ink-faint); }
+  .cfg-tabs{ display:flex; gap:4px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:3px; margin-bottom:4px; }
+  .cfg-tabs button{ border:none; background:transparent; padding:6px 13px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--ink-soft); }
+  .cfg-tabs button.active{ background:var(--paper-raised); color:var(--ink); box-shadow:0 1px 1px var(--shadow); }
+  .cfg-pane{ display:none; }
+  .cfg-pane.active{ display:flex; flex-direction:column; gap:10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="eyebrow">Finanças pessoais</span>
+      <div class="brand-title">
+        <svg class="brand-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <ellipse cx="9.5" cy="15.7" rx="5.6" ry="3" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+          <ellipse cx="9.5" cy="12.7" rx="5.6" ry="3" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+          <ellipse cx="12.2" cy="9" rx="5.6" ry="3" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
+        </svg>
+        <h1>Control de Cuentas</h1>
+      </div>
+    </div>
+    <div class="conn-block">
+      <div class="conn-status">
+        <span class="conn-dot" id="connDot"></span>
+        <span id="connLabel">Nenhum arquivo conectado</span>
+        <span id="lastUpdatedLabel" style="color:var(--ink-faint);"></span>
+      </div>
+      <div class="conn-actions">
+        <button class="btn btn-sm" id="btnReload" type="button" style="display:none;">Recarregar</button>
+        <button class="btn btn-sm" id="btnConfig" type="button" style="display:none;">Configurações</button>
+        <button class="btn btn-sm btn-primary" id="btnAddCompra" type="button" style="display:none;">Novo (Crédito)</button>
+        <button class="btn btn-sm btn-primary" id="btnAddDebitoTop" type="button" style="display:none;">Novo (Ingreso/Salida)</button>
+        <button class="btn btn-sm" id="btnLogout" type="button" style="display:none;">Sair</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="banner danger" id="errorBanner"></div>
+
+  <div id="notConnectedView">
+    <div class="connect-hero" style="max-width:380px; margin:0 auto;">
+      <h2>Entrar</h2>
+      <p>Seus dados ficam guardados com segurança no seu banco de dados na nuvem, protegidos por login. Entre com email e senha — se ainda não tem conta, crie uma na primeira vez.</p>
+      <div class="field" style="width:100%; text-align:left;">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" autocomplete="username">
+      </div>
+      <div class="field" style="width:100%; text-align:left;">
+        <label for="authPassword">Senha</label>
+        <input type="password" id="authPassword" autocomplete="current-password">
+      </div>
+      <div class="field-error" id="authError" style="display:none;"></div>
+      <div style="display:flex; gap:10px; width:100%;">
+        <button class="btn" id="btnSignUp" type="button" style="flex:1;">Criar conta</button>
+        <button class="btn btn-primary" id="btnSignIn" type="button" style="flex:1;">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="connectedView" style="display:none;">
+    <div class="page-toolbar">
+      <div class="page-tabs" id="pageTabs">
+        <button data-page="dashboard" class="active" type="button">Dashboard</button>
+        <button data-page="tabela" type="button">Credito</button>
+        <button data-page="calendario" type="button">Calendário</button>
+        <button data-page="debito" type="button">Ingresos/Salidas</button>
+        <button data-page="assinaturas" type="button">Assinaturas</button>
+        <button data-page="diario" type="button">Diario</button>
+      </div>
+      <div class="month-filter">
+        <label>Mês</label>
+        <div class="month-stepper">
+          <button class="btn btn-ghost btn-sm" id="fMonthPrev" type="button" aria-label="Mês anterior">‹</button>
+          <span class="month-stepper-label" id="fMonthLabel">Todos os meses</span>
+          <button class="btn btn-ghost btn-sm" id="fMonthNext" type="button" aria-label="Próximo mês">›</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="fMonthToday" type="button">Mês atual</button>
+        <button class="btn btn-ghost btn-sm" id="fMonthClear" type="button" style="display:none;">Todos os meses</button>
+      </div>
+    </div>
+
+    <div class="page-section active" id="pageDashboard">
+      <div class="summary-group-label">Visão geral do período</div>
+      <div class="summary">
+        <div class="sum-card">
+          <span class="k">Total compras no período</span>
+          <div class="v num" id="dashTotal">R$ 0,00</div>
+        </div>
+        <div class="sum-card">
+          <span class="k">Balance (ingresos/salidas)</span>
+          <div class="v num" id="dashBalance">R$ 0,00</div>
+        </div>
+        <div class="sum-card">
+          <span class="k">Balance final</span>
+          <div class="v num" id="dashBalanceFinal">R$ 0,00</div>
+        </div>
+      </div>
+      <div class="summary-group-label">Divisão Fachero / Fachera</div>
+      <div class="summary" style="grid-template-columns:repeat(2,1fr); margin-bottom:0;">
+        <div class="sum-card">
+          <span class="k">Balance Fachero</span>
+          <div class="v num" id="dashBalanceFachero">R$ 0,00</div>
+        </div>
+        <div class="sum-card">
+          <span class="k">Balance Fachera</span>
+          <div class="v num" id="dashBalanceFachera">R$ 0,00</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-section" id="pageAssinaturas">
+      <div class="summary" style="grid-template-columns:1fr;">
+        <div class="sum-card">
+          <span class="k">Total das assinaturas ativas no período</span>
+          <div class="v num" id="subsTotal">R$ 0,00</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Assinaturas ativas</h2></div>
+        <div class="list-head-row" style="grid-template-columns:1.6fr 0.9fr 1fr 0.9fr 1fr;">
+          <span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor</span><span>Cancelamento</span>
+        </div>
+        <div class="tx-list" id="subsList"></div>
+      </div>
+    </div>
+
+    <div class="page-section" id="pageDebito">
+      <div class="summary">
+        <div class="sum-card">
+          <span class="k">Ingresos</span>
+          <div class="v num" id="debIngresos">R$ 0,00</div>
+        </div>
+        <div class="sum-card">
+          <span class="k">Gastos (fijos + variables)</span>
+          <div class="v num" id="debGastos">R$ 0,00</div>
+        </div>
+        <div class="sum-card">
+          <span class="k">Balance</span>
+          <div class="v num" id="debBalance">R$ 0,00</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Movimientos</h2>
+        </div>
+        <div class="bulk-bar" id="debitoBulkBar" style="display:none;">
+          <span id="debitoBulkCount">0 selecionadas</span>
+          <button class="btn btn-sm btn-danger" id="debitoBulkDelete" type="button">Excluir selecionadas</button>
+          <button class="btn btn-sm" id="debitoBulkClear" type="button">Cancelar seleção</button>
+        </div>
+        <div class="list-head-row" style="grid-template-columns:0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr;">
+          <input type="checkbox" class="row-select" id="selectAllDebito" title="Selecionar todos"><span></span><span>Tipo</span><span>Descrição</span><span>Pessoa</span><span>Valor</span><span>Mês</span>
+        </div>
+        <div class="tx-list" id="debitoList"></div>
+      </div>
+    </div>
+
+    <div class="page-section" id="pageTabela">
+      <div class="summary" style="grid-template-columns:1fr;">
+        <div class="sum-card">
+          <span class="k">Valor da fatura atual</span>
+          <div class="v num" id="compFaturaTotal">R$ 0,00</div>
+        </div>
+      </div>
+      <div class="dash-grid" style="margin-bottom:18px;">
+        <div class="panel dash-card">
+          <div class="panel-head"><h2>Fatura por pessoa</h2></div>
+          <div class="bar-list" id="compFaturaPorPessoa"></div>
+        </div>
+        <div class="panel dash-card">
+          <div class="panel-head"><h2>Fatura por cartão</h2></div>
+          <div class="bar-list" id="compFaturaPorCartao"></div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <input type="text" id="fSearch" placeholder="Buscar por descrição, pessoa, cartão, tipo ou valor…">
+        <select id="fPersona"><option value="">Todas as pessoas</option></select>
+        <select id="fCartao"><option value="">Todos os cartões</option></select>
+        <select id="fTipo"><option value="">Todos os tipos</option></select>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Compras registradas</h2>
+          <button class="btn btn-sm" id="btnImportCsv" type="button">Importar fatura (CSV)</button>
+          <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none;">
+        </div>
+        <div class="bulk-bar" id="comprasBulkBar" style="display:none;">
+          <span id="comprasBulkCount">0 selecionadas</span>
+          <button class="btn btn-sm btn-danger" id="comprasBulkDelete" type="button">Excluir selecionadas</button>
+          <button class="btn btn-sm" id="comprasBulkClear" type="button">Cancelar seleção</button>
+        </div>
+        <div class="list-head-row" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr;">
+          <input type="checkbox" class="row-select" id="selectAllCompras" title="Selecionar todos"><span></span><span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor total</span><span>Valor parcela</span><span>Parcela</span><span>Data</span><span>Tipo</span>
+        </div>
+        <div class="tx-list" id="txList"></div>
+      </div>
+    </div>
+
+    <div class="page-section" id="pageCalendario">
+      <p class="cfg-hint" style="margin-bottom:14px;">
+        Compras ainda ativas (não totalmente pagas), a partir de um mês antes do mês filtrado. Texto apagado = mês já
+        passado. Coluna destacada = mês filtrado. Traço abaixo do valor = última parcela.
+      </p>
+      <div class="filters">
+        <input type="text" id="calSearch" placeholder="Buscar por descrição, pessoa, cartão ou valor…">
+        <select id="calPersona"><option value="">Todas as pessoas</option></select>
+        <select id="calCartao"><option value="">Todos os cartões</option></select>
+      </div>
+      <div class="calendar-wrap">
+        <table class="calendar" id="calendarTable">
+          <thead><tr id="calendarHeadRow"></tr></thead>
+          <tbody id="calendarBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="page-section" id="pageDiario">
+      <p class="cfg-hint" style="margin-bottom:14px;">
+        O "diário" é o dinheiro separado para uso livre no mês, descontado do Balance final e das Balance
+        Fachero/Fachera na página Dashboard. Defina um valor padrão para todos os meses abaixo — ele vale para
+        qualquer mês que não tenha um valor próprio. Ao selecionar um mês específico no filtro, você também pode
+        definir um valor só para aquele mês.
+      </p>
+      <div class="panel" style="max-width:460px;">
+        <div class="panel-head"><h2>Diário (todos os meses)</h2></div>
+        <div class="field" style="padding:0 18px 18px;">
+          <label for="diarioGlobalInput">Valor padrão, aplicado a todo mês sem valor próprio</label>
+          <div class="amount-wrap">
+            <span class="cur">R$</span>
+            <input type="text" inputmode="decimal" id="diarioGlobalInput" placeholder="0,00">
+          </div>
+        </div>
+      </div>
+      <div class="panel" id="diarioMonthPanel" style="max-width:460px; margin-top:16px; display:none;">
+        <div class="panel-head">
+          <h2 id="diarioMonthLabel">Diário do mês</h2>
+          <button class="btn btn-sm" id="diarioResetMonth" type="button" style="display:none;">Restaurar herança</button>
+        </div>
+        <div class="field" style="padding:0 18px 18px;">
+          <label for="diarioMonthInput">Valor próprio deste mês</label>
+          <div class="amount-wrap">
+            <span class="cur">R$</span>
+            <input type="text" inputmode="decimal" id="diarioMonthInput" placeholder="0,00">
+          </div>
+        </div>
+        <p class="cfg-hint" id="diarioMonthHint" style="padding:0 18px 18px;"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Os dados ficam guardados com segurança no seu banco de dados na nuvem, acessíveis de qualquer dispositivo com login.</div>
+</div>
+
+<!-- Add / edit compra modal -->
+<div class="overlay" id="txOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="txModalTitle">Nova compra</h3>
+      <button class="modal-close" id="txClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="fDescricao">Descrição <button type="button" class="link-btn" id="btnToggleComerciante">Mostrar comerciante</button></label>
+        <input type="text" id="fDescricao" autocomplete="off" placeholder="Ex.: Supermercado">
+      </div>
+
+      <div class="field" id="fComercianteWrap" style="display:none;">
+        <label for="fComerciante">Comerciante <span class="opt">(usado para reconhecer a importação de faturas)</span></label>
+        <input type="text" id="fComerciante" autocomplete="off" placeholder="Ex.: raia168">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="fPessoaSel">Pessoa</label>
+          <select id="fPessoaSel"></select>
+        </div>
+        <div class="field">
+          <label for="fCartaoSel">Cartão</label>
+          <select id="fCartaoSel"></select>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="fValor">Valor total</label>
+          <div class="amount-wrap">
+            <span class="cur">R$</span>
+            <input type="text" inputmode="decimal" id="fValor" placeholder="0,00">
+          </div>
+        </div>
+        <div class="field">
+          <label for="fParcelas">Parcelas</label>
+          <input type="number" id="fParcelas" min="1" step="1" value="1">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="fData">Data da compra</label>
+          <input type="date" id="fData">
+        </div>
+        <div class="field">
+          <label for="fTipoSel">Tipo</label>
+          <select id="fTipoSel"></select>
+        </div>
+      </div>
+
+      <div class="field" id="fCancelacaoWrap" style="display:none;">
+        <label for="fCancelacao">Cancelamento <span class="opt">(assinatura)</span></label>
+        <input type="date" id="fCancelacao">
+      </div>
+
+      <div class="field-error" id="txError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="txDelete" type="button" style="display:none;">Excluir</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="txCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="txSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / edit débito (ingreso/salida) modal -->
+<div class="overlay" id="debOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="debModalTitle">Novo registro</h3>
+      <button class="modal-close" id="debClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="dTipoSel">Tipo</label>
+        <select id="dTipoSel">
+          <option value="Ingreso">Ingreso</option>
+          <option value="Gasto fijo">Gasto fijo</option>
+          <option value="Gasto variable">Gasto variable</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="dDescricao">Descrição</label>
+        <input type="text" id="dDescricao" autocomplete="off" placeholder="Ex.: Salário, Aluguel…">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="dPessoaSel">Pessoa</label>
+          <select id="dPessoaSel"></select>
+        </div>
+        <div class="field">
+          <label for="dValor">Valor</label>
+          <div class="amount-wrap">
+            <span class="cur">R$</span>
+            <input type="text" inputmode="decimal" id="dValor" placeholder="0,00">
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="dData">Mês / data</label>
+        <input type="date" id="dData">
+      </div>
+
+      <div class="field-error" id="debError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="debDelete" type="button" style="display:none;">Excluir</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="debCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="debSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Importar fatura CSV: prévia -->
+<div class="overlay" id="importOverlay">
+  <div class="modal xwide">
+    <div class="modal-head">
+      <h3>Importar fatura (CSV)</h3>
+      <button class="modal-close" id="importClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field" style="max-width:280px;">
+        <label for="importCartaoSel">Cartão da fatura <span class="opt">(aplicado a todos os registros importados)</span></label>
+        <select id="importCartaoSel"></select>
+      </div>
+      <p class="cfg-hint" id="importSummary"></p>
+      <div class="field-error" id="importError"></div>
+      <div class="import-list" id="importList"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="importCancel" type="button">Cancelar</button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-primary" id="importConfirm" type="button">Confirmar importação</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete compra modal -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-head">
+      <h3 id="confirmTitle">Excluir compra</h3>
+      <button class="modal-close" id="confirmClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body confirm-box">
+      <p>Essa ação grava a exclusão direto no arquivo Excel e não pode ser desfeita. Deseja continuar?</p>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="confirmCancel" type="button">Cancelar</button>
+      <button class="btn btn-danger" id="confirmOk" type="button" style="border-color:var(--danger);">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Configurações modal: Pessoas / Cartões / Tipos -->
+<div class="overlay" id="cfgOverlay">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3>Configurações</h3>
+      <button class="modal-close" id="cfgClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="cfg-tabs" id="cfgTabs">
+        <button data-tab="pessoas" class="active" type="button">Pessoas</button>
+        <button data-tab="cartoes" type="button">Cartões</button>
+        <button data-tab="tipos" type="button">Tipos</button>
+      </div>
+
+      <div class="cfg-pane active" id="cfgPanePessoas">
+        <p class="cfg-hint">Editar um nome não atualiza compras já registradas com o nome antigo. "Gera ingresso" cria automaticamente, na página Ingresos/Salidas, uma linha somando as compras dessa pessoa no mês — útil para pessoas que reembolsam o que compram no cartão.</p>
+        <div id="cfgPessoasList"></div>
+        <div class="cfg-add-row">
+          <input type="text" id="cfgPessoaNew" placeholder="Novo nome…">
+          <button class="btn btn-sm" id="cfgPessoaAdd" type="button">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="cfg-pane" id="cfgPaneCartoes">
+        <p class="cfg-hint">Vencimento = dia do mês (1–31) em que a fatura vence (pagamento). Fechamento = dia do mês em que a fatura fecha — define em qual fatura mensal cada compra entra (compras a partir do dia do fechamento contam para a fatura do mês seguinte). Limite = limite de crédito do cartão.</p>
+        <div id="cfgCartoesList"></div>
+        <div class="cfg-add-row">
+          <input type="text" id="cfgCartaoNewNome" placeholder="Nome do cartão…" style="flex:2;">
+          <input type="number" id="cfgCartaoNewVenc" placeholder="Venc." min="1" max="31" style="flex:1;">
+          <input type="number" id="cfgCartaoNewFechamento" placeholder="Fech." min="1" max="31" style="flex:1;">
+          <input type="text" inputmode="decimal" id="cfgCartaoNewLimite" placeholder="Limite R$" style="flex:1;">
+          <button class="btn btn-sm" id="cfgCartaoAdd" type="button">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="cfg-pane" id="cfgPaneTipos">
+        <p class="cfg-hint">Um tipo cujo nome contenha "Assinatura" mostra o campo de cancelamento ao registrar a compra.</p>
+        <div id="cfgTiposList"></div>
+        <div class="cfg-add-row">
+          <input type="text" id="cfgTipoNew" placeholder="Novo tipo…">
+          <button class="btn btn-sm" id="cfgTipoAdd" type="button">Adicionar</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn btn-primary" id="cfgDone" type="button">Concluído</button>
+    </div>
+  </div>
+</div>
+
+<div class="busy-overlay" id="busyOverlay">
+  <div class="busy-box"><div class="spinner"></div><span id="busyLabel">Processando…</span></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var FALLBACK_STYLE_TEXT = 0, FALLBACK_STYLE_DATE = 0;
+
+  // ---------- Supabase client ----------
+  var SUPABASE_URL = "https://qdetwdneqncblxwylpyw.supabase.co";
+  var SUPABASE_ANON_KEY = "sb_publishable_CI3FY5MplWpHWaU25bewZg_l2YvjsmZ";
+  var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  var currentUserEmail = null;
+
+  var EXCEL_EPOCH_OFFSET = 25569; // days between 1899-12-30 and 1970-01-01
+
+  var $ = function(id){ return document.getElementById(id); };
+  var currencyFmt = new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"});
+  function fmtBRL(v){ return currencyFmt.format(v||0); }
+
+  function serialToDate(serial){
+    var ms = Math.round((serial - EXCEL_EPOCH_OFFSET) * 86400000);
+    return new Date(ms);
+  }
+  function dateInputToSerial(str){
+    if (!str) return null;
+    var parts = str.split("-");
+    var y = parseInt(parts[0],10), m = parseInt(parts[1],10), d = parseInt(parts[2],10);
+    var utc = Date.UTC(y, m-1, d);
+    return Math.round(utc/86400000) + EXCEL_EPOCH_OFFSET;
+  }
+  function serialToInputValue(serial){
+    if (serial === null || serial === undefined || serial === "" || isNaN(serial)) return "";
+    var d = serialToDate(serial);
+    var y = d.getUTCFullYear(), m = d.getUTCMonth()+1, day = d.getUTCDate();
+    return y + "-" + String(m).padStart(2,"0") + "-" + String(day).padStart(2,"0");
+  }
+  function serialToDisplay(serial){
+    if (serial === null || serial === undefined || serial === "" || isNaN(serial)) return "";
+    var d = serialToDate(serial);
+    return String(d.getUTCDate()).padStart(2,"0") + "/" + String(d.getUTCMonth()+1).padStart(2,"0") + "/" + d.getUTCFullYear();
+  }
+  function parseAmountInput(str){
+    if (!str) return NaN;
+    var s = String(str).trim().replace(/[^0-9,.-]/g,"");
+    if (s.indexOf(",")!==-1 && s.indexOf(".")!==-1) s = s.replace(/\./g,"").replace(",",".");
+    else if (s.indexOf(",")!==-1) s = s.replace(",",".");
+    return parseFloat(s);
+  }
+  function escapeXml(s){
+    return String(s === null || s === undefined ? "" : s).replace(/[&<>]/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];
+    });
+  }
+  function escapeHtml(s){
+    return String(s === null || s === undefined ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function isAssinaturaTipo(tipo){
+    return String(tipo||"").indexOf("Assinatura") !== -1;
+  }
+
+  // ---------- CSV import (fatura Nubank) ----------
+  function normalizeMerchantKey(str){
+    return String(str||"").toLowerCase().replace(/\s+/g," ").trim();
+  }
+  function parseParcelaSuffix(title){
+    var m = String(title||"").match(/^(.+?)\s*-\s*Parcela\s+(\d+)\s*\/\s*(\d+)\s*$/i);
+    if (!m) return null;
+    var base = m[1].trim();
+    var k = parseInt(m[2],10), n = parseInt(m[3],10);
+    if (!base || !isFinite(k) || !isFinite(n) || k<1 || n<1) return null;
+    return {base: base, k: k, n: n};
+  }
+  // Nubank appends "- NuPay" to titles paid via that installment/split flow; it isn't part of the
+  // merchant's name, so it's stripped before working out the base title / comerciante key.
+  function stripKnownTitleSuffixes(title){
+    var t = String(title||"");
+    var m = t.match(/^(.*?)\s*-\s*NuPay\s*$/i);
+    return m ? m[1].trim() : t;
+  }
+  function parseCsvLine(line){
+    var result = [];
+    var cur = "";
+    var inQuotes = false;
+    for (var i=0;i<line.length;i++){
+      var c = line[i];
+      if (inQuotes){
+        if (c === '"'){
+          if (line[i+1] === '"'){ cur += '"'; i++; }
+          else inQuotes = false;
+        } else cur += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ","){ result.push(cur); cur = ""; }
+        else cur += c;
+      }
+    }
+    result.push(cur);
+    return result;
+  }
+  function parseNubankCsv(text){
+    var lines = String(text||"").split(/\r\n|\r|\n/).filter(function(l){ return l.trim() !== ""; });
+    if (!lines.length) return {ok:false, error:"O arquivo está vazio."};
+    var header = parseCsvLine(lines[0]).map(function(h){ return h.trim().toLowerCase(); });
+    if (header.length < 3 || header[0]!=="date" || header[1]!=="title" || header[2]!=="amount"){
+      return {ok:false, error:"Formato inesperado — esperava colunas \"date,title,amount\" (exportação Nubank em CSV)."};
+    }
+    var rows = [];
+    for (var i=1;i<lines.length;i++){
+      var fields = parseCsvLine(lines[i]);
+      var dateStr = (fields[0]||"").trim();
+      var title = (fields[1]||"").trim();
+      var amountStr = (fields[2]||"").trim();
+      var dateSerial = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateInputToSerial(dateStr) : null;
+      var amount = parseAmountInput(amountStr);
+      rows.push({dateStr:dateStr, title:title, amountStr:amountStr, dateSerial:dateSerial, amount:amount});
+    }
+    return {ok:true, rows:rows};
+  }
+  function findLatestByComerciante(existing, key){
+    var best = null;
+    existing.forEach(function(r){
+      if (r.comerciante === key){
+        if (!best || (r.dataSerial||0) > (best.dataSerial||0)) best = r;
+      }
+    });
+    return best;
+  }
+  function findContinuationMatch(existing, key, k, rowYM){
+    for (var i=0;i<existing.length;i++){
+      var r = existing[i];
+      if (r.comerciante !== key) continue;
+      if (!r.dataSerial) continue;
+      var total = r.parcelas || 1;
+      if (total < k) continue;
+      var d = serialToDate(r.dataSerial);
+      var startYM = {year:d.getUTCFullYear(), month:d.getUTCMonth()+1};
+      var targetYM = addMonths(startYM, k-1);
+      if (targetYM.year===rowYM.year && targetYM.month===rowYM.month) return r;
+    }
+    return null;
+  }
+  // Estimates the parcela-1 purchase date for an orphan continuation line, by rolling the CSV
+  // row's date back (k-1) months (keeping the same day-of-month), so it can be added directly.
+  function estimateOrphanStartSerial(rowDateSerial, k){
+    var d = serialToDate(rowDateSerial);
+    var startYM = addMonths({year:d.getUTCFullYear(), month:d.getUTCMonth()+1}, -(k-1));
+    var day = String(d.getUTCDate()).padStart(2,"0");
+    var mm = String(startYM.month).padStart(2,"0");
+    return dateInputToSerial(startYM.year + "-" + mm + "-" + day);
+  }
+  function buildImportCandidates(csvRows, existingCompras){
+    var candidates = [];
+    var pendingNew = [];
+    var defaultPessoa = nomes("pessoas").indexOf("Facheros") !== -1 ? "Facheros" : "";
+    var defaultTipo = nomes("tipos").indexOf("Parcelado") !== -1 ? "Parcelado" : "";
+
+    csvRows.forEach(function(row, idx){
+      var base = {idx: idx, dateStr: row.dateStr, title: row.title, amountStr: row.amountStr};
+
+      if (row.dateSerial === null || row.dateSerial === undefined || !isFinite(row.amount)){
+        candidates.push(Object.assign({}, base, {
+          status: "skip-invalid",
+          includable: false,
+          message: "Linha não reconhecida (data ou valor inválido)."
+        }));
+        return;
+      }
+      if (row.amount < 0){
+        candidates.push(Object.assign({}, base, {
+          status: "skip-payment",
+          includable: false,
+          message: "Pagamento/estorno da fatura — não é uma compra."
+        }));
+        return;
+      }
+
+      var titleNoSuffix = stripKnownTitleSuffixes(row.title);
+      var parsed = parseParcelaSuffix(titleNoSuffix);
+      var parcelaBase = parsed ? parsed.base : titleNoSuffix;
+      var k = parsed ? parsed.k : 1;
+      var n = parsed ? parsed.n : 1;
+      var comerciante = normalizeMerchantKey(parcelaBase);
+      var d = serialToDate(row.dateSerial);
+      var rowYM = {year:d.getUTCFullYear(), month:d.getUTCMonth()+1};
+
+      if (k > 1){
+        var contMatch = findContinuationMatch(existingCompras, comerciante, k, rowYM);
+        if (contMatch){
+          candidates.push(Object.assign({}, base, {
+            status: "skip-parcela-continuation",
+            includable: false,
+            message: "Parcela " + k + "/" + n + " já contabilizada na compra \"" + contMatch.descricao + "\"."
+          }));
+        } else {
+          var estValorTotal = Math.round(row.amount * n * 100) / 100;
+          var estStartSerial = estimateOrphanStartSerial(row.dateSerial, k);
+          candidates.push(Object.assign({}, base, {
+            status: "skip-parcela-orphan",
+            includable: true,
+            message: "Parcela " + k + "/" + n + " sem a parcela 1 correspondente encontrada. Data de início e parcelas estimadas — confira antes de adicionar.",
+            suggested: {
+              descricao: parcelaBase,
+              pessoa: defaultPessoa,
+              tipo: defaultTipo,
+              valorTotal: estValorTotal,
+              parcelas: n,
+              dataSerial: estStartSerial,
+              comerciante: comerciante
+            }
+          }));
+        }
+        return;
+      }
+
+      var valorTotal = Math.round(row.amount * n * 100) / 100;
+
+      var isDup = existingCompras.some(function(r){
+        return r.comerciante === comerciante && r.dataSerial === row.dateSerial && Math.abs((r.valorTotal||0) - valorTotal) < 0.01;
+      }) || pendingNew.some(function(p){
+        return p.comerciante === comerciante && p.dataSerial === row.dateSerial && Math.abs(p.valorTotal - valorTotal) < 0.01;
+      });
+
+      if (isDup){
+        candidates.push(Object.assign({}, base, {
+          status: "skip-duplicate",
+          includable: true,
+          message: "Já existe uma compra igual (mesmo comerciante, data e valor).",
+          suggested: {descricao:parcelaBase, pessoa:defaultPessoa, tipo:defaultTipo, valorTotal:valorTotal, parcelas:n, dataSerial:row.dateSerial, comerciante:comerciante}
+        }));
+        return;
+      }
+
+      var recognizedRec = findLatestByComerciante(existingCompras, comerciante);
+      candidates.push(Object.assign({}, base, {
+        status: "new",
+        includable: true,
+        recognized: !!recognizedRec,
+        message: recognizedRec ? "Comerciante já visto antes." : "Comerciante novo.",
+        suggested: {
+          descricao: parcelaBase,
+          pessoa: defaultPessoa,
+          tipo: defaultTipo,
+          valorTotal: valorTotal,
+          parcelas: n,
+          dataSerial: row.dateSerial,
+          comerciante: comerciante
+        }
+      }));
+      pendingNew.push({comerciante:comerciante, dataSerial:row.dateSerial, valorTotal:valorTotal});
+    });
+    return candidates;
+  }
+
+  function serialToYearMonth(serial){
+    if (serial === null || serial === undefined || serial === "" || isNaN(serial)) return "";
+    var d = serialToDate(serial);
+    return d.getUTCFullYear() + "-" + String(d.getUTCMonth()+1).padStart(2,"0");
+  }
+  function matchesSearch(r, q){
+    if (!q) return true;
+    var valorParts = [];
+    [r.valorTotal, r.effectiveValor, r.valor].forEach(function(v){
+      if (v === undefined || v === null || v === "" || isNaN(v)) return;
+      var num = Number(v);
+      valorParts.push(String(num), String(num).replace(".", ","), num.toFixed(2), num.toFixed(2).replace(".", ","));
+    });
+    var hay = (
+      String(r.descricao||"") + " " +
+      String(r.pessoa||"") + " " +
+      String(r.cartao||"") + " " +
+      String(r.tipo||"") + " " +
+      valorParts.join(" ")
+    ).toLowerCase();
+    return hay.indexOf(q) !== -1;
+  }
+
+  // ---------- Shared month filter (custom stepper, not the native <input type="month">) ----------
+  var MONTH_NAMES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  var MONTH_ABBR_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  // Defaults to the current real month when the app opens; null means "todos os meses".
+  var filterMonth = (function(){ var now = new Date(); return {year: now.getFullYear(), month: now.getMonth()+1}; })();
+  function monthKey(fm){ return fm ? (fm.year + "-" + String(fm.month).padStart(2,"0")) : ""; }
+  function formatMonthLabel(fm){ return fm ? (MONTH_NAMES_PT[fm.month-1] + " " + fm.year) : "Todos os meses"; }
+  function shiftMonth(delta){
+    if (!filterMonth){
+      var now = new Date();
+      filterMonth = {year: now.getFullYear(), month: now.getMonth()+1};
+    } else {
+      var m = filterMonth.month + delta, y = filterMonth.year;
+      if (m < 1){ m = 12; y -= 1; }
+      else if (m > 12){ m = 1; y += 1; }
+      filterMonth = {year:y, month:m};
+    }
+    onMonthChanged();
+  }
+  function clearMonthFilter(){ filterMonth = null; onMonthChanged(); }
+  function jumpToCurrentMonth(){
+    var now = new Date();
+    filterMonth = {year: now.getFullYear(), month: now.getMonth()+1};
+    onMonthChanged();
+  }
+  function renderMonthLabel(){
+    $("fMonthLabel").textContent = formatMonthLabel(filterMonth);
+    $("fMonthClear").style.display = filterMonth ? "inline-flex" : "none";
+  }
+  function onMonthChanged(){
+    renderMonthLabel();
+    renderList();
+    renderDashboard();
+    renderCalendarioPage();
+    renderAssinaturasPage();
+    renderDebitoPage();
+    renderDiarioPage();
+  }
+
+  // ---------- Data layer (Supabase: auth + tables) ----------
+  function throwIfError(res){ if (res && res.error) throw res.error; return res; }
+
+  function idByName(tableKey, name){
+    if (!name) return null;
+    var list = (state[tableKey] && state[tableKey].records) || [];
+    for (var i=0;i<list.length;i++){ if (list[i].nome === name) return list[i].row; }
+    return null;
+  }
+
+  function buildPayload(tableKey, rec){
+    switch(tableKey){
+      case "pessoas":
+        return { nome: rec.nome, gera_ingresso: !!rec.geraIngresso };
+      case "cartoes":
+        return { nome: rec.nome, vencimento: rec.vencimento, fechamento: rec.fechamento, limite: rec.limite };
+      case "tipos":
+        return { nome: rec.nome };
+      case "compras":
+        return {
+          descricao: rec.descricao,
+          pessoa_id: idByName("pessoas", rec.pessoa),
+          cartao_id: idByName("cartoes", rec.cartao),
+          valor_total: rec.valorTotal,
+          parcelas: rec.parcelas,
+          data: serialToInputValue(rec.dataSerial),
+          tipo_id: idByName("tipos", rec.tipo),
+          cancelamento: rec.cancelSerial ? serialToInputValue(rec.cancelSerial) : null,
+          out: !!rec.out,
+          comerciante: rec.comerciante || null
+        };
+      case "debito":
+        return {
+          tipo: rec.tipo,
+          descricao: rec.descricao,
+          pessoa_id: idByName("pessoas", rec.pessoa),
+          valor: rec.valor,
+          data: serialToInputValue(rec.dataSerial),
+          out: !!rec.out
+        };
+      case "diario":
+        return { mes: rec.mes, valor: rec.valor };
+    }
+  }
+
+  // Save one row (insert/update/delete) in a given table. Same signature as before, so every
+  // call site elsewhere in this file (modals, bulk actions, config lists, CSV import) is unchanged.
+  function saveTableRow(tableKey, action, rowNum, rec){
+    if (action === "delete"){
+      return supabaseClient.from(tableKey).delete().eq("id", rowNum).then(throwIfError);
+    }
+    var payload = buildPayload(tableKey, rec);
+    if (action === "insert"){
+      return supabaseClient.from(tableKey).insert(payload).then(throwIfError);
+    }
+    return supabaseClient.from(tableKey).update(payload).eq("id", rowNum).then(throwIfError);
+  }
+
+  // Loads every table for the signed-in user (Row Level Security means each query already
+  // returns only that user's rows) and reshapes them back into the same {records:[...]} shape
+  // the rest of this file has always used, with pessoa/cartao/tipo resolved from id back to name.
+  function loadEverything(){
+    return Promise.all([
+      supabaseClient.from("pessoas").select("*").order("nome"),
+      supabaseClient.from("cartoes").select("*").order("nome"),
+      supabaseClient.from("tipos").select("*").order("nome"),
+      supabaseClient.from("compras").select("*"),
+      supabaseClient.from("debito").select("*"),
+      supabaseClient.from("diario").select("*")
+    ]).then(function(results){
+      results.forEach(throwIfError);
+      var pessoasRows = results[0].data||[], cartoesRows = results[1].data||[], tiposRows = results[2].data||[];
+      var comprasRows = results[3].data||[], debitoRows = results[4].data||[], diarioRows = results[5].data||[];
+
+      var pessoaNameById = {}; pessoasRows.forEach(function(r){ pessoaNameById[r.id] = r.nome; });
+      var cartaoNameById = {}; cartoesRows.forEach(function(r){ cartaoNameById[r.id] = r.nome; });
+      var tipoNameById = {}; tiposRows.forEach(function(r){ tipoNameById[r.id] = r.nome; });
+
+      var pessoas = pessoasRows.map(function(r){ return {row:r.id, nome:r.nome, geraIngresso: !!r.gera_ingresso}; });
+      var cartoes = cartoesRows.map(function(r){ return {row:r.id, nome:r.nome, vencimento:r.vencimento, fechamento:r.fechamento, limite: r.limite===null?null:Number(r.limite)}; });
+      var tipos = tiposRows.map(function(r){ return {row:r.id, nome:r.nome}; });
+
+      var compras = comprasRows.map(function(r){
+        return {
+          row: r.id,
+          descricao: r.descricao,
+          pessoa: pessoaNameById[r.pessoa_id] || "",
+          cartao: cartaoNameById[r.cartao_id] || "",
+          valorTotal: r.valor_total===null?0:Number(r.valor_total),
+          parcelas: r.parcelas||1,
+          dataSerial: dateInputToSerial(r.data),
+          tipo: tipoNameById[r.tipo_id] || "",
+          cancelSerial: r.cancelamento ? dateInputToSerial(r.cancelamento) : null,
+          out: r.out ? 1 : 0,
+          comerciante: r.comerciante || ""
+        };
+      });
+
+      var debito = debitoRows.map(function(r){
+        return {
+          row: r.id,
+          tipo: r.tipo,
+          descricao: r.descricao,
+          pessoa: pessoaNameById[r.pessoa_id] || "",
+          valor: r.valor===null?0:Number(r.valor),
+          dataSerial: dateInputToSerial(r.data),
+          out: r.out ? 1 : 0
+        };
+      });
+
+      var diario = diarioRows.map(function(r){ return {row:r.id, mes:r.mes, valor: r.valor===null?0:Number(r.valor)}; });
+
+      return {
+        fileName: currentUserEmail || "",
+        pessoas:{records:pessoas}, cartoes:{records:cartoes}, tipos:{records:tipos},
+        compras:{records:compras}, debito:{records:debito}, diario:{records:diario}
+      };
+    });
+  }
+
+  // ---------- App state ----------
+  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]} };
+
+  function showError(msg){
+    var b = $("errorBanner");
+    b.textContent = msg;
+    b.classList.add("show");
+  }
+  function clearError(){ $("errorBanner").classList.remove("show"); }
+
+  function showBusy(label){
+    var el = $("busyOverlay");
+    if (!el) return;
+    $("busyLabel").textContent = label || "Processando…";
+    el.classList.add("show");
+  }
+  function hideBusy(){
+    var el = $("busyOverlay");
+    if (el) el.classList.remove("show");
+  }
+
+  function setConnectedUI(connected, fileName){
+    $("connDot").className = "conn-dot " + (connected ? "on" : "off");
+    $("connLabel").textContent = connected ? ("Logado como " + fileName) : "Não conectado";
+    $("btnReload").style.display = connected ? "inline-flex" : "none";
+    $("btnConfig").style.display = connected ? "inline-flex" : "none";
+    $("btnAddCompra").style.display = connected ? "inline-flex" : "none";
+    $("btnAddDebitoTop").style.display = connected ? "inline-flex" : "none";
+    $("btnLogout").style.display = connected ? "inline-flex" : "none";
+    $("notConnectedView").style.display = connected ? "none" : "block";
+    $("connectedView").style.display = connected ? "block" : "none";
+  }
+
+  function nomes(tableKey){ return state[tableKey].records.map(function(r){ return r.nome; }); }
+
+  function populateSelect(sel, list, withAllLabel, keepValue){
+    var prev = keepValue ? sel.value : null;
+    var html = withAllLabel ? '<option value="">'+withAllLabel+'</option>' : "";
+    for (var i=0;i<list.length;i++) html += '<option value="'+escapeHtml(list[i])+'">'+escapeHtml(list[i])+'</option>';
+    sel.innerHTML = html;
+    if (prev && list.indexOf(prev) !== -1) sel.value = prev;
+  }
+
+  function refreshDropdowns(){
+    populateSelect($("fPersona"), nomes("pessoas"), "Todas as pessoas", true);
+    populateSelect($("fCartao"), nomes("cartoes"), "Todos os cartões", true);
+    populateSelect($("fTipo"), nomes("tipos"), "Todos os tipos", true);
+    populateSelect($("fPessoaSel"), nomes("pessoas"), null, true);
+    populateSelect($("fCartaoSel"), nomes("cartoes"), null, true);
+    populateSelect($("fTipoSel"), nomes("tipos"), null, true);
+    populateSelect($("dPessoaSel"), nomes("pessoas"), null, true);
+    populateSelect($("calPersona"), nomes("pessoas"), "Todas as pessoas", true);
+    populateSelect($("calCartao"), nomes("cartoes"), "Todos os cartões", true);
+  }
+
+  // Months elapsed between two {year,month} points (can be negative).
+  function monthsBetween(fromYM, toYM){ return (toYM.year - fromYM.year)*12 + (toYM.month - fromYM.month); }
+  // The month used as reference for "current installment" math: the filtered month, or (if
+  // "Todos os meses" is selected) today's real month.
+  function getRefMonth(){
+    if (filterMonth) return filterMonth;
+    var now = new Date();
+    return {year: now.getFullYear(), month: now.getMonth()+1};
+  }
+
+  // Which "fatura" (monthly statement) a purchase belongs to depends on the card's closing day
+  // (fechamento), not just the calendar month of the purchase: a card that closes on day 3 puts
+  // everything from day 3 of one month through day 2 of the next into the following month's fatura.
+  function getCartaoFechamento(cartaoNome){
+    for (var i=0;i<state.cartoes.records.length;i++){
+      if (state.cartoes.records[i].nome === cartaoNome) return state.cartoes.records[i].fechamento;
+    }
+    return null;
+  }
+  // Returns the {year,month} of the fatura a purchase's first installment belongs to (later
+  // installments are simply +1 month each from here, same as before). Falls back to the purchase's
+  // own calendar month when the card has no fechamento configured, so behavior is unchanged until
+  // the user sets one in Configurações > Cartões.
+  function getFaturaStartYM(dataSerial, cartaoNome){
+    var d = serialToDate(dataSerial);
+    var ym = {year: d.getUTCFullYear(), month: d.getUTCMonth()+1};
+    var fechamento = getCartaoFechamento(cartaoNome);
+    if (!fechamento || !isFinite(fechamento)) return ym;
+    var day = d.getUTCDate();
+    return day >= fechamento ? addMonths(ym, 1) : ym;
+  }
+
+  // Returns compras records "active" for the selected month, each decorated with:
+  //  - effectiveValor: the amount that counts for that month (parcela value when a month is
+  //    selected; the full purchase value when viewing "Todos os meses")
+  //  - parcelaAtual / parcelaTotal: current installment number / total installments (parcelaAtual
+  //    is null when no specific month is selected)
+  // When no month is selected, every purchase is returned once (a lifetime view).
+  function getMonthFilteredRecords(){
+    var recs = state.compras.records;
+    if (!filterMonth){
+      return recs.map(function(r){
+        var out = {}; for (var k in r) out[k] = r[k];
+        out.effectiveValor = r.valorTotal||0;
+        out.parcelaAtual = null;
+        out.parcelaTotal = r.parcelas||1;
+        return out;
+      });
+    }
+    var out = [];
+    recs.forEach(function(r){
+      if (!r.dataSerial) return;
+      var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+      var total = r.parcelas || 1;
+      var idx = monthsBetween(startYM, filterMonth) + 1;
+      if (idx < 1 || idx > total) return;
+      var rec = {}; for (var k in r) rec[k] = r[k];
+      rec.effectiveValor = (r.valorTotal||0) / total;
+      rec.parcelaAtual = idx;
+      rec.parcelaTotal = total;
+      out.push(rec);
+    });
+    return out;
+  }
+
+  var selectedCompras = new Set();
+  var lastVisibleComprasRows = [];
+  function updateComprasBulkBar(){
+    var bar = $("comprasBulkBar");
+    if (!bar) return;
+    var n = selectedCompras.size;
+    bar.style.display = n > 0 ? "flex" : "none";
+    $("comprasBulkCount").textContent = n + (n===1 ? " selecionada" : " selecionadas");
+    var allCb = $("selectAllCompras");
+    if (allCb){
+      var allSelected = lastVisibleComprasRows.length > 0 && lastVisibleComprasRows.every(function(rn){ return selectedCompras.has(rn); });
+      allCb.checked = allSelected;
+      allCb.indeterminate = !allSelected && n > 0;
+    }
+  }
+  $("selectAllCompras").addEventListener("change", function(){
+    if (this.checked) lastVisibleComprasRows.forEach(function(rn){ selectedCompras.add(rn); });
+    else selectedCompras.clear();
+    renderList();
+  });
+
+  function renderList(){
+    var search = $("fSearch").value.trim().toLowerCase();
+    var fPersona = $("fPersona").value;
+    var fCartao = $("fCartao").value;
+    var fTipo = $("fTipo").value;
+    var recs = getMonthFilteredRecords();
+
+    var filtered = recs.filter(function(r){
+      if (fPersona && r.pessoa !== fPersona) return false;
+      if (fCartao && r.cartao !== fCartao) return false;
+      if (fTipo && r.tipo !== fTipo) return false;
+      if (!matchesSearch(r, search)) return false;
+      return true;
+    });
+    filtered.sort(function(a,b){
+      var da = a.dataSerial||0, db_ = b.dataSerial||0;
+      if (da !== db_) return db_ - da;
+      return b.row - a.row;
+    });
+
+    var visibleRows = filtered.map(function(r){ return r.row; });
+    lastVisibleComprasRows = visibleRows;
+    Array.from(selectedCompras).forEach(function(rn){ if (visibleRows.indexOf(rn)===-1) selectedCompras.delete(rn); });
+    updateComprasBulkBar();
+
+    var listEl = $("txList");
+    listEl.innerHTML = "";
+    if (filtered.length === 0){
+      listEl.innerHTML = '<div class="empty"><span class="big">Nenhuma compra encontrada</span>Ajuste os filtros ou adicione uma nova compra.</div>';
+      return;
+    }
+    filtered.forEach(function(r){
+      var row = document.createElement("div");
+      row.className = "tx-row";
+      row.tabIndex = 0;
+      row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr";
+      var badgeClass = r.tipo === "Estorno" ? "estorno" : (isAssinaturaTipo(r.tipo) ? "assinatura" : "");
+      var parcelaLabel = (r.parcelaAtual === null)
+        ? (r.parcelaTotal||1) + "x"
+        : (r.parcelaAtual < 1 ? "futura" : (r.parcelaAtual > r.parcelaTotal ? "concluída" : r.parcelaAtual + "/" + r.parcelaTotal));
+      row.innerHTML =
+        '<input type="checkbox" class="row-select" '+(selectedCompras.has(r.row)?"checked":"")+'>'+
+        '<label class="out-check" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
+        '<span class="tx-desc">'+escapeHtml(r.descricao)+'</span>'+
+        '<span>'+escapeHtml(r.pessoa)+'</span>'+
+        '<span>'+escapeHtml(r.cartao)+'</span>'+
+        '<span class="tx-amt num">'+fmtBRL(r.valorTotal)+'</span>'+
+        '<span class="num">'+fmtBRL(r.effectiveValor)+'</span>'+
+        '<span class="num">'+parcelaLabel+'</span>'+
+        '<span class="num">'+serialToDisplay(r.dataSerial)+'</span>'+
+        '<span class="tipo-badge '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>';
+      var selectCheckbox = row.querySelector(".row-select");
+      selectCheckbox.addEventListener("click", function(e){ e.stopPropagation(); });
+      selectCheckbox.addEventListener("change", function(e){
+        e.stopPropagation();
+        if (selectCheckbox.checked) selectedCompras.add(r.row); else selectedCompras.delete(r.row);
+        updateComprasBulkBar();
+      });
+      var checkbox = row.querySelector(".out-toggle");
+      checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
+      checkbox.addEventListener("change", function(e){
+        e.stopPropagation();
+        var rec = {}; for (var k in r) rec[k] = r[k];
+        rec.out = checkbox.checked ? 0 : 1;
+        saveTableRow("compras", "update", r.row, rec).then(loadAndRender).catch(function(err){
+          showError("Não foi possível salvar: " + err.message);
+        });
+      });
+      row.addEventListener("click", function(){ openEditModal(r); });
+      listEl.appendChild(row);
+    });
+
+    renderCompFatura(recs.filter(function(r){ return !r.out; }));
+  }
+
+  function groupSum(recs, key){
+    var totals = {};
+    recs.forEach(function(r){
+      var k = r[key] || "—";
+      var v = (r.effectiveValor !== undefined) ? r.effectiveValor : (r.valorTotal || r.valor || 0);
+      totals[k] = (totals[k] || 0) + v;
+    });
+    return Object.keys(totals).map(function(k){ return {name:k, total:totals[k]}; })
+      .sort(function(a,b){ return b.total - a.total; });
+  }
+
+  // Compras page KPI: current invoice total (this/filtered month) + breakdown by card.
+  // Uses the month-filtered set (not the further search/persona/cartao/tipo-narrowed list),
+  // so it always reflects the real invoice, independent of what's being searched for.
+  function renderCompFatura(monthRecs){
+    if (!$("compFaturaTotal")) return;
+    var total = 0;
+    for (var i=0;i<monthRecs.length;i++) total += (monthRecs[i].effectiveValor||0);
+    $("compFaturaTotal").textContent = fmtBRL(total);
+    renderBarList("compFaturaPorPessoa", groupSum(monthRecs, "pessoa"));
+    renderBarList("compFaturaPorCartao", groupSum(monthRecs, "cartao"));
+  }
+
+  // ---------- Calendário de parcelas: every purchase, month by month, independent of any filter ----------
+  function addMonths(ym, n){
+    var total = ym.year*12 + (ym.month-1) + n;
+    return {year: Math.floor(total/12), month: (total%12)+1};
+  }
+
+  function decorateComprasForCalendar(recs, refYM){
+    return recs.filter(function(r){ return !!r.dataSerial; }).map(function(r){
+      var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+      var total = r.parcelas || 1;
+      var endYM = addMonths(startYM, total-1);
+      return {rec:r, startYM:startYM, endYM:endYM, total:total, parcelaValor:(r.valorTotal||0)/total};
+    }).filter(function(d){
+      // Only "active" purchases: exclude ones whose last installment already happened
+      // before the reference month (i.e. already fully paid).
+      return monthsBetween(d.endYM, refYM) <= 0;
+    });
+  }
+
+  function renderCalendarioPage(){
+    if (!$("calendarBody")) return;
+    var refYM = getRefMonth(); // the filtered month, or today if "Todos os meses"
+    var calPersona = $("calPersona").value;
+    var calCartao = $("calCartao").value;
+    var calSearch = $("calSearch").value.trim().toLowerCase();
+
+    // The month range (columns) is always computed from ALL active purchases,
+    // regardless of the pessoa/cartão filter, so the visualization's shape never
+    // changes when those filters are applied — only which rows/totals are shown does.
+    var decoratedAll = decorateComprasForCalendar(state.compras.records.filter(function(r){ return !r.out; }), refYM);
+
+    var windowStart = addMonths(refYM, -1);
+
+    if (!decoratedAll.length){
+      $("calendarHeadRow").innerHTML = '<th>Descrição</th><th class="current-month">'+MONTH_ABBR_PT[refYM.month-1]+"/"+String(refYM.year).slice(2)+'</th>';
+      $("calendarBody").innerHTML = '<tr><td class="empty-cell">Nenhuma compra ativa para este filtro.</td></tr>';
+      return;
+    }
+
+    var maxYM = decoratedAll[0].endYM;
+    decoratedAll.forEach(function(d){ if (monthsBetween(maxYM, d.endYM) > 0) maxYM = d.endYM; });
+
+    var MAX_COLS = 48;
+    var totalCols = monthsBetween(windowStart, maxYM) + 1;
+    if (totalCols > MAX_COLS){ maxYM = addMonths(windowStart, MAX_COLS-1); totalCols = MAX_COLS; }
+    if (totalCols < 1) totalCols = 1;
+
+    var columns = [];
+    for (var i=0;i<totalCols;i++) columns.push(addMonths(windowStart, i));
+
+    // Rows/totals reflect only the pessoa/cartão/search-filtered subset — the column
+    // range above never changes because of these filters, only which rows appear.
+    var decorated = decoratedAll.filter(function(d){
+      if (calPersona && d.rec.pessoa !== calPersona) return false;
+      if (calCartao && d.rec.cartao !== calCartao) return false;
+      if (!matchesSearch(d.rec, calSearch)) return false;
+      return true;
+    });
+
+    var headHtml = '<th>Descrição</th>';
+    columns.forEach(function(ym){
+      var isRef = (ym.year===refYM.year && ym.month===refYM.month);
+      headHtml += '<th class="'+(isRef?"current-month":"")+'">'+MONTH_ABBR_PT[ym.month-1]+"/"+String(ym.year).slice(2)+'</th>';
+    });
+    $("calendarHeadRow").innerHTML = headHtml;
+
+    var colTotals = columns.map(function(){ return 0; });
+    decorated.forEach(function(d){
+      columns.forEach(function(ym, idx){
+        var offset = monthsBetween(d.startYM, ym);
+        if (offset >= 0 && offset < d.total) colTotals[idx] += d.parcelaValor;
+      });
+    });
+
+    var bodyHtml = '<tr class="totals-row"><td>Total do mês</td>';
+    colTotals.forEach(function(t, idx){
+      var isRef = (columns[idx].year===refYM.year && columns[idx].month===refYM.month);
+      bodyHtml += '<td class="'+(isRef?"current-month":"")+'">'+(t>0?fmtBRL(t):"—")+'</td>';
+    });
+    bodyHtml += '</tr>';
+
+    var sorted = decorated.slice().sort(function(a,b){ return (b.rec.dataSerial||0) - (a.rec.dataSerial||0); });
+    if (!sorted.length){
+      bodyHtml += '<tr><td colspan="'+(columns.length+1)+'" class="empty-cell">Nenhuma compra ativa para este filtro.</td></tr>';
+    }
+    sorted.forEach(function(d){
+      var r = d.rec;
+      bodyHtml += '<tr><td>'+escapeHtml(r.descricao)+' <span class="meta-cell">('+escapeHtml(r.pessoa)+' · '+escapeHtml(r.cartao)+')</span></td>';
+      columns.forEach(function(ym){
+        var offset = monthsBetween(d.startYM, ym);
+        var isRef = (ym.year===refYM.year && ym.month===refYM.month);
+        var classes = [];
+        if (isRef) classes.push("current-month");
+        else if (monthsBetween(ym, refYM) > 0) classes.push("past");
+        if (offset < 0 || offset >= d.total){
+          classes.push("empty-cell");
+          bodyHtml += '<td class="'+classes.join(" ")+'">·</td>';
+        } else {
+          if (offset === d.total-1) classes.push("last-installment");
+          bodyHtml += '<td class="'+classes.join(" ")+'">'+fmtBRL(d.parcelaValor)+'</td>';
+        }
+      });
+      bodyHtml += '</tr>';
+    });
+    $("calendarBody").innerHTML = bodyHtml;
+
+    // Keep the header row and the "Total do mês" row both visible while scrolling down —
+    // the totals row's sticky offset must match the header's real rendered height.
+    var headEl = $("calendarHeadRow");
+    var totalsEl = $("calendarBody").querySelector("tr.totals-row");
+    if (headEl && totalsEl){
+      var headH = headEl.getBoundingClientRect().height || headEl.offsetHeight || 0;
+      Array.prototype.forEach.call(totalsEl.children, function(td){ td.style.top = headH + "px"; });
+    }
+  }
+
+  function renderBarList(elId, groups){
+    var el = $(elId);
+    el.innerHTML = "";
+    if (!groups.length){
+      el.innerHTML = '<div class="empty" style="padding:20px 4px;">Sem dados para o período selecionado.</div>';
+      return;
+    }
+    var max = groups[0].total || 1;
+    groups.forEach(function(g){
+      var row = document.createElement("div");
+      row.className = "bar-row";
+      var pct = max > 0 ? Math.max(2, Math.round((g.total/max)*100)) : 0;
+      row.innerHTML =
+        '<div class="bar-top"><span class="bar-name">'+escapeHtml(g.name)+'</span><span class="bar-value num">'+fmtBRL(g.total)+'</span></div>'+
+        '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;"></div></div>';
+      el.appendChild(row);
+    });
+  }
+
+  // Diário: how much of the month's balance is set aside as "free to use" money. A single
+  // default value (stored as the Diario sheet row with mes="") applies to every month; a
+  // specific month can "break inheritance" with its own row (mes="YYYY-MM") that overrides it.
+  // With "Todos os meses" selected there's no one month to resolve, so the default itself is
+  // shown/used as the representative figure.
+  function getGlobalDiarioValue(){
+    var rec = findDiarioRecord("");
+    return rec ? (rec.valor||0) : 0;
+  }
+  function getDiarioAmount(){
+    var key = monthKey(filterMonth);
+    if (!key) return getGlobalDiarioValue();
+    var override = findDiarioRecord(key);
+    return override ? (override.valor||0) : getGlobalDiarioValue();
+  }
+
+  // Sets a card's value text and colors it green (positive/zero) or red (negative).
+  function setBalanceCard(id, value){
+    var el = $(id);
+    el.textContent = fmtBRL(value);
+    el.classList.remove("positive","negative");
+    el.classList.add(value < 0 ? "negative" : "positive");
+  }
+
+  function renderDashboard(){
+    var recs = getMonthFilteredRecords().filter(function(r){ return !r.out; });
+    var total = 0;
+    for (var i=0;i<recs.length;i++) total += (recs[i].effectiveValor||0);
+    $("dashTotal").textContent = fmtBRL(total);
+
+    var debRecs = getDebitoMonthFiltered().filter(function(r){ return !r.out; });
+    var ingresos = 0, gastos = 0;
+    debRecs.forEach(function(r){
+      if (r.tipo === "Ingreso") ingresos += r.valor;
+      else gastos += r.valor;
+    });
+    getDynamicIncomeEntries().forEach(function(r){ ingresos += r.valor; });
+    var balance = ingresos - gastos;
+    setBalanceCard("dashBalance", balance);
+
+    var diario = getDiarioAmount();
+    var restante = balance - total - diario;
+    setBalanceCard("dashBalanceFinal", restante);
+
+    var individualAj = 0, individualGab = 0;
+    recs.forEach(function(r){
+      if (r.pessoa === "Aj") individualAj += (r.effectiveValor||0);
+      else if (r.pessoa === "Gab") individualGab += (r.effectiveValor||0);
+    });
+    setBalanceCard("dashBalanceFachero", restante/2 - individualAj);
+    setBalanceCard("dashBalanceFachera", restante/2 - individualGab);
+  }
+
+  // Subscriptions active "as of" a given month (or, with no month selected, active today).
+  function getActiveSubscriptions(){
+    var fm = filterMonth;
+    return state.compras.records.filter(function(r){
+      if (r.out) return false;
+      if (!isAssinaturaTipo(r.tipo)) return false;
+      if (fm){
+        var mk = monthKey(fm);
+        var startYM = serialToYearMonth(r.dataSerial);
+        if (startYM && startYM > mk) return false; // hadn't started yet in that month
+        if (r.cancelSerial !== null && r.cancelSerial !== undefined){
+          var cancelYM = serialToYearMonth(r.cancelSerial);
+          if (cancelYM && cancelYM < mk) return false; // already cancelled before that month
+        }
+        return true;
+      }
+      var todaySerial = dateInputToSerial(new Date().toISOString().slice(0,10));
+      if (r.cancelSerial === null || r.cancelSerial === undefined) return true;
+      return r.cancelSerial >= todaySerial;
+    }).sort(function(a,b){ return (b.dataSerial||0) - (a.dataSerial||0); });
+  }
+
+  function renderAssinaturasPage(){
+    if (!$("subsList")) return;
+    var subs = getActiveSubscriptions();
+    var total = 0;
+    for (var i=0;i<subs.length;i++) total += (subs[i].valorTotal||0);
+    $("subsTotal").textContent = fmtBRL(total);
+
+    var listEl = $("subsList");
+    listEl.innerHTML = "";
+    if (!subs.length){
+      listEl.innerHTML = '<div class="empty"><span class="big">Nenhuma assinatura ativa</span>Ajuste o filtro de mês ou cadastre uma assinatura na página Compras.</div>';
+      return;
+    }
+    subs.forEach(function(r){
+      var row = document.createElement("div");
+      row.className = "tx-row tx-row-static";
+      row.style.gridTemplateColumns = "1.6fr 0.9fr 1fr 0.9fr 1fr";
+      row.innerHTML =
+        '<span class="tx-desc">'+escapeHtml(r.descricao)+'</span>'+
+        '<span>'+escapeHtml(r.pessoa)+'</span>'+
+        '<span>'+escapeHtml(r.cartao)+'</span>'+
+        '<span class="tx-amt num">'+fmtBRL(r.valorTotal)+'</span>'+
+        '<span class="num">'+(r.cancelSerial ? serialToDisplay(r.cancelSerial) : "—")+'</span>';
+      listEl.appendChild(row);
+    });
+  }
+
+  // ---------- Ingresos/Salidas (Debito sheet — same file as everything else) ----------
+  function getDebitoMonthFiltered(){
+    var month = monthKey(filterMonth);
+    var recs = state.debito.records;
+    if (!month) return recs;
+    return recs.filter(function(r){ return serialToYearMonth(r.dataSerial) === month; });
+  }
+
+  // Dynamic (computed, non-editable) ingresos: for each pessoa flagged "Gera ingresso" in
+  // Configurações, mirror the sum of that pessoa's active compras this month as a single
+  // summary income line — never one row per compra.
+  function getDynamicIncomeEntries(){
+    var flagged = state.pessoas.records.filter(function(r){ return !!r.geraIngresso; }).map(function(r){ return r.nome; });
+    if (!flagged.length) return [];
+    var monthRecs = getMonthFilteredRecords();
+    var sums = {};
+    monthRecs.forEach(function(r){
+      if (r.out) return;
+      if (flagged.indexOf(r.pessoa) === -1) return;
+      sums[r.pessoa] = (sums[r.pessoa]||0) + (r.effectiveValor||0);
+    });
+    return flagged.filter(function(p){ return sums[p] > 0; }).map(function(p){
+      return {tipo:"Ingreso", descricao:"Espelho de compras — "+p, pessoa:p, valor:sums[p], dataSerial:null, dynamic:true};
+    });
+  }
+
+  var selectedDebito = new Set();
+  var lastVisibleDebitoRows = [];
+  function updateDebitoBulkBar(){
+    var bar = $("debitoBulkBar");
+    if (!bar) return;
+    var n = selectedDebito.size;
+    bar.style.display = n > 0 ? "flex" : "none";
+    $("debitoBulkCount").textContent = n + (n===1 ? " selecionada" : " selecionadas");
+    var allCb = $("selectAllDebito");
+    if (allCb){
+      var allSelected = lastVisibleDebitoRows.length > 0 && lastVisibleDebitoRows.every(function(rn){ return selectedDebito.has(rn); });
+      allCb.checked = allSelected;
+      allCb.indeterminate = !allSelected && n > 0;
+    }
+  }
+  $("selectAllDebito").addEventListener("change", function(){
+    if (this.checked) lastVisibleDebitoRows.forEach(function(rn){ selectedDebito.add(rn); });
+    else selectedDebito.clear();
+    renderDebitoPage();
+  });
+
+  function renderDebitoPage(){
+    if (!$("debitoList")) return;
+    var recs = getDebitoMonthFiltered();
+    var dynamicEntries = getDynamicIncomeEntries();
+    var ingresos = 0, fijos = 0, variables = 0;
+    recs.forEach(function(r){
+      if (r.out) return;
+      if (r.tipo === "Ingreso") ingresos += r.valor;
+      else if (r.tipo === "Gasto fijo") fijos += r.valor;
+      else if (r.tipo === "Gasto variable") variables += r.valor;
+    });
+    dynamicEntries.forEach(function(r){ ingresos += r.valor; });
+    $("debIngresos").textContent = fmtBRL(ingresos);
+    $("debGastos").textContent = fmtBRL(fijos + variables);
+    $("debBalance").textContent = fmtBRL(ingresos - fijos - variables);
+
+    var sorted = recs.slice().sort(function(a,b){ return (b.dataSerial||0) - (a.dataSerial||0); });
+
+    var visibleRows = sorted.map(function(r){ return r.row; });
+    lastVisibleDebitoRows = visibleRows;
+    Array.from(selectedDebito).forEach(function(rn){ if (visibleRows.indexOf(rn)===-1) selectedDebito.delete(rn); });
+    updateDebitoBulkBar();
+
+    var listEl = $("debitoList");
+    listEl.innerHTML = "";
+    if (!sorted.length && !dynamicEntries.length){
+      listEl.innerHTML = '<div class="empty"><span class="big">Nenhum movimento encontrado</span>Ajuste o filtro de mês.</div>';
+      return;
+    }
+    dynamicEntries.forEach(function(r){
+      var row = document.createElement("div");
+      row.className = "tx-row tx-row-static";
+      row.style.gridTemplateColumns = "0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr";
+      row.innerHTML =
+        '<span></span>'+
+        '<span></span>'+
+        '<span class="tipo-badge">'+escapeHtml(r.tipo)+'</span>'+
+        '<span class="tx-desc">'+escapeHtml(r.descricao)+'<span class="tag-auto">auto</span></span>'+
+        '<span>'+escapeHtml(r.pessoa)+'</span>'+
+        '<span class="tx-amt num">'+fmtBRL(r.valor)+'</span>'+
+        '<span class="num">—</span>';
+      listEl.appendChild(row);
+    });
+    sorted.forEach(function(r){
+      var row = document.createElement("div");
+      row.className = "tx-row";
+      row.tabIndex = 0;
+      row.style.gridTemplateColumns = "0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr";
+      var badgeClass = r.tipo === "Ingreso" ? "" : (r.tipo === "Gasto fijo" ? "assinatura" : "estorno");
+      row.innerHTML =
+        '<input type="checkbox" class="row-select" '+(selectedDebito.has(r.row)?"checked":"")+'>'+
+        '<label class="out-check" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
+        '<span class="tipo-badge '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
+        '<span class="tx-desc">'+escapeHtml(r.descricao)+'</span>'+
+        '<span>'+escapeHtml(r.pessoa)+'</span>'+
+        '<span class="tx-amt num">'+fmtBRL(r.valor)+'</span>'+
+        '<span class="num">'+serialToDisplay(r.dataSerial)+'</span>';
+      var selectCheckbox = row.querySelector(".row-select");
+      selectCheckbox.addEventListener("click", function(e){ e.stopPropagation(); });
+      selectCheckbox.addEventListener("change", function(e){
+        e.stopPropagation();
+        if (selectCheckbox.checked) selectedDebito.add(r.row); else selectedDebito.delete(r.row);
+        updateDebitoBulkBar();
+      });
+      var checkbox = row.querySelector(".out-toggle");
+      checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
+      checkbox.addEventListener("change", function(e){
+        e.stopPropagation();
+        var rec = {}; for (var k in r) rec[k] = r[k];
+        rec.out = checkbox.checked ? 0 : 1;
+        saveTableRow("debito", "update", r.row, rec).then(loadAndRender).catch(function(err){
+          showError("Não foi possível salvar: " + err.message);
+        });
+      });
+      row.addEventListener("click", function(){ openEditDebModal(r); });
+      listEl.appendChild(row);
+    });
+  }
+
+  // ---------- Diario (free-to-use money, subtracted from the month's balance) ----------
+  function findDiarioRecord(key){
+    for (var i=0;i<state.diario.records.length;i++){
+      if (state.diario.records[i].mes === key) return state.diario.records[i];
+    }
+    return null;
+  }
+
+  function renderDiarioPage(){
+    if (!$("diarioGlobalInput")) return;
+    var globalVal = getGlobalDiarioValue();
+    $("diarioGlobalInput").value = globalVal ? String(globalVal).replace(".", ",") : "";
+
+    var key = monthKey(filterMonth);
+    var monthPanel = $("diarioMonthPanel");
+    if (!key){
+      monthPanel.style.display = "none";
+      return;
+    }
+    monthPanel.style.display = "block";
+    $("diarioMonthLabel").textContent = "Diário de " + formatMonthLabel(filterMonth);
+    var override = findDiarioRecord(key);
+    var input = $("diarioMonthInput");
+    if (override){
+      input.value = override.valor ? String(override.valor).replace(".", ",") : "0";
+      $("diarioResetMonth").style.display = "inline-flex";
+      $("diarioMonthHint").textContent = "Valor próprio definido para este mês. \"Restaurar herança\" volta a usar o valor de todos os meses.";
+    } else {
+      input.value = globalVal ? String(globalVal).replace(".", ",") : "";
+      $("diarioResetMonth").style.display = "none";
+      $("diarioMonthHint").textContent = "Herdando o valor de todos os meses (acima). Altere o valor para definir um valor próprio só para este mês.";
+    }
+  }
+
+  function saveDiarioGlobalValue(){
+    var raw = $("diarioGlobalInput").value.trim();
+    var val = raw ? parseAmountInput(raw) : 0;
+    var amount = isFinite(val) ? Math.round(val*100)/100 : 0;
+    var existing = findDiarioRecord("");
+    if (!existing && amount === 0) return;
+    var action = existing ? "update" : "insert";
+    var rowNum = existing ? existing.row : null;
+    saveTableRow("diario", action, rowNum, {mes:"", valor:amount}).then(loadAndRender).catch(function(err){
+      showError("Não foi possível salvar o diário: " + err.message);
+    });
+  }
+  $("diarioGlobalInput").addEventListener("change", saveDiarioGlobalValue);
+
+  function saveDiarioMonthValue(){
+    var key = monthKey(filterMonth);
+    if (!key) return;
+    var raw = $("diarioMonthInput").value.trim();
+    var val = raw ? parseAmountInput(raw) : 0;
+    var amount = isFinite(val) ? Math.round(val*100)/100 : 0;
+    var existing = findDiarioRecord(key);
+    var action = existing ? "update" : "insert";
+    var rowNum = existing ? existing.row : null;
+    saveTableRow("diario", action, rowNum, {mes:key, valor:amount}).then(loadAndRender).catch(function(err){
+      showError("Não foi possível salvar o diário: " + err.message);
+    });
+  }
+  $("diarioMonthInput").addEventListener("change", saveDiarioMonthValue);
+
+  function resetDiarioMonthOverride(){
+    var key = monthKey(filterMonth);
+    if (!key) return;
+    var existing = findDiarioRecord(key);
+    if (!existing) return;
+    saveTableRow("diario", "delete", existing.row, null).then(loadAndRender).catch(function(err){
+      showError("Não foi possível restaurar a herança: " + err.message);
+    });
+  }
+  $("diarioResetMonth").addEventListener("click", resetDiarioMonthOverride);
+
+  function loadAndRender(){
+    clearError();
+    return loadEverything().then(function(result){
+      state.compras = result.compras;
+      state.pessoas = result.pessoas;
+      state.tipos = result.tipos;
+      state.cartoes = result.cartoes;
+      state.debito = result.debito;
+      state.diario = result.diario;
+      setConnectedUI(true, result.fileName);
+      refreshDropdowns();
+      renderList();
+      renderDashboard();
+      renderCalendarioPage();
+      renderAssinaturasPage();
+      renderDebitoPage();
+      renderDiarioPage();
+      markLastUpdated();
+      if (cfgOverlay.classList.contains("show")) renderCfgLists();
+    }).catch(function(err){
+      showError("Não foi possível ler o arquivo: " + err.message);
+    });
+  }
+
+  function markLastUpdated(){
+    var el = $("lastUpdatedLabel");
+    if (!el) return;
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2,"0");
+    var mm = String(now.getMinutes()).padStart(2,"0");
+    el.textContent = "Atualizado às " + hh + ":" + mm;
+  }
+
+  // ---------- Auth flow (Supabase email/password) ----------
+  function showAuthError(msg){ var e=$("authError"); e.textContent=msg; e.style.display="block"; }
+  function clearAuthError(){ $("authError").style.display="none"; }
+
+  function doSignIn(){
+    clearAuthError();
+    var email = $("authEmail").value.trim();
+    var password = $("authPassword").value;
+    if (!email || !password){ showAuthError("Informe email e senha."); return; }
+    supabaseClient.auth.signInWithPassword({email:email, password:password}).then(function(res){
+      if (res.error) showAuthError(res.error.message);
+    });
+  }
+  function doSignUp(){
+    clearAuthError();
+    var email = $("authEmail").value.trim();
+    var password = $("authPassword").value;
+    if (!email || !password){ showAuthError("Informe email e senha."); return; }
+    if (password.length < 6){ showAuthError("A senha deve ter pelo menos 6 caracteres."); return; }
+    supabaseClient.auth.signUp({email:email, password:password}).then(function(res){
+      if (res.error){ showAuthError(res.error.message); return; }
+      if (res.data && res.data.user && !res.data.session){
+        showAuthError("Conta criada! Verifique seu email para confirmar antes de entrar.");
+      }
+    });
+  }
+  $("btnSignIn").addEventListener("click", doSignIn);
+  $("btnSignUp").addEventListener("click", doSignUp);
+  $("btnLogout").addEventListener("click", function(){ supabaseClient.auth.signOut(); });
+  ["authEmail","authPassword"].forEach(function(id){
+    $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") doSignIn(); });
+  });
+
+  supabaseClient.auth.onAuthStateChange(function(event, session){
+    if (session && session.user){
+      currentUserEmail = session.user.email;
+      loadAndRender();
+    } else {
+      currentUserEmail = null;
+      setConnectedUI(false, "");
+    }
+  });
+
+  function reloadWithFeedback(btnEl, worker){
+    var original = btnEl.textContent;
+    btnEl.disabled = true;
+    btnEl.textContent = "Recarregando…";
+    return worker().then(function(ok){
+      btnEl.disabled = false;
+      if (ok === false){
+        btnEl.textContent = original;
+      } else {
+        btnEl.textContent = "Atualizado ✓";
+        setTimeout(function(){ btnEl.textContent = original; }, 1200);
+      }
+    });
+  }
+
+  $("btnReload").addEventListener("click", function(){
+    reloadWithFeedback($("btnReload"), function(){
+      return loadAndRender().then(function(){ return !$("errorBanner").classList.contains("show"); });
+    });
+  });
+  [$("fSearch"), $("fPersona"), $("fCartao"), $("fTipo")].forEach(function(el){
+    el.addEventListener("input", renderList);
+    el.addEventListener("change", renderList);
+  });
+  [$("calPersona"), $("calCartao")].forEach(function(el){
+    el.addEventListener("change", renderCalendarioPage);
+  });
+  $("calSearch").addEventListener("input", renderCalendarioPage);
+  $("fMonthPrev").addEventListener("click", function(){ shiftMonth(-1); });
+  $("fMonthNext").addEventListener("click", function(){ shiftMonth(1); });
+  $("fMonthClear").addEventListener("click", clearMonthFilter);
+  $("fMonthToday").addEventListener("click", jumpToCurrentMonth);
+
+  // ---------- Page tabs (Dashboard / Compras / Assinaturas / Ingresos-Salidas) ----------
+  var PAGE_IDS = {dashboard:"pageDashboard", tabela:"pageTabela", calendario:"pageCalendario", assinaturas:"pageAssinaturas", debito:"pageDebito", diario:"pageDiario"};
+  $("pageTabs").addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-page]");
+    if (!btn) return;
+    var page = btn.getAttribute("data-page");
+    $("pageTabs").querySelectorAll("button").forEach(function(b){ b.classList.toggle("active", b===btn); });
+    Object.keys(PAGE_IDS).forEach(function(p){ $(PAGE_IDS[p]).classList.toggle("active", p === page); });
+    if (page === "dashboard") renderDashboard();
+    else if (page === "tabela") renderList();
+    else if (page === "calendario") renderCalendarioPage();
+    else if (page === "assinaturas") renderAssinaturasPage();
+    else if (page === "debito") renderDebitoPage();
+    else if (page === "diario") renderDiarioPage();
+  });
+
+  // ---------- Add/Edit compra modal ----------
+  var txOverlay = $("txOverlay");
+  var editingRow = null;
+  var editingRowOut = 0;
+
+  function updateCancelacaoVisibility(){
+    var show = isAssinaturaTipo($("fTipoSel").value);
+    $("fCancelacaoWrap").style.display = show ? "flex" : "none";
+    if (!show) $("fCancelacao").value = "";
+  }
+  $("fTipoSel").addEventListener("change", updateCancelacaoVisibility);
+
+  function openAddModal(){
+    editingRow = null;
+    editingRowOut = 0;
+    $("txModalTitle").textContent = "Nova compra";
+    $("txDelete").style.display = "none";
+    $("txError").style.display = "none";
+    $("fDescricao").value = "";
+    $("fComerciante").value = "";
+    $("fComercianteWrap").style.display = "none";
+    $("btnToggleComerciante").textContent = "Mostrar comerciante";
+    $("fPessoaSel").selectedIndex = 0;
+    $("fCartaoSel").selectedIndex = 0;
+    $("fValor").value = "";
+    $("fParcelas").value = "1";
+    var today = new Date();
+    $("fData").value = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+    $("fTipoSel").selectedIndex = 0;
+    $("fCancelacao").value = "";
+    updateCancelacaoVisibility();
+    txOverlay.classList.add("show");
+    setTimeout(function(){ $("fDescricao").focus(); }, 30);
+  }
+  function openEditModal(r){
+    editingRow = r.row;
+    editingRowOut = r.out || 0;
+    $("txModalTitle").textContent = "Editar compra";
+    $("txDelete").style.display = "inline-flex";
+    $("txError").style.display = "none";
+    $("fDescricao").value = r.descricao;
+    $("fComerciante").value = r.comerciante || "";
+    $("fComercianteWrap").style.display = "none";
+    $("btnToggleComerciante").textContent = "Mostrar comerciante";
+    $("fPessoaSel").value = r.pessoa;
+    $("fCartaoSel").value = r.cartao;
+    $("fValor").value = String(r.valorTotal).replace(".", ",");
+    $("fParcelas").value = r.parcelas || 1;
+    $("fData").value = serialToInputValue(r.dataSerial);
+    $("fTipoSel").value = r.tipo;
+    updateCancelacaoVisibility();
+    $("fCancelacao").value = serialToInputValue(r.cancelSerial);
+    txOverlay.classList.add("show");
+  }
+  function closeTxModal(){ txOverlay.classList.remove("show"); }
+  $("btnAddCompra").addEventListener("click", openAddModal);
+  $("txClose").addEventListener("click", closeTxModal);
+  $("txCancel").addEventListener("click", closeTxModal);
+  txOverlay.addEventListener("click", function(e){ if (e.target===txOverlay) closeTxModal(); });
+  $("btnToggleComerciante").addEventListener("click", function(){
+    var wrap = $("fComercianteWrap");
+    var show = wrap.style.display === "none";
+    wrap.style.display = show ? "flex" : "none";
+    $("btnToggleComerciante").textContent = show ? "Ocultar comerciante" : "Mostrar comerciante";
+    if (show) setTimeout(function(){ $("fComerciante").focus(); }, 30);
+  });
+
+  $("txSave").addEventListener("click", function(){
+    var errEl = $("txError");
+    var descricao = $("fDescricao").value.trim();
+    var valor = parseAmountInput($("fValor").value);
+    var dataStr = $("fData").value;
+    var tipo = $("fTipoSel").value;
+
+    if (!descricao){ errEl.textContent = "Informe uma descrição."; errEl.style.display="block"; return; }
+    if (!isFinite(valor) || valor<=0){ errEl.textContent = "Informe um valor válido maior que zero."; errEl.style.display="block"; return; }
+    if (!dataStr){ errEl.textContent = "Informe a data da compra."; errEl.style.display="block"; return; }
+    errEl.style.display = "none";
+
+    var comercianteInput = $("fComerciante").value.trim();
+    var comerciante = comercianteInput ? normalizeMerchantKey(comercianteInput) : normalizeMerchantKey(descricao);
+
+    var rec = {
+      descricao: descricao,
+      pessoa: $("fPessoaSel").value,
+      cartao: $("fCartaoSel").value,
+      valorTotal: Math.round(valor*100)/100,
+      parcelas: parseInt($("fParcelas").value,10) || 1,
+      dataSerial: dateInputToSerial(dataStr),
+      tipo: tipo,
+      cancelSerial: isAssinaturaTipo(tipo) ? dateInputToSerial($("fCancelacao").value) : null,
+      out: editingRowOut,
+      comerciante: comerciante
+    };
+
+    var action = editingRow ? "update" : "insert";
+    var rowNum = editingRow;
+
+    saveTableRow("compras", action, rowNum, rec).then(function(){
+      closeTxModal();
+      return loadAndRender();
+    }).catch(function(err){
+      errEl.textContent = "Não foi possível salvar no arquivo: " + err.message;
+      errEl.style.display = "block";
+    });
+  });
+
+  var pendingDelete = null;
+  $("txDelete").addEventListener("click", function(){
+    if (!editingRow) return;
+    pendingDelete = {tableKey:"compras", rowNum: editingRow};
+    closeTxModal();
+    $("confirmTitle").textContent = "Excluir compra";
+    $("confirmOverlay").classList.add("show");
+  });
+
+  // ---------- Confirm delete (shared by Compras and Débito) ----------
+  var confirmOverlay = $("confirmOverlay");
+  function closeConfirm(){ confirmOverlay.classList.remove("show"); }
+  $("confirmClose").addEventListener("click", closeConfirm);
+  $("confirmCancel").addEventListener("click", closeConfirm);
+  confirmOverlay.addEventListener("click", function(e){ if (e.target===confirmOverlay) closeConfirm(); });
+  $("confirmOk").addEventListener("click", function(){
+    if (!pendingDelete){ closeConfirm(); return; }
+    var pd = pendingDelete;
+    var rowNums = pd.rows ? pd.rows.slice() : [pd.rowNum];
+    $("confirmOk").disabled = true;
+    showBusy(rowNums.length > 1 ? ("Excluindo " + rowNums.length + " registros…") : "Excluindo…");
+    var chain = Promise.resolve();
+    rowNums.forEach(function(rn){
+      chain = chain.then(function(){ return saveTableRow(pd.tableKey, "delete", rn, null); });
+    });
+    chain.then(function(){
+      closeConfirm();
+      $("confirmOk").disabled = false;
+      hideBusy();
+      pendingDelete = null;
+      editingRow = null;
+      editingDebRow = null;
+      if (pd.tableKey === "compras") selectedCompras.clear();
+      if (pd.tableKey === "debito") selectedDebito.clear();
+      return loadAndRender();
+    }).catch(function(err){
+      closeConfirm();
+      $("confirmOk").disabled = false;
+      hideBusy();
+      showError("Não foi possível excluir: " + err.message);
+    });
+  });
+
+  $("comprasBulkDelete").addEventListener("click", function(){
+    if (!selectedCompras.size) return;
+    var rows = Array.from(selectedCompras);
+    pendingDelete = {tableKey:"compras", rows: rows};
+    $("confirmTitle").textContent = "Excluir " + rows.length + " compra(s)";
+    $("confirmOverlay").classList.add("show");
+  });
+  $("comprasBulkClear").addEventListener("click", function(){
+    selectedCompras.clear();
+    renderList();
+  });
+  $("debitoBulkDelete").addEventListener("click", function(){
+    if (!selectedDebito.size) return;
+    var rows = Array.from(selectedDebito);
+    pendingDelete = {tableKey:"debito", rows: rows};
+    $("confirmTitle").textContent = "Excluir " + rows.length + " movimento(s)";
+    $("confirmOverlay").classList.add("show");
+  });
+  $("debitoBulkClear").addEventListener("click", function(){
+    selectedDebito.clear();
+    renderDebitoPage();
+  });
+
+  // ---------- Importar fatura (CSV) ----------
+  var importOverlay = $("importOverlay");
+  var importCandidates = [];
+
+  $("btnImportCsv").addEventListener("click", function(){
+    $("csvFileInput").value = "";
+    $("csvFileInput").click();
+  });
+  $("csvFileInput").addEventListener("change", function(e){
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var parsed = parseNubankCsv(String(reader.result||""));
+      if (!parsed.ok){
+        showError(parsed.error);
+        return;
+      }
+      importCandidates = buildImportCandidates(parsed.rows, state.compras.records);
+      populateSelect($("importCartaoSel"), nomes("cartoes"), "Selecione um cartão", false);
+      renderImportPreview();
+      importOverlay.classList.add("show");
+    };
+    reader.onerror = function(){ showError("Não foi possível ler o arquivo."); };
+    reader.readAsText(file, "utf-8");
+  });
+
+  function closeImport(){ importOverlay.classList.remove("show"); }
+  $("importClose").addEventListener("click", closeImport);
+  $("importCancel").addEventListener("click", closeImport);
+  importOverlay.addEventListener("click", function(e){ if (e.target===importOverlay) closeImport(); });
+
+  function importStatusInfo(status){
+    switch(status){
+      case "new": return {cls:"new", label:"Nova compra"};
+      case "skip-duplicate": return {cls:"dup", label:"Duplicada"};
+      case "skip-parcela-continuation": return {cls:"cont", label:"Parcela já registrada"};
+      case "skip-parcela-orphan": return {cls:"orphan", label:"Parcela sem par"};
+      case "skip-payment": return {cls:"payment", label:"Pagamento"};
+      default: return {cls:"invalid", label:"Inválida"};
+    }
+  }
+  function importRowDateDisplay(c){
+    if (/^\d{4}-\d{2}-\d{2}$/.test(c.dateStr)){
+      var parts = c.dateStr.split("-");
+      return parts[2] + "/" + parts[1] + "/" + parts[0];
+    }
+    return c.dateStr || "?";
+  }
+  function importRowAmountDisplay(c){
+    var amt = parseAmountInput(c.amountStr);
+    if (isFinite(amt)) return fmtBRL(Math.abs(amt));
+    return c.amountStr || "?";
+  }
+  function importSelectOptionsHtml(list, selected){
+    var html = '<option value="">Selecione…</option>';
+    list.forEach(function(name){
+      html += '<option value="'+escapeHtml(name)+'"'+(name===selected?' selected':'')+'>'+escapeHtml(name)+'</option>';
+    });
+    return html;
+  }
+
+  function renderImportPreview(){
+    var listEl = $("importList");
+    $("importError").style.display = "none";
+    var counts = {"new":0, "skip-duplicate":0, "skip-parcela-continuation":0, "skip-parcela-orphan":0, "skip-payment":0, "skip-invalid":0};
+    importCandidates.forEach(function(c){ counts[c.status] = (counts[c.status]||0)+1; });
+    $("importSummary").textContent =
+      counts["new"] + " nova(s) · " + counts["skip-duplicate"] + " duplicada(s) · " +
+      counts["skip-parcela-continuation"] + " parcela(s) já registrada(s) · " +
+      counts["skip-parcela-orphan"] + " parcela(s) sem par · " +
+      counts["skip-payment"] + " pagamento(s) · " + counts["skip-invalid"] + " inválida(s)";
+
+    if (!importCandidates.length){
+      listEl.innerHTML = '<div class="empty">Nenhuma linha encontrada no arquivo.</div>';
+      return;
+    }
+
+    var pessoasList = nomes("pessoas");
+    var tiposList = nomes("tipos");
+
+    var html = "";
+    importCandidates.forEach(function(c, i){
+      var info = importStatusInfo(c.status);
+      var checked = c.status==="new";
+      var rowState = c.status==="new" ? "new" : (c.status==="skip-parcela-orphan" ? "warn" : "skip");
+      html += '<div class="import-row status-'+rowState+'" data-idx="'+i+'">';
+      html += '<input type="checkbox" class="imp-check" '+(c.includable?'':'disabled')+' '+(checked?'checked':'')+'>';
+      html += '<div class="import-main">';
+      html += '<div class="import-title">'+escapeHtml(c.title)+' <span class="import-status-tag '+info.cls+'">'+info.label+'</span></div>';
+      html += '<div class="import-sub">'+importRowDateDisplay(c)+' · '+importRowAmountDisplay(c)+(c.message?' — '+escapeHtml(c.message):'')+'</div>';
+      if (c.includable && c.suggested){
+        var s = c.suggested;
+        html += '<div class="import-fields">';
+        html += '<input type="text" class="imp-descricao" value="'+escapeHtml(s.descricao)+'" placeholder="Descrição">';
+        html += '<select class="imp-pessoa">'+importSelectOptionsHtml(pessoasList, s.pessoa)+'</select>';
+        html += '<select class="imp-tipo">'+importSelectOptionsHtml(tiposList, s.tipo)+'</select>';
+        html += '</div>';
+      }
+      html += '</div></div>';
+    });
+    listEl.innerHTML = html;
+  }
+
+  $("importConfirm").addEventListener("click", function(){
+    var errEl = $("importError");
+    errEl.style.display = "none";
+    var rows = Array.prototype.slice.call($("importList").querySelectorAll(".import-row"));
+    var anyChecked = rows.some(function(rowEl){
+      var check = rowEl.querySelector(".imp-check");
+      return check && !check.disabled && check.checked;
+    });
+    var cartao = $("importCartaoSel").value;
+    if (anyChecked && !cartao){
+      errEl.textContent = "Selecione o cartão da fatura antes de confirmar.";
+      errEl.style.display = "block";
+      return;
+    }
+
+    var toInsert = [];
+    var invalidFound = false;
+    rows.forEach(function(rowEl){
+      rowEl.classList.remove("import-row-invalid");
+      var idx = parseInt(rowEl.getAttribute("data-idx"),10);
+      var cand = importCandidates[idx];
+      var check = rowEl.querySelector(".imp-check");
+      if (!check || check.disabled || !check.checked) return;
+      var descricaoInput = rowEl.querySelector(".imp-descricao");
+      var pessoaSel = rowEl.querySelector(".imp-pessoa");
+      var tipoSel = rowEl.querySelector(".imp-tipo");
+      var descricao = descricaoInput ? descricaoInput.value.trim() : "";
+      var pessoa = pessoaSel ? pessoaSel.value : "";
+      var tipo = tipoSel ? tipoSel.value : "";
+      if (!descricao || !pessoa || !tipo){
+        rowEl.classList.add("import-row-invalid");
+        invalidFound = true;
+        return;
+      }
+      toInsert.push({
+        descricao: descricao,
+        pessoa: pessoa,
+        cartao: cartao,
+        valorTotal: cand.suggested.valorTotal,
+        parcelas: cand.suggested.parcelas,
+        dataSerial: cand.suggested.dataSerial,
+        tipo: tipo,
+        cancelSerial: null,
+        out: 0,
+        comerciante: cand.suggested.comerciante
+      });
+    });
+
+    if (invalidFound){
+      errEl.textContent = "Preencha descrição, pessoa e tipo em todas as linhas marcadas para importar.";
+      errEl.style.display = "block";
+      return;
+    }
+    if (!toInsert.length){
+      errEl.textContent = "Nenhuma linha selecionada para importar.";
+      errEl.style.display = "block";
+      return;
+    }
+
+    $("importConfirm").disabled = true;
+    showBusy("Importando " + toInsert.length + " compra(s)…");
+    var chain = Promise.resolve();
+    toInsert.forEach(function(rec){
+      chain = chain.then(function(){ return saveTableRow("compras","insert",null,rec); });
+    });
+    chain.then(function(){
+      $("importConfirm").disabled = false;
+      hideBusy();
+      closeImport();
+      return loadAndRender();
+    }).catch(function(err){
+      $("importConfirm").disabled = false;
+      hideBusy();
+      errEl.textContent = "Não foi possível salvar a importação: " + err.message;
+      errEl.style.display = "block";
+    });
+  });
+
+  // ---------- Add/Edit débito (ingreso/salida) modal ----------
+  var debOverlay = $("debOverlay");
+  var editingDebRow = null;
+  var editingDebRowOut = 0;
+
+  function openAddDebModal(){
+    editingDebRow = null;
+    editingDebRowOut = 0;
+    $("debModalTitle").textContent = "Novo registro";
+    $("debDelete").style.display = "none";
+    $("debError").style.display = "none";
+    $("dTipoSel").value = "Ingreso";
+    $("dDescricao").value = "";
+    $("dPessoaSel").selectedIndex = 0;
+    $("dValor").value = "";
+    var today = new Date();
+    $("dData").value = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+    debOverlay.classList.add("show");
+    setTimeout(function(){ $("dDescricao").focus(); }, 30);
+  }
+  function openEditDebModal(r){
+    editingDebRow = r.row;
+    editingDebRowOut = r.out || 0;
+    $("debModalTitle").textContent = "Editar registro";
+    $("debDelete").style.display = "inline-flex";
+    $("debError").style.display = "none";
+    $("dTipoSel").value = r.tipo;
+    $("dDescricao").value = r.descricao;
+    $("dPessoaSel").value = r.pessoa;
+    $("dValor").value = String(r.valor).replace(".", ",");
+    $("dData").value = serialToInputValue(r.dataSerial);
+    debOverlay.classList.add("show");
+  }
+  function closeDebModal(){ debOverlay.classList.remove("show"); }
+  $("btnAddDebitoTop").addEventListener("click", openAddDebModal);
+  $("debClose").addEventListener("click", closeDebModal);
+  $("debCancel").addEventListener("click", closeDebModal);
+  debOverlay.addEventListener("click", function(e){ if (e.target===debOverlay) closeDebModal(); });
+
+  $("debSave").addEventListener("click", function(){
+    var errEl = $("debError");
+    var descricao = $("dDescricao").value.trim();
+    var valor = parseAmountInput($("dValor").value);
+    var dataStr = $("dData").value;
+
+    if (!descricao){ errEl.textContent = "Informe uma descrição."; errEl.style.display="block"; return; }
+    if (!isFinite(valor) || valor<=0){ errEl.textContent = "Informe um valor válido maior que zero."; errEl.style.display="block"; return; }
+    if (!dataStr){ errEl.textContent = "Informe a data/mês."; errEl.style.display="block"; return; }
+    errEl.style.display = "none";
+
+    var rec = {
+      tipo: $("dTipoSel").value,
+      descricao: descricao,
+      pessoa: $("dPessoaSel").value,
+      valor: Math.round(valor*100)/100,
+      dataSerial: dateInputToSerial(dataStr),
+      out: editingDebRowOut
+    };
+
+    var action = editingDebRow ? "update" : "insert";
+    saveTableRow("debito", action, editingDebRow, rec).then(function(){
+      closeDebModal();
+      return loadAndRender();
+    }).catch(function(err){
+      errEl.textContent = "Não foi possível salvar no arquivo: " + err.message;
+      errEl.style.display = "block";
+    });
+  });
+
+  $("debDelete").addEventListener("click", function(){
+    if (!editingDebRow) return;
+    pendingDelete = {tableKey:"debito", rowNum: editingDebRow};
+    closeDebModal();
+    $("confirmTitle").textContent = "Excluir registro";
+    $("confirmOverlay").classList.add("show");
+  });
+
+  // ---------- Configurações modal ----------
+  var cfgOverlay = $("cfgOverlay");
+  function openCfgModal(){
+    renderCfgLists();
+    cfgOverlay.classList.add("show");
+  }
+  function closeCfgModal(){ cfgOverlay.classList.remove("show"); }
+  $("btnConfig").addEventListener("click", openCfgModal);
+  $("cfgClose").addEventListener("click", closeCfgModal);
+  $("cfgDone").addEventListener("click", closeCfgModal);
+  cfgOverlay.addEventListener("click", function(e){ if (e.target===cfgOverlay) closeCfgModal(); });
+
+  $("cfgTabs").addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-tab]");
+    if (!btn) return;
+    var tab = btn.getAttribute("data-tab");
+    $("cfgTabs").querySelectorAll("button").forEach(function(b){ b.classList.toggle("active", b===btn); });
+    ["pessoas","cartoes","tipos"].forEach(function(t){
+      $("cfgPane"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active", t===tab);
+    });
+  });
+
+  function simpleListRow(tableKey, rec){
+    var row = document.createElement("div");
+    row.className = "cfg-row";
+    row.innerHTML =
+      '<input type="text" value="'+escapeHtml(rec.nome)+'">'+
+      '<button class="cfg-del" type="button" title="Excluir" aria-label="Excluir">✕</button>';
+    var input = row.querySelector("input");
+    var delBtn = row.querySelector(".cfg-del");
+    input.addEventListener("change", function(){
+      var v = input.value.trim();
+      if (!v) { input.value = rec.nome; return; }
+      if (v === rec.nome) return;
+      saveTableRow(tableKey, "update", rec.row, {nome:v}).then(loadAndRender).catch(function(err){ showError("Não foi possível salvar: "+err.message); });
+    });
+    delBtn.addEventListener("click", function(){
+      saveTableRow(tableKey, "delete", rec.row, null).then(loadAndRender).catch(function(err){ showError("Não foi possível excluir: "+err.message); });
+    });
+    return row;
+  }
+
+  function renderCfgLists(){
+    var pList = $("cfgPessoasList"); pList.innerHTML = "";
+    state.pessoas.records.forEach(function(rec){
+      var row = document.createElement("div");
+      row.className = "cfg-row pessoas";
+      row.innerHTML =
+        '<input type="text" value="'+escapeHtml(rec.nome)+'" data-f="nome">'+
+        '<label class="cfg-check"><input type="checkbox" data-f="geraIngresso" '+(rec.geraIngresso?"checked":"")+'> Gera ingresso</label>'+
+        '<button class="cfg-del" type="button" title="Excluir" aria-label="Excluir">✕</button>';
+      function commit(){
+        var nome = row.querySelector('[data-f="nome"]').value.trim();
+        if (!nome) { renderCfgLists(); return; }
+        var gera = row.querySelector('[data-f="geraIngresso"]').checked ? 1 : 0;
+        saveTableRow("pessoas", "update", rec.row, {nome:nome, geraIngresso:gera}).then(loadAndRender).catch(function(err){ showError("Não foi possível salvar: "+err.message); });
+      }
+      row.querySelector('[data-f="nome"]').addEventListener("change", commit);
+      row.querySelector('[data-f="geraIngresso"]').addEventListener("change", commit);
+      row.querySelector(".cfg-del").addEventListener("click", function(){
+        saveTableRow("pessoas", "delete", rec.row, null).then(loadAndRender).catch(function(err){ showError("Não foi possível excluir: "+err.message); });
+      });
+      pList.appendChild(row);
+    });
+
+    var tList = $("cfgTiposList"); tList.innerHTML = "";
+    state.tipos.records.forEach(function(r){ tList.appendChild(simpleListRow("tipos", r)); });
+
+    var cList = $("cfgCartoesList"); cList.innerHTML = "";
+    state.cartoes.records.forEach(function(rec){
+      var row = document.createElement("div");
+      row.className = "cfg-row cards";
+      row.innerHTML =
+        '<input type="text" value="'+escapeHtml(rec.nome)+'" data-f="nome">'+
+        '<input type="number" min="1" max="31" value="'+(rec.vencimento===null?"":rec.vencimento)+'" data-f="vencimento" placeholder="Venc.">'+
+        '<input type="number" min="1" max="31" value="'+(rec.fechamento===null?"":rec.fechamento)+'" data-f="fechamento" placeholder="Fech.">'+
+        '<span class="amt"><span class="cur">R$</span><input type="text" inputmode="decimal" value="'+(rec.limite===null?"":String(rec.limite).replace(".", ","))+'" data-f="limite" placeholder="Limite"></span>'+
+        '<button class="cfg-del" type="button" title="Excluir" aria-label="Excluir">✕</button>';
+      function commit(){
+        var nome = row.querySelector('[data-f="nome"]').value.trim();
+        var venc = parseInt(row.querySelector('[data-f="vencimento"]').value,10);
+        var fech = parseInt(row.querySelector('[data-f="fechamento"]').value,10);
+        var lim = parseAmountInput(row.querySelector('[data-f="limite"]').value);
+        if (!nome) { renderCfgLists(); return; }
+        var newRec = {
+          nome: nome,
+          vencimento: isFinite(venc) ? venc : null,
+          fechamento: isFinite(fech) ? fech : null,
+          limite: isFinite(lim) ? Math.round(lim*100)/100 : null
+        };
+        saveTableRow("cartoes", "update", rec.row, newRec).then(loadAndRender).catch(function(err){ showError("Não foi possível salvar: "+err.message); });
+      }
+      row.querySelectorAll("input").forEach(function(inp){ inp.addEventListener("change", commit); });
+      row.querySelector(".cfg-del").addEventListener("click", function(){
+        saveTableRow("cartoes", "delete", rec.row, null).then(loadAndRender).catch(function(err){ showError("Não foi possível excluir: "+err.message); });
+      });
+      cList.appendChild(row);
+    });
+  }
+
+  $("cfgPessoaAdd").addEventListener("click", function(){
+    var inp = $("cfgPessoaNew");
+    var v = inp.value.trim();
+    if (!v) return;
+    saveTableRow("pessoas", "insert", null, {nome:v}).then(function(){ inp.value=""; return loadAndRender(); }).catch(function(err){ showError("Não foi possível adicionar: "+err.message); });
+  });
+  $("cfgTipoAdd").addEventListener("click", function(){
+    var inp = $("cfgTipoNew");
+    var v = inp.value.trim();
+    if (!v) return;
+    saveTableRow("tipos", "insert", null, {nome:v}).then(function(){ inp.value=""; return loadAndRender(); }).catch(function(err){ showError("Não foi possível adicionar: "+err.message); });
+  });
+  $("cfgCartaoAdd").addEventListener("click", function(){
+    var nomeInp = $("cfgCartaoNewNome"), vencInp = $("cfgCartaoNewVenc"), fechInp = $("cfgCartaoNewFechamento"), limInp = $("cfgCartaoNewLimite");
+    var nome = nomeInp.value.trim();
+    if (!nome) return;
+    var venc = parseInt(vencInp.value,10);
+    var fech = parseInt(fechInp.value,10);
+    var lim = parseAmountInput(limInp.value);
+    var rec = { nome:nome, vencimento: isFinite(venc)?venc:null, fechamento: isFinite(fech)?fech:null, limite: isFinite(lim)?Math.round(lim*100)/100:null };
+    saveTableRow("cartoes", "insert", null, rec).then(function(){
+      nomeInp.value=""; vencInp.value=""; fechInp.value=""; limInp.value="";
+      return loadAndRender();
+    }).catch(function(err){ showError("Não foi possível adicionar: "+err.message); });
+  });
+
+  document.addEventListener("keydown", function(e){
+    if (e.key !== "Escape") return;
+    if (confirmOverlay.classList.contains("show")) closeConfirm();
+    else if (cfgOverlay.classList.contains("show")) closeCfgModal();
+    else if (txOverlay.classList.contains("show")) closeTxModal();
+    else if (debOverlay.classList.contains("show")) closeDebModal();
+  });
+
+  // ---------- Init ----------
+  renderMonthLabel();
+  supabaseClient.auth.getSession().then(function(res){
+    var session = res.data && res.data.session;
+    if (session && session.user){
+      currentUserEmail = session.user.email;
+      loadAndRender();
+    }
+  });
+})();
+</script>
+</body>
+</html>
