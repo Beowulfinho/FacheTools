@@ -396,10 +396,12 @@
   }
   .summary-2col{ grid-template-columns:repeat(2,1fr); }
   .summary-1col{ grid-template-columns:1fr; }
+  .summary-4col{ grid-template-columns:repeat(4,1fr); }
   .sum-card-big{ padding:26px 28px; text-align:center; }
   .sum-card-big .k{ font-size:13px; margin-bottom:10px; }
   .sum-card-big .v{ font-size:40px; font-weight:600; }
-  @media (max-width: 880px){ .summary{ grid-template-columns:1fr; } .summary-2col{ grid-template-columns:1fr; } .sum-card-big .v{ font-size:32px; } }
+  @media (max-width: 880px){ .summary{ grid-template-columns:1fr; } .summary-2col{ grid-template-columns:1fr; } .summary-4col{ grid-template-columns:1fr; } .sum-card-big .v{ font-size:32px; } }
+  @media (min-width: 881px) and (max-width: 1180px){ .summary-4col{ grid-template-columns:repeat(2,1fr); } }
 
   /* ---------- List ---------- */
   .panel{
@@ -806,7 +808,7 @@
 
     <div class="page-section active" id="pageDashboard">
       <div class="summary-group-label">Visão geral do período</div>
-      <div class="summary">
+      <div class="summary summary-4col">
         <div class="sum-card">
           <span class="k">Total compras no período</span>
           <div class="v num" id="dashTotal">R$ 0,00</div>
@@ -818,6 +820,10 @@
         <div class="sum-card">
           <span class="k">Diário</span>
           <div class="v num" id="dashDiario">R$ 0,00</div>
+        </div>
+        <div class="sum-card">
+          <span class="k">Investimento</span>
+          <div class="v num" id="dashInvestimento">R$ 0,00</div>
         </div>
       </div>
       <div class="summary summary-1col">
@@ -1201,6 +1207,7 @@
         <button data-tab="cartoes" type="button">Cartões</button>
         <button data-tab="tipos" type="button">Tipos</button>
         <button data-tab="diario" type="button">Diário</button>
+        <button data-tab="investimentos" type="button">Investimentos</button>
       </div>
 
       <div class="cfg-pane active" id="cfgPanePessoas">
@@ -1263,6 +1270,40 @@
             </div>
           </div>
           <p class="cfg-hint" id="diarioMonthHint" style="padding:0 18px 18px;"></p>
+        </div>
+      </div>
+
+      <div class="cfg-pane" id="cfgPaneInvestimentos">
+        <p class="cfg-hint">
+          "Investimentos" funciona como o Diário — também é descontado do Balance final na página Dashboard —
+          mas com herança de mês em diante, igual aos Gastos Fijo: o valor base definido abaixo vale a partir
+          deste mês e para todos os meses seguintes, até você definir um novo valor base. Também dá pra definir
+          um valor só para este mês (variação pontual), sem quebrar a herança dos meses seguintes.
+        </p>
+        <div class="panel" style="box-shadow:none; border:1px solid var(--line);">
+          <div class="panel-head"><h2 id="investBaseLabel">Investimento (a partir de mês)</h2></div>
+          <div class="field" style="padding:0 18px 18px;">
+            <label for="investBaseInput">Valor base, herdado a partir deste mês</label>
+            <div class="amount-wrap">
+              <span class="cur">R$</span>
+              <input type="text" inputmode="decimal" id="investBaseInput" placeholder="0,00">
+            </div>
+            <p class="cfg-hint" id="investBaseHint" style="padding-top:8px;"></p>
+          </div>
+        </div>
+        <div class="panel" style="box-shadow:none; border:1px solid var(--line); margin-top:16px;">
+          <div class="panel-head">
+            <h2 id="investMonthLabel">Investimento do mês</h2>
+            <button class="btn btn-sm" id="investResetMonth" type="button" style="display:none;">Restaurar herança</button>
+          </div>
+          <div class="field" style="padding:0 18px 18px;">
+            <label for="investMonthInput">Valor próprio deste mês (variação pontual)</label>
+            <div class="amount-wrap">
+              <span class="cur">R$</span>
+              <input type="text" inputmode="decimal" id="investMonthInput" placeholder="0,00">
+            </div>
+          </div>
+          <p class="cfg-hint" id="investMonthHint" style="padding:0 18px 18px;"></p>
         </div>
       </div>
     </div>
@@ -1606,6 +1647,7 @@
     renderAssinaturasPage();
     renderDebitoPage();
     renderDiarioPage();
+    renderInvestimentoPage();
   }
 
   // ---------- Data layer (Supabase: auth + tables) ----------
@@ -2307,18 +2349,25 @@
 
     var diario = getDiarioAmount();
     $("dashDiario").textContent = fmtBRL(diario);
-    var restante = balance - total - diario;
+    var investimento = getInvestimentoAmount();
+    $("dashInvestimento").textContent = fmtBRL(investimento);
+    var restante = balance - total - diario - investimento;
 
     var individualAj = 0, individualGab = 0;
     recs.forEach(function(r){
       if (r.pessoa === "Aj") individualAj += (r.effectiveValor||0);
       else if (r.pessoa === "Gab") individualGab += (r.effectiveValor||0);
     });
-    var fachero = restante/2 - individualAj;
-    var fachera = restante/2 - individualGab;
-    // Balance final is the sum of what each person actually ends up with — not the pre-split
-    // "restante" — so it always matches Balance Fachero + Balance Fachera exactly.
-    setBalanceCard("dashBalanceFinal", fachero + fachera);
+    // "restante" already nets out each person's individual spending once (it's part of Total
+    // compras). Subtracting the individual amount again at the split step would double-count it,
+    // so only the DIFFERENCE between the two individual totals shifts money from the bigger
+    // spender to the smaller one — half the difference each way. That way Balance final (the sum
+    // of both shares) is always exactly "restante", and each person bears the full effect of
+    // their own individual spending exactly once.
+    var diff = individualAj - individualGab;
+    var fachero = restante/2 - diff/2;
+    var fachera = restante/2 + diff/2;
+    setBalanceCard("dashBalanceFinal", restante);
     setBalanceCard("dashBalanceFachero", fachero);
     setBalanceCard("dashBalanceFachera", fachera);
   }
@@ -2377,6 +2426,7 @@
   var FIJO_TIPOS = ["Ingreso Fijo", "Gasto Fijo"];
   var INGRESO_TIPOS = ["Ingreso Fijo", "Ingreso Variable"];
   var GASTO_TIPOS = ["Gasto Fijo", "Gasto Variable"];
+  var INVESTIMENTO_TIPO = "Investimento";
 
   // Identifies "the same recurring Fijo item" across months: a value-change row is a new
   // history entry for the same item only if tipo+pessoa+descricao match exactly.
@@ -2421,7 +2471,10 @@
 
   function getDebitoMonthFiltered(){
     var month = monthKey(filterMonth);
-    var recs = state.debito.records;
+    // Investimento rows share this table for storage only (see the Investimentos section below);
+    // they're a Configurações-only value, never a line in the Ingresos/Salidas table or its
+    // ingresos/gastos totals, so they're excluded here once for every consumer of this function.
+    var recs = state.debito.records.filter(function(r){ return r.tipo !== INVESTIMENTO_TIPO; });
     if (!month) return recs.slice();
     var literal = recs.filter(function(r){ return serialToYearMonth(r.dataSerial) === month; });
     var excludeKeys = {};
@@ -2433,9 +2486,12 @@
   }
 
   // Dynamic (computed, non-editable) ingresos: for each pessoa flagged "Gera ingresso" in
-  // Configurações, mirror the sum of that pessoa's active compras this month as a single
-  // summary income line — never one row per compra. These are the "Auto" rows and always count
-  // as Ingreso Variable.
+  // Configurações, mirror the sum of that pessoa's active compras this month, PLUS that same
+  // pessoa's Gasto Fijo/Gasto Variable débito entries this month, as a single summary income
+  // line — never one row per compra/débito. A person flagged "gera ingresso" is being reimbursed
+  // for everything charged to them, so anything charged to them as a fixed/variable expense in
+  // Ingresos/Salidas is also money that comes back in — not just their card purchases. These are
+  // the "Auto" rows and always count as Ingreso Variable.
   function getDynamicIncomeEntries(){
     var flagged = state.pessoas.records.filter(function(r){ return !!r.geraIngresso; }).map(function(r){ return r.nome; });
     if (!flagged.length) return [];
@@ -2445,6 +2501,13 @@
       if (r.out) return;
       if (flagged.indexOf(r.pessoa) === -1) return;
       sums[r.pessoa] = (sums[r.pessoa]||0) + (r.effectiveValor||0);
+    });
+    var debRecs = getDebitoMonthFiltered();
+    debRecs.forEach(function(r){
+      if (r.out) return;
+      if (flagged.indexOf(r.pessoa) === -1) return;
+      if (GASTO_TIPOS.indexOf(r.tipo) === -1) return;
+      sums[r.pessoa] = (sums[r.pessoa]||0) + (r.valor||0);
     });
     return flagged.filter(function(p){ return sums[p] > 0; }).map(function(p){
       return {tipo:"Ingreso Variable", descricao:"Espelho de compras — "+p, pessoa:p, valor:sums[p], dataSerial:null, dynamic:true};
@@ -2641,6 +2704,133 @@
   }
   $("diarioResetMonth").addEventListener("click", resetDiarioMonthOverride);
 
+  // ---------- Investimentos (also subtracted from the Balance final, like Diário — but with
+  // Gasto-Fijo-style forward inheritance instead of Diário's single global value: a value set
+  // for a given month becomes the base for that month AND every month after it, until a newer
+  // month sets a new base; a one-off "variação" row overrides only its own month without
+  // breaking that chain). Stored as debito rows with tipo "Investimento" — reuses the existing
+  // versioned-value engine, but getDebitoMonthFiltered() excludes this tipo so it never shows up
+  // as a line in the Ingresos/Salidas table or counts toward its ingresos/gastos totals. ----------
+  var INVESTIMENTO_DESCRICAO = "Investimento";
+
+  function investimentoRows(){
+    return state.debito.records.filter(function(r){ return r.tipo === INVESTIMENTO_TIPO; });
+  }
+  function firstDaySerialOfMonth(fm){
+    return dateInputToSerial(fm.year + "-" + String(fm.month).padStart(2,"0") + "-01");
+  }
+  function ymStringToLabel(ymStr){
+    if (!ymStr) return "";
+    var parts = ymStr.split("-");
+    return formatMonthLabel({year: Number(parts[0]), month: Number(parts[1])});
+  }
+  // The forward-inherited BASE value as of (and including) monthStr: the most recent
+  // variacao:false row dated at or before monthStr.
+  function getInvestimentoBaseForMonth(monthStr){
+    var latestYM = null, latestVal = 0;
+    investimentoRows().forEach(function(r){
+      if (r.variacao) return;
+      var ym = serialToYearMonth(r.dataSerial);
+      if (!ym || ym > monthStr) return;
+      if (!latestYM || ym > latestYM){ latestYM = ym; latestVal = r.valor||0; }
+    });
+    return {valor: latestVal, sourceMonth: latestYM};
+  }
+  // The effective value for monthStr: a variação (one-off) row dated exactly at monthStr wins
+  // over the inherited base; otherwise the base applies.
+  function findInvestimentoOverrideForMonth(monthStr){
+    return investimentoRows().filter(function(r){ return r.variacao && serialToYearMonth(r.dataSerial) === monthStr; })[0] || null;
+  }
+  function findInvestimentoBaseRowForMonth(monthStr){
+    return investimentoRows().filter(function(r){ return !r.variacao && serialToYearMonth(r.dataSerial) === monthStr; })[0] || null;
+  }
+  function getInvestimentoAmountForMonth(monthStr){
+    var override = findInvestimentoOverrideForMonth(monthStr);
+    if (override) return override.valor || 0;
+    return getInvestimentoBaseForMonth(monthStr).valor;
+  }
+  // Always resolved against getRefMonth() (the filtered month, or today with "Todos os meses"),
+  // the same convention the Limite page uses — there's no single meaningful value across all
+  // months at once for a forward-inheriting item.
+  function getInvestimentoAmount(){
+    return getInvestimentoAmountForMonth(monthKey(getRefMonth()));
+  }
+
+  function renderInvestimentoPage(){
+    if (!$("investBaseInput")) return;
+    var refFm = getRefMonth();
+    var refKey = monthKey(refFm);
+    var base = getInvestimentoBaseForMonth(refKey);
+    $("investBaseInput").value = base.valor ? String(base.valor).replace(".", ",") : "";
+    $("investBaseLabel").textContent = "Investimento (a partir de " + formatMonthLabel(refFm) + ")";
+    $("investBaseHint").textContent = (base.sourceMonth && base.sourceMonth !== refKey)
+      ? "Herdado desde " + ymStringToLabel(base.sourceMonth) + ". Alterar aqui define um novo valor base a partir deste mês."
+      : "Valor base a partir deste mês (vale também para os meses seguintes, até você definir um novo valor).";
+
+    $("investMonthLabel").textContent = "Investimento de " + formatMonthLabel(refFm);
+    var override = findInvestimentoOverrideForMonth(refKey);
+    var monthInput = $("investMonthInput");
+    if (override){
+      monthInput.value = override.valor ? String(override.valor).replace(".", ",") : "0";
+      $("investResetMonth").style.display = "inline-flex";
+      $("investMonthHint").textContent = "Valor próprio (variação pontual) definido para este mês. \"Restaurar herança\" volta a usar o valor base acima.";
+    } else {
+      monthInput.value = "";
+      $("investResetMonth").style.display = "none";
+      $("investMonthHint").textContent = "Sem variação: este mês usa o valor base acima.";
+    }
+  }
+
+  function saveInvestimentoBaseValue(){
+    var raw = $("investBaseInput").value.trim();
+    var val = raw ? parseAmountInput(raw) : 0;
+    var amount = isFinite(val) ? Math.round(val*100)/100 : 0;
+    var refKey = monthKey(getRefMonth());
+    var existing = findInvestimentoBaseRowForMonth(refKey);
+    if (!existing && amount === 0) return;
+    var rec = {
+      tipo: INVESTIMENTO_TIPO, descricao: INVESTIMENTO_DESCRICAO, pessoa: "",
+      valor: amount, dataSerial: existing ? existing.dataSerial : firstDaySerialOfMonth(getRefMonth()),
+      out: false, variacao: false
+    };
+    var action = existing ? "update" : "insert";
+    var rowNum = existing ? existing.row : null;
+    saveTableRow("debito", action, rowNum, rec).then(loadAndRender).catch(function(err){
+      showError("Não foi possível salvar o investimento: " + err.message);
+    });
+  }
+  $("investBaseInput").addEventListener("change", saveInvestimentoBaseValue);
+
+  function saveInvestimentoMonthOverride(){
+    var raw = $("investMonthInput").value.trim();
+    if (!raw) return; // empty just leaves things as-is; use "Restaurar herança" to clear an override
+    var val = parseAmountInput(raw);
+    var amount = isFinite(val) ? Math.round(val*100)/100 : 0;
+    var refKey = monthKey(getRefMonth());
+    var existing = findInvestimentoOverrideForMonth(refKey);
+    var rec = {
+      tipo: INVESTIMENTO_TIPO, descricao: INVESTIMENTO_DESCRICAO, pessoa: "",
+      valor: amount, dataSerial: existing ? existing.dataSerial : firstDaySerialOfMonth(getRefMonth()),
+      out: false, variacao: true
+    };
+    var action = existing ? "update" : "insert";
+    var rowNum = existing ? existing.row : null;
+    saveTableRow("debito", action, rowNum, rec).then(loadAndRender).catch(function(err){
+      showError("Não foi possível salvar o investimento: " + err.message);
+    });
+  }
+  $("investMonthInput").addEventListener("change", saveInvestimentoMonthOverride);
+
+  function resetInvestimentoMonthOverride(){
+    var refKey = monthKey(getRefMonth());
+    var existing = findInvestimentoOverrideForMonth(refKey);
+    if (!existing) return;
+    saveTableRow("debito", "delete", existing.row, null).then(loadAndRender).catch(function(err){
+      showError("Não foi possível restaurar a herança: " + err.message);
+    });
+  }
+  $("investResetMonth").addEventListener("click", resetInvestimentoMonthOverride);
+
   function loadAndRender(){
     clearError();
     return loadEverything().then(function(result){
@@ -2659,6 +2849,7 @@
       renderAssinaturasPage();
       renderDebitoPage();
       renderDiarioPage();
+      renderInvestimentoPage();
       markLastUpdated();
       if (cfgOverlay.classList.contains("show")) renderCfgLists();
     }).catch(function(err){
@@ -3379,10 +3570,11 @@
     $("cfgTabs").querySelectorAll("button[data-tab]").forEach(function(b){
       b.classList.toggle("active", b.getAttribute("data-tab") === tab);
     });
-    ["pessoas","cartoes","tipos","diario"].forEach(function(t){
+    ["pessoas","cartoes","tipos","diario","investimentos"].forEach(function(t){
       $("cfgPane"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active", t===tab);
     });
     if (tab === "diario") renderDiarioPage();
+    if (tab === "investimentos") renderInvestimentoPage();
   }
   // tab is optional: pass it (e.g. "diario") to jump straight to that tab — used by the
   // "Mais opções" menu's Diário shortcut — otherwise the modal opens on whichever tab was
