@@ -295,6 +295,8 @@
   table.calendar td.past{ color:var(--ink-faint); }
   table.calendar td.last-installment{ box-shadow:inset 0 -2px 0 var(--accent); }
   table.calendar td.over-limit{ color:var(--danger); font-weight:600; }
+  table.calendar td.cell-antecipado{ color:var(--accent); font-weight:600; }
+  table.calendar td.cell-antecipacao{ color:var(--accent); font-weight:600; box-shadow:inset 0 0 0 1px var(--accent); }
   table.calendar tr.totals-row td{
     font-weight:700; background:var(--paper); border-top:2px solid var(--line-strong);
     border-bottom:2px solid var(--line-strong); position:sticky; z-index:2;
@@ -349,15 +351,15 @@
   html.mae-mode .out-check,
   html.mae-mode #btnConfig,
   html.mae-mode #btnMenuDiario,
-  html.mae-mode #btnMenuInvestimentos,
+  html.mae-mode #btnMenuAssinaturas,
   html.mae-mode #btnImportCsv,
   html.mae-mode #pageTabs button[data-page="dashboard"],
   html.mae-mode #pageTabs button[data-page="debito"],
-  html.mae-mode #pageTabs button[data-page="assinaturas"],
+  html.mae-mode #pageTabs button[data-page="investimentos"],
   html.mae-mode #pageTabs button[data-page="limite"],
   html.mae-mode #bottomNav button[data-page="dashboard"],
   html.mae-mode #bottomNav button[data-page="debito"],
-  html.mae-mode #bottomNav button[data-page="assinaturas"],
+  html.mae-mode #bottomNav button[data-page="investimentos"],
   html.mae-mode #bottomNav button[data-page="limite"]{
     display:none !important;
   }
@@ -484,6 +486,16 @@
   .tag-auto{ font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:600; margin-left:8px; }
   .tx-row-inherited{ opacity:.7; font-style:italic; }
   .tx-row-inherited .tx-desc{ font-style:italic; }
+  .tx-row-antecipacao{ background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent); }
+  .tx-row-antecipacao .f-pvalor, .tx-row-antecipacao .f-parcela{ color:var(--accent); font-weight:600; }
+  .antecip-parcelas-list{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; max-height:180px; overflow-y:auto; }
+  .antecip-parcela-chip{
+    display:inline-flex; align-items:center; gap:6px; padding:6px 10px;
+    border:1px solid var(--line); border-radius:8px; font-size:12.5px; cursor:pointer; user-select:none;
+  }
+  .antecip-parcela-chip:has(input:checked){ border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+  .antecip-parcela-chip.disabled{ opacity:.65; cursor:default; }
+  .antecip-parcela-chip input{ margin:0; }
 
   /* ---------- Card-mode row fields ----------
      These f-* classes exist on every list-row cell in every list (Compras, Ingresos/Salidas,
@@ -742,9 +754,9 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5V4.8a1.8 1.8 0 0 1 1.8-1.8h11.4a1 1 0 0 1 1 1v16.5a1 1 0 0 1-1 1H6.3a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M4.5 19.5a1.8 1.8 0 0 1 1.8-1.8H18.7"/></svg>
             Diário
           </button>
-          <button type="button" id="btnMenuInvestimentos">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
-            Investimentos
+          <button type="button" id="btnMenuAssinaturas">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.5l4 4-4 4"/><path d="M3 12.5v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.5l-4-4 4-4"/><path d="M21 11.5v2a4 4 0 0 1-4 4H3"/></svg>
+            Assinaturas
           </button>
           <div class="menu-sep"></div>
           <button type="button" id="btnLogout">
@@ -797,7 +809,7 @@
         <button data-page="calendario" type="button">Calendário</button>
         <button data-page="limite" type="button">Limite</button>
         <button data-page="debito" type="button">Ingresos/Salidas</button>
-        <button data-page="assinaturas" type="button">Assinaturas</button>
+        <button data-page="investimentos" type="button">Investimentos</button>
       </div>
       <div class="month-filter">
         <label>Mês</label>
@@ -850,20 +862,49 @@
       </div>
     </div>
 
-    <div class="page-section" id="pageAssinaturas">
+    <div class="page-section" id="pageInvestimentos">
       <div class="summary" style="grid-template-columns:1fr;">
         <div class="sum-card">
-          <span class="k">Total das assinaturas ativas no período</span>
-          <div class="v num" id="subsTotal">R$ 0,00</div>
+          <span class="k">Total investido até agora</span>
+          <div class="v num" id="investTotalUntilNow">R$ 0,00</div>
+          <button class="btn btn-sm" id="btnTransferirInvestimento" type="button" style="margin-top:10px;">Transferir para Ingresos</button>
         </div>
       </div>
-      <div class="panel">
-        <div class="panel-head"><h2>Assinaturas ativas</h2></div>
-        <div class="tx-scroll">
-        <div class="list-head-row" style="grid-template-columns:1.6fr 0.9fr 1fr 0.9fr 1fr;">
-          <span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor</span><span>Cancelamento</span>
+      <div class="panel" style="box-shadow:none; border:1px solid var(--line);">
+        <div class="panel-head"><h2 id="investBaseLabel">Investimento (a partir de mês)</h2></div>
+        <div class="field" style="padding:0 18px 18px;">
+          <label for="investBaseInput">Valor base, herdado a partir deste mês</label>
+          <div class="amount-wrap">
+            <span class="cur">R$</span>
+            <input type="text" inputmode="decimal" id="investBaseInput" placeholder="0,00">
+          </div>
+          <p class="cfg-hint" id="investBaseHint" style="padding-top:8px;"></p>
         </div>
-        <div class="tx-list" id="subsList"></div>
+      </div>
+      <div class="panel" style="box-shadow:none; border:1px solid var(--line); margin-top:16px;">
+        <div class="panel-head">
+          <h2 id="investMonthLabel">Investimento do mês</h2>
+          <button class="btn btn-sm" id="investResetMonth" type="button" style="display:none;">Restaurar herança</button>
+        </div>
+        <div class="field" style="padding:0 18px 18px;">
+          <label for="investMonthInput">Valor próprio deste mês (variação pontual)</label>
+          <div class="amount-wrap">
+            <span class="cur">R$</span>
+            <input type="text" inputmode="decimal" id="investMonthInput" placeholder="0,00">
+          </div>
+        </div>
+        <p class="cfg-hint" id="investMonthHint" style="padding:0 18px 18px;"></p>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <div class="panel-head"><h2>Investimento por mês</h2></div>
+        <p class="cfg-hint" style="padding:0 18px 14px;">
+          Valor de investimento previsto em cada mês, considerando o valor base e eventuais variações pontuais.
+        </p>
+        <div class="calendar-wrap">
+          <table class="calendar" id="investCalendarTable">
+            <thead><tr id="investCalendarHeadRow"></tr></thead>
+            <tbody id="investCalendarBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1015,8 +1056,8 @@
       <button data-page="debito" type="button" title="Ingresos/Salidas" aria-label="Ingresos/Salidas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h14.5M13.5 3.5l4 4-4 4"/><path d="M21 16.5H6.5M10.5 12.5l-4 4 4 4"/></svg>
       </button>
-      <button data-page="assinaturas" type="button" title="Assinaturas" aria-label="Assinaturas">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.5l4 4-4 4"/><path d="M3 12.5v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.5l-4-4 4-4"/><path d="M21 11.5v2a4 4 0 0 1-4 4H3"/></svg>
+      <button data-page="investimentos" type="button" title="Investimentos" aria-label="Investimentos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
       </button>
     </nav>
   </div>
@@ -1088,9 +1129,67 @@
     </div>
     <div class="modal-foot">
       <button class="btn btn-danger" id="txDelete" type="button" style="display:none;">Excluir</button>
+      <button class="btn" id="txAntecip" type="button" style="display:none;">Anticipar parcelas</button>
       <div style="flex:1;"></div>
       <button class="btn" id="txCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="txSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Anticipar parcelas modal -->
+<div class="overlay" id="antecipOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="antecipModalTitle">Anticipar parcelas</h3>
+      <button class="modal-close" id="antecipClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="cfg-hint" id="antecipHint"></p>
+      <div class="field">
+        <label>Quais parcelas antecipar</label>
+        <div class="antecip-parcelas-list" id="antecipParcelasList"></div>
+      </div>
+      <div class="field">
+        <label for="antecipValor">Valor a pagar agora</label>
+        <div class="amount-wrap">
+          <span class="cur">R$</span>
+          <input type="text" inputmode="decimal" id="antecipValor" placeholder="0,00">
+        </div>
+      </div>
+      <div class="field-error" id="antecipError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="antecipDelete" type="button" style="display:none;">Excluir antecipação</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="antecipCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="antecipSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Transfer invested amount into Ingresos/Salidas (e.g. to help pay part of a credit card bill) -->
+<div class="overlay" id="investTransferOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Transferir para Ingresos</h3>
+      <button class="modal-close" id="investTransferClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="cfg-hint" id="investTransferHint"></p>
+      <div class="field">
+        <label for="investTransferValor">Valor a transferir</label>
+        <div class="amount-wrap">
+          <span class="cur">R$</span>
+          <input type="text" inputmode="decimal" id="investTransferValor" placeholder="0,00">
+        </div>
+      </div>
+      <div class="field-error" id="investTransferError"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="investTransferCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="investTransferSave" type="button">Transferir</button>
     </div>
   </div>
 </div>
@@ -1110,6 +1209,7 @@
           <option value="Ingreso Variable">Ingreso Variable</option>
           <option value="Gasto Fijo">Gasto Fijo</option>
           <option value="Gasto Variable">Gasto Variable</option>
+          <option value="Retirada de Investimento">Retirada de Investimento</option>
         </select>
       </div>
 
@@ -1212,7 +1312,7 @@
         <button data-tab="cartoes" type="button">Cartões</button>
         <button data-tab="tipos" type="button">Tipos</button>
         <button data-tab="diario" type="button">Diário</button>
-        <button data-tab="investimentos" type="button">Investimentos</button>
+        <button data-tab="assinaturas" type="button">Assinaturas</button>
       </div>
 
       <div class="cfg-pane active" id="cfgPanePessoas">
@@ -1278,37 +1378,21 @@
         </div>
       </div>
 
-      <div class="cfg-pane" id="cfgPaneInvestimentos">
-        <p class="cfg-hint">
-          "Investimentos" funciona como o Diário — também é descontado do Balance final na página Dashboard —
-          mas com herança de mês em diante, igual aos Gastos Fijo: o valor base definido abaixo vale a partir
-          deste mês e para todos os meses seguintes, até você definir um novo valor base. Também dá pra definir
-          um valor só para este mês (variação pontual), sem quebrar a herança dos meses seguintes.
-        </p>
-        <div class="panel" style="box-shadow:none; border:1px solid var(--line);">
-          <div class="panel-head"><h2 id="investBaseLabel">Investimento (a partir de mês)</h2></div>
-          <div class="field" style="padding:0 18px 18px;">
-            <label for="investBaseInput">Valor base, herdado a partir deste mês</label>
-            <div class="amount-wrap">
-              <span class="cur">R$</span>
-              <input type="text" inputmode="decimal" id="investBaseInput" placeholder="0,00">
-            </div>
-            <p class="cfg-hint" id="investBaseHint" style="padding-top:8px;"></p>
+      <div class="cfg-pane" id="cfgPaneAssinaturas">
+        <div class="summary" style="grid-template-columns:1fr;">
+          <div class="sum-card">
+            <span class="k">Total das assinaturas ativas no período</span>
+            <div class="v num" id="subsTotal">R$ 0,00</div>
           </div>
         </div>
-        <div class="panel" style="box-shadow:none; border:1px solid var(--line); margin-top:16px;">
-          <div class="panel-head">
-            <h2 id="investMonthLabel">Investimento do mês</h2>
-            <button class="btn btn-sm" id="investResetMonth" type="button" style="display:none;">Restaurar herança</button>
+        <div class="panel" style="box-shadow:none; border:1px solid var(--line);">
+          <div class="panel-head"><h2>Assinaturas ativas</h2></div>
+          <div class="tx-scroll">
+          <div class="list-head-row" style="grid-template-columns:1.6fr 0.9fr 1fr 0.9fr 1fr;">
+            <span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor</span><span>Cancelamento</span>
           </div>
-          <div class="field" style="padding:0 18px 18px;">
-            <label for="investMonthInput">Valor próprio deste mês (variação pontual)</label>
-            <div class="amount-wrap">
-              <span class="cur">R$</span>
-              <input type="text" inputmode="decimal" id="investMonthInput" placeholder="0,00">
-            </div>
+          <div class="tx-list" id="subsList"></div>
           </div>
-          <p class="cfg-hint" id="investMonthHint" style="padding:0 18px 18px;"></p>
         </div>
       </div>
     </div>
@@ -1698,6 +1782,8 @@
         };
       case "diario":
         return { mes: rec.mes, valor: rec.valor };
+      case "antecipacoes":
+        return { compra_id: rec.compraRow, mes: rec.mes, indices: rec.indices, valor: rec.valor };
     }
   }
 
@@ -1724,11 +1810,13 @@
       supabaseClient.from("tipos").select("*").order("nome"),
       supabaseClient.from("compras").select("*"),
       supabaseClient.from("debito").select("*"),
-      supabaseClient.from("diario").select("*")
+      supabaseClient.from("diario").select("*"),
+      supabaseClient.from("antecipacoes").select("*")
     ]).then(function(results){
       results.forEach(throwIfError);
       var pessoasRows = results[0].data||[], cartoesRows = results[1].data||[], tiposRows = results[2].data||[];
       var comprasRows = results[3].data||[], debitoRows = results[4].data||[], diarioRows = results[5].data||[];
+      var antecipacoesRows = results[6].data||[];
 
       var pessoaNameById = {}; pessoasRows.forEach(function(r){ pessoaNameById[r.id] = r.nome; });
       var cartaoNameById = {}; cartoesRows.forEach(function(r){ cartaoNameById[r.id] = r.nome; });
@@ -1769,16 +1857,21 @@
 
       var diario = diarioRows.map(function(r){ return {row:r.id, mes:r.mes, valor: r.valor===null?0:Number(r.valor)}; });
 
+      var antecipacoes = antecipacoesRows.map(function(r){
+        return {row:r.id, compraRow:r.compra_id, mes:r.mes, indices: (r.indices||[]).slice().sort(function(a,b){ return a-b; }), valor: r.valor===null?0:Number(r.valor)};
+      });
+
       return {
         fileName: currentUserEmail || "",
         pessoas:{records:pessoas}, cartoes:{records:cartoes}, tipos:{records:tipos},
-        compras:{records:compras}, debito:{records:debito}, diario:{records:diario}
+        compras:{records:compras}, debito:{records:debito}, diario:{records:diario},
+        antecipacoes:{records:antecipacoes}
       };
     });
   }
 
   // ---------- App state ----------
-  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]} };
+  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]} };
 
   function showError(msg){
     var b = $("errorBanner");
@@ -1903,12 +1996,80 @@
     return day >= fechamento ? addMonths(ym, 1) : ym;
   }
 
+  // ---------- Antecipação de parcelas ----------
+  // A purchase with installments left can have some of its still-unbilled future installments
+  // "anticipated": paid off now, as one lump sum, instead of waiting for their normal months. The
+  // installments an antecipação covers never bill again in any later month; the antecipação
+  // itself is a line in the month it was registered. Multiple antecipações on the same purchase,
+  // over time, stack in order — each one covers the next not-yet-anticipated installments,
+  // continuing right after wherever the previous one (or the normal schedule) left off.
+  function parseYmString(ymStr){
+    var parts = String(ymStr).split("-");
+    return {year: Number(parts[0]), month: Number(parts[1])};
+  }
+  function getAntecipacoesForCompra(compraRow, excludeRow){
+    return state.antecipacoes.records
+      .filter(function(a){ return a.compraRow === compraRow && a.row !== excludeRow; })
+      .sort(function(a,b){ return a.mes < b.mes ? -1 : (a.mes > b.mes ? 1 : 0); });
+  }
+  // Map of installment number -> the antecipação record that covers it (already paid off).
+  // excludeRow lets the edit modal compute "what's available if this one didn't exist yet".
+  function getAntecipatedIndexMap(r, excludeRow){
+    var map = {};
+    getAntecipacoesForCompra(r.row, excludeRow).forEach(function(a){
+      (a.indices||[]).forEach(function(idx){ map[idx] = a; });
+    });
+    return map;
+  }
+  // Which specific installment numbers are still available to anticipate as of the reference
+  // month (today, or the filtered month) — every not-yet-anticipated FUTURE installment (this
+  // month's own installment is already due normally, so it's excluded — anticipating it wouldn't
+  // mean anything). Any subset of these future ones can be picked, not just a contiguous run.
+  function getAntecipacaoAvailability(r, excludeRow){
+    var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+    var total = r.parcelas || 1;
+    var idx = monthsBetween(startYM, getRefMonth()) + 1;
+    var currentIdx = Math.max(idx, 1);
+    var firstFutureIdx = currentIdx + 1;
+    var skippedMap = getAntecipatedIndexMap(r, excludeRow);
+    var available = [];
+    for (var i=firstFutureIdx; i<=total; i++){ if (!skippedMap[i]) available.push(i); }
+    return {available: available, total: total, currentIdx: currentIdx};
+  }
+  // Returns 0, 1 or 2 schedule entries for purchase r in month ym ({year,month}):
+  //  - a "normal" entry, unless this month's natural installment was anticipated away earlier
+  //  - an "antecipacao" entry if an antecipação lump sum was registered exactly in this month
+  function getCompraScheduleForMonth(r, ym){
+    if (!r.dataSerial) return [];
+    var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+    var total = r.parcelas || 1;
+    var idx = monthsBetween(startYM, ym) + 1;
+    var skippedMap = getAntecipatedIndexMap(r);
+    var entries = [];
+    if (idx >= 1 && idx <= total && !skippedMap[idx]){
+      entries.push({effectiveValor:(r.valorTotal||0)/total, parcelaAtual: idx, parcelaTotal: total, antecipacao:null});
+    }
+    var ymKey = monthKey(ym);
+    getAntecipacoesForCompra(r.row).forEach(function(a){
+      if (a.mes === ymKey){
+        var indices = (a.indices||[]).slice();
+        entries.push({
+          effectiveValor: a.valor||0, parcelaAtual: null, parcelaTotal: total,
+          antecipacao: {indices: indices, count: indices.length, row: a.row}
+        });
+      }
+    });
+    return entries;
+  }
+
   // Returns compras records "active" for the selected month, each decorated with:
   //  - effectiveValor: the amount that counts for that month (parcela value when a month is
   //    selected; the full purchase value when viewing "Todos os meses")
   //  - parcelaAtual / parcelaTotal: current installment number / total installments (parcelaAtual
   //    is null when no specific month is selected)
-  // When no month is selected, every purchase is returned once (a lifetime view).
+  //  - antecipacao: set only on the synthetic "lump sum" entry an antecipação creates
+  // When no month is selected, every purchase is returned once (a lifetime view) — antecipações
+  // don't change the lifetime total, so they're not separately listed there.
   function getMonthFilteredRecords(){
     var recs = state.compras.records;
     if (!filterMonth){
@@ -1917,21 +2078,20 @@
         out.effectiveValor = r.valorTotal||0;
         out.parcelaAtual = null;
         out.parcelaTotal = r.parcelas||1;
+        out.antecipacao = null;
         return out;
       });
     }
     var out = [];
     recs.forEach(function(r){
-      if (!r.dataSerial) return;
-      var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
-      var total = r.parcelas || 1;
-      var idx = monthsBetween(startYM, filterMonth) + 1;
-      if (idx < 1 || idx > total) return;
-      var rec = {}; for (var k in r) rec[k] = r[k];
-      rec.effectiveValor = (r.valorTotal||0) / total;
-      rec.parcelaAtual = idx;
-      rec.parcelaTotal = total;
-      out.push(rec);
+      getCompraScheduleForMonth(r, filterMonth).forEach(function(e){
+        var rec = {}; for (var k in r) rec[k] = r[k];
+        rec.effectiveValor = e.effectiveValor;
+        rec.parcelaAtual = e.parcelaAtual;
+        rec.parcelaTotal = e.parcelaTotal;
+        rec.antecipacao = e.antecipacao;
+        out.push(rec);
+      });
     });
     return out;
   }
@@ -1990,17 +2150,19 @@
     }
     filtered.forEach(function(r){
       var row = document.createElement("div");
-      row.className = "tx-row";
+      row.className = "tx-row" + (r.antecipacao ? " tx-row-antecipacao" : "");
       row.tabIndex = 0;
       row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr";
       var badgeClass = r.tipo === "Estorno" ? "estorno" : (isAssinaturaTipo(r.tipo) ? "assinatura" : "");
-      var parcelaLabel = (r.parcelaAtual === null)
-        ? (r.parcelaTotal||1) + "x"
-        : (r.parcelaAtual < 1 ? "futura" : (r.parcelaAtual > r.parcelaTotal ? "concluída" : r.parcelaAtual + "/" + r.parcelaTotal));
+      var parcelaLabel = r.antecipacao
+        ? ("antecip. " + r.antecipacao.count + "x")
+        : (r.parcelaAtual === null)
+          ? (r.parcelaTotal||1) + "x"
+          : (r.parcelaAtual < 1 ? "futura" : (r.parcelaAtual > r.parcelaTotal ? "concluída" : r.parcelaAtual + "/" + r.parcelaTotal));
       row.innerHTML =
         '<input type="checkbox" class="row-select f-select" '+(selectedCompras.has(r.row)?"checked":"")+'>'+
         '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
-        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'</span>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+(r.antecipacao?'<span class="tag-auto">antecipação</span>':'')+'</span>'+
         '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
         '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartao)+'</span>'+
         '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
@@ -2026,7 +2188,10 @@
           showError("Não foi possível salvar: " + err.message);
         });
       });
-      row.addEventListener("click", function(){ openEditModal(r); });
+      row.addEventListener("click", function(){
+        if (r.antecipacao) openAntecipModalForExisting(r.antecipacao.row);
+        else openEditModal(r);
+      });
       listEl.appendChild(row);
     });
 
@@ -2127,8 +2292,7 @@
     var colTotals = columns.map(function(){ return 0; });
     decorated.forEach(function(d){
       columns.forEach(function(ym, idx){
-        var offset = monthsBetween(d.startYM, ym);
-        if (offset >= 0 && offset < d.total) colTotals[idx] += d.parcelaValor;
+        getCompraScheduleForMonth(d.rec, ym).forEach(function(e){ colTotals[idx] += e.effectiveValor; });
       });
     });
 
@@ -2157,7 +2321,19 @@
           bodyHtml += '<td class="'+classes.join(" ")+'">·</td>';
         } else {
           if (offset === d.total-1) classes.push("last-installment");
-          bodyHtml += '<td class="'+classes.join(" ")+'">'+fmtBRL(d.parcelaValor)+'</td>';
+          var entries = getCompraScheduleForMonth(d.rec, ym);
+          if (!entries.length){
+            // This installment's number fell in range, but it was already paid off earlier
+            // via antecipação — nothing is due this month.
+            classes.push("empty-cell", "cell-antecipado");
+            bodyHtml += '<td class="'+classes.join(" ")+'" title="Parcela antecipada">✓</td>';
+          } else {
+            var cellValue = 0, hasAntecipacao = false;
+            entries.forEach(function(e){ cellValue += e.effectiveValor; if (e.antecipacao) hasAntecipacao = true; });
+            if (hasAntecipacao) classes.push("cell-antecipacao");
+            var title = hasAntecipacao ? ' title="Inclui antecipação de parcelas"' : "";
+            bodyHtml += '<td class="'+classes.join(" ")+'"'+title+'>'+fmtBRL(cellValue)+'</td>';
+          }
         }
       });
       bodyHtml += '</tr>';
@@ -2211,7 +2387,14 @@
       if (remainingCount <= 0) return;
       if (remainingCount > total) remainingCount = total;
       var parcelaValor = (r.valorTotal||0) / total;
-      usage[r.cartao] = (usage[r.cartao]||0) + remainingCount * parcelaValor;
+      // Anticipated installments were already paid off earlier — they no longer tie up any of
+      // the card's future limit, so they're excluded from the remaining sum below.
+      var skippedMap = getAntecipatedIndexMap(r);
+      var remainingSum = 0;
+      for (var i = firstRemainingIdx; i <= total; i++){
+        if (!skippedMap[i]) remainingSum += parcelaValor;
+      }
+      usage[r.cartao] = (usage[r.cartao]||0) + remainingSum;
     });
     return usage;
   }
@@ -2429,7 +2612,8 @@
 
   // ---------- Ingresos/Salidas (Debito sheet — same file as everything else) ----------
   var FIJO_TIPOS = ["Ingreso Fijo", "Gasto Fijo"];
-  var INGRESO_TIPOS = ["Ingreso Fijo", "Ingreso Variable"];
+  var RETIRADA_INVESTIMENTO_TIPO = "Retirada de Investimento";
+  var INGRESO_TIPOS = ["Ingreso Fijo", "Ingreso Variable", RETIRADA_INVESTIMENTO_TIPO];
   var GASTO_TIPOS = ["Gasto Fijo", "Gasto Variable"];
   var INVESTIMENTO_TIPO = "Investimento";
 
@@ -2754,6 +2938,55 @@
     if (override) return override.valor || 0;
     return getInvestimentoBaseForMonth(monthStr).valor;
   }
+  // Sum of the effective monthly value from the earliest recorded investimento month through
+  // (and including) uptoMonthStr — never beyond it, since a future month's planned value hasn't
+  // actually been invested yet, only scheduled.
+  function getInvestimentoContribuicoesUntilMonth(uptoMonthStr){
+    var earliestYM = null;
+    investimentoRows().forEach(function(r){
+      var ym = serialToYearMonth(r.dataSerial);
+      if (!ym) return;
+      if (!earliestYM || ym < earliestYM) earliestYM = ym;
+    });
+    if (!earliestYM || earliestYM > uptoMonthStr) return 0;
+    var cursor = parseYmString(earliestYM);
+    var upto = parseYmString(uptoMonthStr);
+    var total = 0;
+    var guard = 0;
+    while (monthKey(cursor) <= monthKey(upto) && guard < 1200){
+      total += getInvestimentoAmountForMonth(monthKey(cursor));
+      cursor = addMonths(cursor, 1);
+      guard++;
+    }
+    return total;
+  }
+  // Money already transferred out of the invested pool into Ingresos (e.g. to help pay a bill),
+  // summed through (and including) uptoMonthStr — these permanently reduce the accumulated total.
+  function getInvestimentoRetiradasUntilMonth(uptoMonthStr){
+    var total = 0;
+    state.debito.records.forEach(function(r){
+      if (r.tipo !== RETIRADA_INVESTIMENTO_TIPO) return;
+      var ym = serialToYearMonth(r.dataSerial);
+      if (!ym || ym > uptoMonthStr) return;
+      total += r.valor || 0;
+    });
+    return total;
+  }
+  // Money withdrawn in exactly monthStr (not cumulative) — used to flag that month's column in
+  // the Investimento-por-mês table.
+  function getInvestimentoRetiradaForMonth(monthStr){
+    var total = 0;
+    state.debito.records.forEach(function(r){
+      if (r.tipo !== RETIRADA_INVESTIMENTO_TIPO) return;
+      if (serialToYearMonth(r.dataSerial) === monthStr) total += r.valor || 0;
+    });
+    return total;
+  }
+  // Accumulated invested balance as of uptoMonthStr: everything contributed minus everything
+  // already transferred out.
+  function getInvestimentoTotalUntilMonth(uptoMonthStr){
+    return getInvestimentoContribuicoesUntilMonth(uptoMonthStr) - getInvestimentoRetiradasUntilMonth(uptoMonthStr);
+  }
   // Always resolved against getRefMonth() (the filtered month, or today with "Todos os meses"),
   // the same convention the Limite page uses — there's no single meaningful value across all
   // months at once for a forward-inheriting item.
@@ -2765,6 +2998,7 @@
     if (!$("investBaseInput")) return;
     var refFm = getRefMonth();
     var refKey = monthKey(refFm);
+    $("investTotalUntilNow").textContent = fmtBRL(getInvestimentoTotalUntilMonth(refKey));
     var base = getInvestimentoBaseForMonth(refKey);
     $("investBaseInput").value = base.valor ? String(base.valor).replace(".", ",") : "";
     $("investBaseLabel").textContent = "Investimento (a partir de " + formatMonthLabel(refFm) + ")";
@@ -2784,6 +3018,57 @@
       $("investResetMonth").style.display = "none";
       $("investMonthHint").textContent = "Sem variação: este mês usa o valor base acima.";
     }
+    renderInvestimentoTable();
+  }
+
+  // Same visual pattern as the Limite calendar: a fixed window of months around the ref
+  // month, one row, showing the effective (base + variação) investimento value per month.
+  function renderInvestimentoTable(){
+    if (!$("investCalendarBody")) return;
+    var refYM = getRefMonth();
+    var windowStart = addMonths(refYM, -1);
+    var totalCols = 12;
+    var columns = [];
+    for (var i=0;i<totalCols;i++) columns.push(addMonths(windowStart, i));
+
+    var headHtml = '<th>Investimento</th>';
+    columns.forEach(function(ym){
+      var isRef = (ym.year===refYM.year && ym.month===refYM.month);
+      headHtml += '<th class="'+(isRef?"current-month":"")+'">'+MONTH_ABBR_PT[ym.month-1]+"/"+String(ym.year).slice(2)+'</th>';
+    });
+    $("investCalendarHeadRow").innerHTML = headHtml;
+
+    var bodyHtml = '<tr><td>Valor</td>';
+    columns.forEach(function(ym){
+      var val = getInvestimentoAmountForMonth(monthKey(ym));
+      var isRef = (ym.year===refYM.year && ym.month===refYM.month);
+      var classes = [];
+      if (isRef) classes.push("current-month");
+      else if (monthsBetween(ym, refYM) > 0) classes.push("past");
+      bodyHtml += '<td class="'+classes.join(" ")+'">'+fmtBRL(val)+'</td>';
+    });
+    bodyHtml += '</tr>';
+    bodyHtml += '<tr><td>Retirado</td>';
+    columns.forEach(function(ym){
+      var retirado = getInvestimentoRetiradaForMonth(monthKey(ym));
+      var isRef = (ym.year===refYM.year && ym.month===refYM.month);
+      var classes = [];
+      if (isRef) classes.push("current-month");
+      else if (monthsBetween(ym, refYM) > 0) classes.push("past");
+      bodyHtml += '<td class="'+classes.join(" ")+'">'+(retirado ? fmtBRL(retirado) : "—")+'</td>';
+    });
+    bodyHtml += '</tr>';
+    bodyHtml += '<tr><td>Total investido</td>';
+    columns.forEach(function(ym){
+      var totalAte = getInvestimentoTotalUntilMonth(monthKey(ym));
+      var isRef = (ym.year===refYM.year && ym.month===refYM.month);
+      var classes = [];
+      if (isRef) classes.push("current-month");
+      else if (monthsBetween(ym, refYM) > 0) classes.push("past");
+      bodyHtml += '<td class="'+classes.join(" ")+'">'+fmtBRL(totalAte)+'</td>';
+    });
+    bodyHtml += '</tr>';
+    $("investCalendarBody").innerHTML = bodyHtml;
   }
 
   function saveInvestimentoBaseValue(){
@@ -2836,6 +3121,49 @@
   }
   $("investResetMonth").addEventListener("click", resetInvestimentoMonthOverride);
 
+  // ---------- Transfer invested amount into Ingresos ----------
+  var investTransferOverlay = $("investTransferOverlay");
+  function closeInvestTransferModal(){ investTransferOverlay.classList.remove("show"); }
+  function openInvestTransferModal(){
+    var refFm = getRefMonth();
+    var available = getInvestimentoTotalUntilMonth(monthKey(refFm));
+    $("investTransferHint").textContent = "Disponível para transferir (investido até "+formatMonthLabel(refFm)+"): "+fmtBRL(available)+
+      ". O valor vira um Ingresso em "+formatMonthLabel(refFm)+" e sai do total investido.";
+    $("investTransferValor").value = "";
+    $("investTransferError").style.display = "none";
+    investTransferOverlay.classList.add("show");
+  }
+  $("btnTransferirInvestimento").addEventListener("click", openInvestTransferModal);
+  $("investTransferClose").addEventListener("click", closeInvestTransferModal);
+  $("investTransferCancel").addEventListener("click", closeInvestTransferModal);
+  investTransferOverlay.addEventListener("click", function(e){ if (e.target===investTransferOverlay) closeInvestTransferModal(); });
+  $("investTransferSave").addEventListener("click", function(){
+    var errEl = $("investTransferError");
+    var raw = $("investTransferValor").value.trim();
+    var val = raw ? parseAmountInput(raw) : NaN;
+    var amount = isFinite(val) ? Math.round(val*100)/100 : NaN;
+    var refFm = getRefMonth();
+    var refKey = monthKey(refFm);
+    var available = getInvestimentoTotalUntilMonth(refKey);
+    if (!isFinite(amount) || amount <= 0){
+      errEl.textContent = "Informe um valor válido maior que zero."; errEl.style.display = "block"; return;
+    }
+    if (amount > available + 0.001){
+      errEl.textContent = "Valor maior do que o total investido disponível ("+fmtBRL(available)+")."; errEl.style.display = "block"; return;
+    }
+    errEl.style.display = "none";
+    var rec = {
+      tipo: RETIRADA_INVESTIMENTO_TIPO, descricao: "Retirada de investimento", pessoa: "",
+      valor: amount, dataSerial: firstDaySerialOfMonth(refFm), out: false, variacao: false
+    };
+    saveTableRow("debito", "insert", null, rec).then(function(){
+      closeInvestTransferModal();
+      return loadAndRender();
+    }).catch(function(err){
+      errEl.textContent = "Não foi possível transferir: " + err.message; errEl.style.display = "block";
+    });
+  });
+
   function loadAndRender(){
     clearError();
     return loadEverything().then(function(result){
@@ -2845,6 +3173,7 @@
       state.cartoes = result.cartoes;
       state.debito = result.debito;
       state.diario = result.diario;
+      state.antecipacoes = result.antecipacoes;
       setConnectedUI(true, result.fileName);
       refreshDropdowns();
       renderList();
@@ -2982,7 +3311,7 @@
   // Two navs point at the same pages: #pageTabs (text, top — desktop/tablet) and #bottomNav
   // (icon-only, fixed to the bottom — phones, like a native app's tab bar). Both are kept in
   // sync from one place so either one can drive page switching.
-  var PAGE_IDS = {dashboard:"pageDashboard", tabela:"pageTabela", calendario:"pageCalendario", limite:"pageLimite", assinaturas:"pageAssinaturas", debito:"pageDebito"};
+  var PAGE_IDS = {dashboard:"pageDashboard", tabela:"pageTabela", calendario:"pageCalendario", limite:"pageLimite", investimentos:"pageInvestimentos", debito:"pageDebito"};
   function setActivePage(page){
     document.querySelectorAll('#pageTabs button[data-page], #bottomNav button[data-page]').forEach(function(b){
       b.classList.toggle("active", b.getAttribute("data-page") === page);
@@ -2992,7 +3321,7 @@
     else if (page === "tabela") renderList();
     else if (page === "calendario") renderCalendarioPage();
     else if (page === "limite") renderLimitePage();
-    else if (page === "assinaturas") renderAssinaturasPage();
+    else if (page === "investimentos") renderInvestimentoPage();
     else if (page === "debito") renderDebitoPage();
   }
   ["pageTabs", "bottomNav"].forEach(function(navId){
@@ -3009,6 +3338,7 @@
   var txOverlay = $("txOverlay");
   var editingRow = null;
   var editingRowOut = 0;
+  var editingRowRec = null;
 
   function updateCancelacaoVisibility(){
     var show = isAssinaturaTipo($("fTipoSel").value);
@@ -3020,8 +3350,10 @@
   function openAddModal(){
     editingRow = null;
     editingRowOut = 0;
+    editingRowRec = null;
     $("txModalTitle").textContent = "Nova compra";
     $("txDelete").style.display = "none";
+    $("txAntecip").style.display = "none";
     $("txError").style.display = "none";
     $("fDescricao").value = "";
     $("fComerciante").value = "";
@@ -3043,8 +3375,11 @@
     if (READONLY_MAE) return; // this view is read-only: no edit modal
     editingRow = r.row;
     editingRowOut = r.out || 0;
+    editingRowRec = r;
     $("txModalTitle").textContent = "Editar compra";
     $("txDelete").style.display = "inline-flex";
+    var avail = getAntecipacaoAvailability(r);
+    $("txAntecip").style.display = ((r.parcelas||1) > 1 && avail.available.length >= 1) ? "inline-flex" : "none";
     $("txError").style.display = "none";
     $("fDescricao").value = r.descricao;
     $("fComerciante").value = r.comerciante || "";
@@ -3122,6 +3457,120 @@
     $("confirmOverlay").classList.add("show");
   });
 
+  // ---------- Anticipar parcelas ----------
+  var antecipOverlay = $("antecipOverlay");
+  var antecipCompraRow = null;
+  var antecipEditingRow = null;
+  var antecipParcelaValorCache = 0;
+  function closeAntecipModal(){ antecipOverlay.classList.remove("show"); }
+  // Renders one checkbox chip per candidate installment number, so the user can pick exactly
+  // which ones to anticipate — not necessarily a contiguous run.
+  function buildAntecipParcelasChips(candidates, parcelaValor, checkedIndices, disabled){
+    var checkedSet = {}; (checkedIndices||[]).forEach(function(i){ checkedSet[i] = true; });
+    var html = "";
+    candidates.forEach(function(idx){
+      html += '<label class="antecip-parcela-chip'+(disabled?' disabled':'')+'">' +
+        '<input type="checkbox" value="'+idx+'" '+(checkedSet[idx]?"checked":"")+(disabled?" disabled":"")+'> ' +
+        'Parcela '+idx+' — '+fmtBRL(parcelaValor) +
+        '</label>';
+    });
+    $("antecipParcelasList").innerHTML = html;
+  }
+  function getSelectedAntecipIndices(){
+    return Array.prototype.slice.call($("antecipParcelasList").querySelectorAll('input[type=checkbox]:checked'))
+      .map(function(el){ return parseInt(el.value,10); });
+  }
+  function recomputeAntecipValorSuggestion(){
+    var indices = getSelectedAntecipIndices();
+    var total = Math.round(indices.length * antecipParcelaValorCache * 100) / 100;
+    $("antecipValor").value = String(total).replace(".", ",");
+  }
+  $("antecipParcelasList").addEventListener("change", function(){
+    if (!antecipEditingRow) recomputeAntecipValorSuggestion();
+  });
+  function openAntecipModalForCompra(r){
+    if (READONLY_MAE) return;
+    var avail = getAntecipacaoAvailability(r);
+    if (!avail.available.length) return;
+    antecipCompraRow = r.row;
+    antecipEditingRow = null;
+    var parcelaValor = (r.valorTotal||0) / avail.total;
+    antecipParcelaValorCache = parcelaValor;
+    $("antecipModalTitle").textContent = "Anticipar parcelas — " + r.descricao;
+    $("antecipHint").textContent = "Escolha quais parcelas quer anticipar. O valor abaixo será cobrado em " + formatMonthLabel(getRefMonth()) + ".";
+    buildAntecipParcelasChips(avail.available, parcelaValor, avail.available, false);
+    recomputeAntecipValorSuggestion();
+    $("antecipDelete").style.display = "none";
+    $("antecipError").style.display = "none";
+    antecipOverlay.classList.add("show");
+  }
+  function openAntecipModalForExisting(antecipRow){
+    if (READONLY_MAE) return;
+    var a = state.antecipacoes.records.filter(function(x){ return x.row === antecipRow; })[0];
+    if (!a) return;
+    var compraRec = state.compras.records.filter(function(c){ return c.row === a.compraRow; })[0];
+    antecipCompraRow = a.compraRow;
+    antecipEditingRow = a.row;
+    var total = compraRec ? (compraRec.parcelas||1) : 1;
+    var parcelaValor = compraRec ? (compraRec.valorTotal||0)/total : 0;
+    var indices = (a.indices||[]).slice().sort(function(x,y){ return x-y; });
+    $("antecipModalTitle").textContent = "Editar antecipação" + (compraRec ? (" — " + compraRec.descricao) : "");
+    $("antecipHint").textContent = "Antecipação registrada em " + ymStringToLabel(a.mes) +
+      ". Para mudar quais parcelas, exclua e crie uma nova.";
+    buildAntecipParcelasChips(indices, parcelaValor, indices, true);
+    $("antecipValor").value = String(a.valor).replace(".", ",");
+    $("antecipDelete").style.display = "inline-flex";
+    $("antecipError").style.display = "none";
+    antecipOverlay.classList.add("show");
+  }
+  $("txAntecip").addEventListener("click", function(){
+    if (!editingRowRec) return;
+    closeTxModal();
+    openAntecipModalForCompra(editingRowRec);
+  });
+  $("antecipClose").addEventListener("click", closeAntecipModal);
+  $("antecipCancel").addEventListener("click", closeAntecipModal);
+  antecipOverlay.addEventListener("click", function(e){ if (e.target===antecipOverlay) closeAntecipModal(); });
+  $("antecipSave").addEventListener("click", function(){
+    var errEl = $("antecipError");
+    var existing = antecipEditingRow ? state.antecipacoes.records.filter(function(x){ return x.row===antecipEditingRow; })[0] : null;
+    var indices = antecipEditingRow ? ((existing && existing.indices) || []) : getSelectedAntecipIndices();
+    var valor = parseAmountInput($("antecipValor").value);
+    if (!indices.length){
+      errEl.textContent = "Selecione ao menos uma parcela.";
+      errEl.style.display = "block";
+      return;
+    }
+    if (!isFinite(valor) || valor <= 0){
+      errEl.textContent = "Informe um valor válido maior que zero.";
+      errEl.style.display = "block";
+      return;
+    }
+    errEl.style.display = "none";
+    var rec = {
+      compraRow: antecipCompraRow,
+      mes: monthKey(getRefMonth()),
+      indices: indices,
+      valor: Math.round(valor*100)/100
+    };
+    var action = antecipEditingRow ? "update" : "insert";
+    var rowNum = antecipEditingRow;
+    saveTableRow("antecipacoes", action, rowNum, rec).then(function(){
+      closeAntecipModal();
+      return loadAndRender();
+    }).catch(function(err){
+      errEl.textContent = "Não foi possível salvar: " + err.message;
+      errEl.style.display = "block";
+    });
+  });
+  $("antecipDelete").addEventListener("click", function(){
+    if (!antecipEditingRow) return;
+    pendingDelete = {tableKey:"antecipacoes", rowNum: antecipEditingRow};
+    closeAntecipModal();
+    $("confirmTitle").textContent = "Excluir antecipação";
+    $("confirmOverlay").classList.add("show");
+  });
+
   // ---------- Confirm delete (shared by Compras and Débito) ----------
   var confirmOverlay = $("confirmOverlay");
   function closeConfirm(){ confirmOverlay.classList.remove("show"); }
@@ -3145,6 +3594,8 @@
       pendingDelete = null;
       editingRow = null;
       editingDebRow = null;
+      antecipEditingRow = null;
+      antecipCompraRow = null;
       if (pd.tableKey === "compras") selectedCompras.clear();
       if (pd.tableKey === "debito") selectedDebito.clear();
       return loadAndRender();
@@ -3575,11 +4026,11 @@
     $("cfgTabs").querySelectorAll("button[data-tab]").forEach(function(b){
       b.classList.toggle("active", b.getAttribute("data-tab") === tab);
     });
-    ["pessoas","cartoes","tipos","diario","investimentos"].forEach(function(t){
+    ["pessoas","cartoes","tipos","diario","assinaturas"].forEach(function(t){
       $("cfgPane"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active", t===tab);
     });
     if (tab === "diario") renderDiarioPage();
-    if (tab === "investimentos") renderInvestimentoPage();
+    if (tab === "assinaturas") renderAssinaturasPage();
   }
   // tab is optional: pass it (e.g. "diario") to jump straight to that tab — used by the
   // "Mais opções" menu's Diário shortcut — otherwise the modal opens on whichever tab was
@@ -3592,7 +4043,7 @@
   function closeCfgModal(){ cfgOverlay.classList.remove("show"); }
   $("btnConfig").addEventListener("click", function(){ openCfgModal(); });
   $("btnMenuDiario").addEventListener("click", function(){ openCfgModal("diario"); });
-  $("btnMenuInvestimentos").addEventListener("click", function(){ openCfgModal("investimentos"); });
+  $("btnMenuAssinaturas").addEventListener("click", function(){ openCfgModal("assinaturas"); });
   $("cfgClose").addEventListener("click", closeCfgModal);
   $("cfgDone").addEventListener("click", closeCfgModal);
   cfgOverlay.addEventListener("click", function(e){ if (e.target===cfgOverlay) closeCfgModal(); });
