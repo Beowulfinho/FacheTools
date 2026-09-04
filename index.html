@@ -567,6 +567,17 @@
   .import-fields .csel-label{ font-size:12.5px; }
   .import-row-invalid .import-fields input, .import-row-invalid .import-fields select, .import-row-invalid .import-fields .csel-trigger{ border-color:var(--danger); }
 
+  .import-reconcile{ border-radius:10px; padding:12px 16px; margin:14px 0; border:1px solid var(--line); background:var(--paper-raised); }
+  .import-reconcile.ok{ border-color:var(--accent); background:var(--accent-soft); }
+  .import-reconcile.warn{ border-color:var(--warn); background:var(--warn-soft); }
+  .import-reconcile .rec-totals{ display:flex; flex-wrap:wrap; gap:4px 18px; font-size:13px; }
+  .import-reconcile .rec-totals .num{ font-family:"IBM Plex Mono",monospace; font-weight:600; }
+  .import-reconcile .rec-msg{ font-size:12.5px; margin-top:6px; color:var(--ink-soft); }
+  .import-reconcile .rec-flagged{ margin-top:10px; border-top:1px solid var(--line); padding-top:10px; }
+  .import-reconcile .rec-flagged-item{ font-size:12.5px; padding:5px 0; border-bottom:1px dashed var(--line); }
+  .import-reconcile .rec-flagged-item:last-child{ border-bottom:none; }
+  .import-reconcile .rec-flagged-item .name{ font-weight:600; }
+
   .footer-note{ margin-top:24px; text-align:center; font-size:12px; color:var(--ink-faint); }
 
   /* ---------- Config modal ---------- */
@@ -1146,6 +1157,7 @@
         <label for="importCartaoSel">Cartão da fatura <span class="opt">(aplicado a todos os registros importados)</span></label>
         <select id="importCartaoSel"></select>
       </div>
+      <div id="importReconcile" style="display:none;"></div>
       <p class="cfg-hint" id="importSummary"></p>
       <div class="field-error" id="importError"></div>
       <div class="import-list" id="importList"></div>
@@ -2970,6 +2982,7 @@
   // ---------- Importar fatura (CSV) ----------
   var importOverlay = $("importOverlay");
   var importCandidates = [];
+  var importCsvRowsRaw = [];
 
   $("btnImportCsv").addEventListener("click", function(){
     $("csvFileInput").value = "";
@@ -2986,8 +2999,11 @@
         return;
       }
       importCandidates = buildImportCandidates(parsed.rows, state.compras.records);
+      importCsvRowsRaw = parsed.rows;
       populateSelect($("importCartaoSel"), nomes("cartoes"), "Selecione um cartão", false);
+      $("importCartaoSel").value = "";
       renderImportPreview();
+      renderImportReconcile();
       importOverlay.classList.add("show");
     };
     reader.onerror = function(){ showError("Não foi possível ler o arquivo."); };
@@ -3071,6 +3087,108 @@
     listEl.innerHTML = html;
     enhanceAllSelects(listEl);
   }
+
+  function getMostCommonYM(list){
+    var counts = {}, best = null, bestCount = 0;
+    list.forEach(function(ym){
+      var key = ym.year + "-" + ym.month;
+      counts[key] = (counts[key]||0) + 1;
+      if (counts[key] > bestCount){ bestCount = counts[key]; best = ym; }
+    });
+    return best;
+  }
+
+  // Compares the fatura being imported against what the app already has for the chosen card in
+  // that same month. This isn't about the rows being imported (those are handled row-by-row above)
+  // — it catches the case where the app's *existing* total for that card/month doesn't match the
+  // real statement at all, usually because some compra already in the app is on the wrong card,
+  // wrong date, or duplicated. Matches each existing app compra against an unclaimed CSV row by
+  // comerciante + (near-)equal amount; whatever's left unmatched on the app side is flagged.
+  function renderImportReconcile(){
+    var el = $("importReconcile");
+    var cartaoNome = $("importCartaoSel").value;
+    if (!cartaoNome || !importCsvRowsRaw.length){
+      el.style.display = "none";
+      el.innerHTML = "";
+      return;
+    }
+
+    var positiveRows = [];
+    importCsvRowsRaw.forEach(function(row){
+      if (row.dateSerial === null || row.dateSerial === undefined || !isFinite(row.amount) || row.amount < 0) return;
+      var titleNoSuffix = stripKnownTitleSuffixes(row.title);
+      var parsed = parseParcelaSuffix(titleNoSuffix);
+      var base = parsed ? parsed.base : titleNoSuffix;
+      positiveRows.push({comerciante: normalizeMerchantKey(base), amount: row.amount, dateSerial: row.dateSerial});
+    });
+    if (!positiveRows.length){
+      el.style.display = "none";
+      el.innerHTML = "";
+      return;
+    }
+
+    // The whole CSV is one already-closed Nubank statement, so its total (every positive row,
+    // regardless of which side of the card's configured "fechamento" day each one individually
+    // lands on) is what the bank itself shows as the invoice total — that's what we compare
+    // against the app, not a month-bucketed subset of it. The per-row fatura month is only used
+    // to pick which month of app data to line up against (by majority vote across the rows).
+    var targetYM = getMostCommonYM(positiveRows.map(function(r){ return getFaturaStartYM(r.dateSerial, cartaoNome); }));
+    var csvTotal = 0;
+    var pool = [];
+    positiveRows.forEach(function(r){
+      csvTotal += r.amount;
+      pool.push({comerciante: r.comerciante, amount: r.amount});
+    });
+
+    var appRecs = [];
+    var appTotal = 0;
+    state.compras.records.forEach(function(r){
+      if (r.out) return;
+      if (r.cartao !== cartaoNome) return;
+      if (!r.dataSerial) return;
+      var total = r.parcelas || 1;
+      var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+      var idx = monthsBetween(startYM, targetYM) + 1;
+      if (idx < 1 || idx > total) return;
+      var effectiveValor = (r.valorTotal||0) / total;
+      appRecs.push({rec:r, effectiveValor:effectiveValor, parcelaAtual:idx, parcelaTotal:total});
+      appTotal += effectiveValor;
+    });
+
+    var flagged = [];
+    appRecs.forEach(function(a){
+      var idx = pool.findIndex(function(p){
+        return p.comerciante === a.rec.comerciante && Math.abs(p.amount - a.effectiveValor) < 0.01;
+      });
+      if (idx !== -1) pool.splice(idx, 1);
+      else flagged.push(a);
+    });
+
+    var delta = appTotal - csvTotal;
+    var isOk = Math.abs(delta) < 0.01;
+    el.style.display = "block";
+    el.className = "import-reconcile " + (isOk ? "ok" : "warn");
+    var html = "";
+    html += '<div class="rec-totals">';
+    html += '<span>Fatura importada (' + MONTH_NAMES_PT[targetYM.month-1] + '/' + targetYM.year + '): <span class="num">' + fmtBRL(csvTotal) + '</span></span>';
+    html += '<span>Já projetado no app para ' + escapeHtml(cartaoNome) + ': <span class="num">' + fmtBRL(appTotal) + '</span></span>';
+    html += '<span>Diferença: <span class="num">' + fmtBRL(delta) + '</span></span>';
+    html += '</div>';
+    if (isOk){
+      html += '<div class="rec-msg">Bate certinho com o que o app já tem para este cartão neste mês.</div>';
+    } else if (!flagged.length){
+      html += '<div class="rec-msg">Os valores não batem, mas nenhum registro específico do app ficou sem correspondência — pode ser uma diferença de arredondamento ou um comerciante com nome bem diferente do que está na fatura.</div>';
+    } else {
+      html += '<div class="rec-msg">Estes registros já existentes no app para ' + escapeHtml(cartaoNome) + ' neste mês não têm correspondência nesta fatura — confira se estão no cartão, mês ou valor certos (podem estar duplicados ou mal classificados):</div>';
+      html += '<div class="rec-flagged">';
+      flagged.forEach(function(f){
+        html += '<div class="rec-flagged-item"><span class="name">' + escapeHtml(f.rec.descricao) + '</span> — parcela ' + f.parcelaAtual + '/' + f.parcelaTotal + ' de ' + fmtBRL(f.effectiveValor) + ' (compra de ' + serialToDisplay(f.rec.dataSerial) + ', total ' + fmtBRL(f.rec.valorTotal) + ')</div>';
+      });
+      html += '</div>';
+    }
+    el.innerHTML = html;
+  }
+  $("importCartaoSel").addEventListener("change", renderImportReconcile);
 
   $("importConfirm").addEventListener("click", function(){
     var errEl = $("importError");
