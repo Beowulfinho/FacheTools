@@ -2308,15 +2308,19 @@
     var diario = getDiarioAmount();
     $("dashDiario").textContent = fmtBRL(diario);
     var restante = balance - total - diario;
-    setBalanceCard("dashBalanceFinal", restante);
 
     var individualAj = 0, individualGab = 0;
     recs.forEach(function(r){
       if (r.pessoa === "Aj") individualAj += (r.effectiveValor||0);
       else if (r.pessoa === "Gab") individualGab += (r.effectiveValor||0);
     });
-    setBalanceCard("dashBalanceFachero", restante/2 - individualAj);
-    setBalanceCard("dashBalanceFachera", restante/2 - individualGab);
+    var fachero = restante/2 - individualAj;
+    var fachera = restante/2 - individualGab;
+    // Balance final is the sum of what each person actually ends up with — not the pre-split
+    // "restante" — so it always matches Balance Fachero + Balance Fachera exactly.
+    setBalanceCard("dashBalanceFinal", fachero + fachera);
+    setBalanceCard("dashBalanceFachero", fachero);
+    setBalanceCard("dashBalanceFachera", fachera);
   }
 
   // Subscriptions active "as of" a given month (or, with no month selected, active today).
