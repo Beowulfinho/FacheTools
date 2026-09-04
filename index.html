@@ -297,6 +297,11 @@
   table.calendar td.over-limit{ color:var(--danger); font-weight:600; }
   table.calendar td.cell-antecipado{ color:var(--accent); font-weight:600; }
   table.calendar td.cell-antecipacao{ color:var(--accent); font-weight:600; box-shadow:inset 0 0 0 1px var(--accent); }
+  table.calendar tr.calendar-row-editable{ cursor:pointer; }
+  table.calendar tr.calendar-row-editable:hover td{ background:var(--accent-soft); }
+  table.calendar tr.calendar-row-editable:hover td.current-month{ filter:brightness(0.97); }
+  table.calendar td.invest-cell-editable{ cursor:pointer; }
+  table.calendar td.invest-cell-editable:hover{ background:var(--accent-soft); }
   table.calendar tr.totals-row td{
     font-weight:700; background:var(--paper); border-top:2px solid var(--line-strong);
     border-bottom:2px solid var(--line-strong); position:sticky; z-index:2;
@@ -367,18 +372,62 @@
   html.mae-mode .tx-row{ cursor:default; }
 
   /* ---------- Custom date field ---------- */
-  /* The native <input type="date"> always displays using the browser/OS locale (not the page's
-     lang attribute), so on an en-US machine it shows MM/DD/YYYY even though the rest of the app
-     is DD/MM/YYYY. We keep the native input (and its picker) as the source of truth, but hide its
-     own text and show a trigger that always renders the app's own DD/MM/YYYY formatting. */
+  /* The native <input type="date"> is kept only as an invisible source of truth (same idea as
+     .csel-native for selects) so every existing .value get/set code path keeps working
+     untouched. The trigger is a real <button> covering the whole field (label + icon), and it
+     opens our own calendar popover instead of the OS picker: one clickable target, always styled
+     like the rest of the app instead of falling back to the phone's default picker UI. */
   .dsel{ position:relative; display:flex; flex-direction:column; }
-  .dsel-native{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+  .dsel-native{
+    position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; overflow:hidden;
+  }
   .dsel-trigger{
     display:flex; align-items:center; justify-content:space-between; gap:8px;
-    pointer-events:none; /* clicks go through to the native input beneath */
+    cursor:pointer; text-align:left; font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   }
+  .dsel-trigger:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  .dsel-trigger.disabled{ opacity:0.55; cursor:not-allowed; }
   .dsel-trigger .dsel-value.placeholder{ color:var(--ink-faint); }
   .dsel-trigger svg{ flex:none; color:var(--ink-faint); }
+
+  /* Calendar popover (opened by .dsel-trigger) */
+  .dsel-panel{
+    display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:60;
+    width:264px; max-width:90vw; background:var(--paper-raised); border:1px solid var(--line-strong);
+    border-radius:12px; box-shadow:0 8px 24px var(--shadow); padding:12px;
+  }
+  .dsel-panel.show{ display:block; }
+  .dsel-panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .dsel-panel-head button{
+    display:flex; align-items:center; justify-content:center; width:26px; height:26px;
+    border-radius:7px; background:transparent; border:none; color:var(--ink-soft);
+  }
+  .dsel-panel-head button:hover{ background:var(--paper); color:var(--ink); }
+  .dsel-panel-head button svg{ width:15px; height:15px; }
+  .dsel-panel-label{
+    font-size:13.5px; font-weight:600; font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    text-transform:capitalize;
+  }
+  .dsel-weekdays{ display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:2px; }
+  .dsel-weekdays span{
+    text-align:center; font-size:10.5px; font-weight:600; letter-spacing:0.03em; color:var(--ink-faint);
+    padding:4px 0; text-transform:uppercase;
+  }
+  .dsel-days{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .dsel-day{
+    display:flex; align-items:center; justify-content:center; height:30px; border-radius:7px;
+    background:none; border:none; font-size:12.5px; color:var(--ink); font-variant-numeric:tabular-nums;
+  }
+  .dsel-day:hover{ background:var(--paper); }
+  .dsel-day.other-month{ color:var(--ink-faint); cursor:default; }
+  .dsel-day.other-month:hover{ background:none; }
+  .dsel-day.today{ box-shadow:inset 0 0 0 1px var(--line-strong); font-weight:600; }
+  .dsel-day.selected{ background:var(--accent); color:#F4FBF8; font-weight:600; }
+  .dsel-panel-foot{ display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+  .dsel-panel-foot button{
+    font-size:12px; font-weight:600; color:var(--accent); background:none; border:none; padding:4px 2px;
+  }
+  .dsel-panel-foot button:hover{ text-decoration:underline; }
 
   /* ---------- Summary ---------- */
   .summary{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
@@ -2042,6 +2091,19 @@
   function getCompraScheduleForMonth(r, ym){
     if (!r.dataSerial) return [];
     var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+
+    // Assinaturas ("Assinatura...") recur every month from their start until cancelled (or
+    // indefinitely, if never cancelled) — unlike an installment purchase they have no fixed
+    // number of parcelas, so they must NOT be gated by r.parcelas here.
+    if (isAssinaturaTipo(r.tipo)){
+      if (monthsBetween(startYM, ym) < 0) return [];
+      if (r.cancelSerial !== null && r.cancelSerial !== undefined){
+        var cancelYM = getFaturaStartYM(r.cancelSerial, r.cartao);
+        if (monthsBetween(cancelYM, ym) > 0) return [];
+      }
+      return [{effectiveValor: r.valorTotal||0, parcelaAtual: null, parcelaTotal: 1, antecipacao: null}];
+    }
+
     var total = r.parcelas || 1;
     var idx = monthsBetween(startYM, ym) + 1;
     var skippedMap = getAntecipatedIndexMap(r);
@@ -2232,12 +2294,22 @@
   function decorateComprasForCalendar(recs, refYM){
     return recs.filter(function(r){ return !!r.dataSerial; }).map(function(r){
       var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+      var isAssinatura = isAssinaturaTipo(r.tipo);
       var total = r.parcelas || 1;
-      var endYM = addMonths(startYM, total-1);
-      return {rec:r, startYM:startYM, endYM:endYM, total:total, parcelaValor:(r.valorTotal||0)/total};
+      var endYM;
+      if (isAssinatura){
+        // Open-ended unless cancelled: don't let it stretch the visible month range (that's
+        // driven by the real installment purchases) — just keep it "active" through refYM.
+        endYM = (r.cancelSerial !== null && r.cancelSerial !== undefined)
+          ? getFaturaStartYM(r.cancelSerial, r.cartao)
+          : refYM;
+      } else {
+        endYM = addMonths(startYM, total-1);
+      }
+      return {rec:r, startYM:startYM, endYM:endYM, total:total, isAssinatura:isAssinatura, parcelaValor:(r.valorTotal||0)/total};
     }).filter(function(d){
-      // Only "active" purchases: exclude ones whose last installment already happened
-      // before the reference month (i.e. already fully paid).
+      // Only "active" purchases: exclude ones whose last installment (or, for an assinatura,
+      // whose cancellation) already happened before the reference month.
       return monthsBetween(d.endYM, refYM) <= 0;
     });
   }
@@ -2316,29 +2388,49 @@
         var classes = [];
         if (isRef) classes.push("current-month");
         else if (monthsBetween(ym, refYM) > 0) classes.push("past");
-        if (offset < 0 || offset >= d.total){
+        // Assinaturas are open-ended (no fixed "total" of parcelas) — their own start/
+        // cancellation is already enforced inside getCompraScheduleForMonth, so the range
+        // check below only applies to real installment purchases.
+        if (offset < 0 || (!d.isAssinatura && offset >= d.total)){
           classes.push("empty-cell");
           bodyHtml += '<td class="'+classes.join(" ")+'">·</td>';
-        } else {
-          if (offset === d.total-1) classes.push("last-installment");
-          var entries = getCompraScheduleForMonth(d.rec, ym);
-          if (!entries.length){
+          return;
+        }
+        var entries = getCompraScheduleForMonth(d.rec, ym);
+        if (!entries.length){
+          if (d.isAssinatura){
+            // Cancelled as of this month: nothing due, no special marker.
+            classes.push("empty-cell");
+            bodyHtml += '<td class="'+classes.join(" ")+'">·</td>';
+          } else {
             // This installment's number fell in range, but it was already paid off earlier
             // via antecipação — nothing is due this month.
             classes.push("empty-cell", "cell-antecipado");
             bodyHtml += '<td class="'+classes.join(" ")+'" title="Parcela antecipada">✓</td>';
-          } else {
-            var cellValue = 0, hasAntecipacao = false;
-            entries.forEach(function(e){ cellValue += e.effectiveValor; if (e.antecipacao) hasAntecipacao = true; });
-            if (hasAntecipacao) classes.push("cell-antecipacao");
-            var title = hasAntecipacao ? ' title="Inclui antecipação de parcelas"' : "";
-            bodyHtml += '<td class="'+classes.join(" ")+'"'+title+'>'+fmtBRL(cellValue)+'</td>';
           }
+          return;
         }
+        if (!d.isAssinatura && offset === d.total-1) classes.push("last-installment");
+        var cellValue = 0, hasAntecipacao = false;
+        entries.forEach(function(e){ cellValue += e.effectiveValor; if (e.antecipacao) hasAntecipacao = true; });
+        if (hasAntecipacao) classes.push("cell-antecipacao");
+        var title = hasAntecipacao ? ' title="Inclui antecipação de parcelas"' : "";
+        bodyHtml += '<td class="'+classes.join(" ")+'"'+title+'>'+fmtBRL(cellValue)+'</td>';
       });
       bodyHtml += '</tr>';
     });
     $("calendarBody").innerHTML = bodyHtml;
+
+    if (!READONLY_MAE){
+      var calDataRows = Array.prototype.slice.call($("calendarBody").querySelectorAll("tr"))
+        .filter(function(tr){ return !tr.classList.contains("totals-row"); });
+      sorted.forEach(function(d, i){
+        var tr = calDataRows[i];
+        if (!tr) return;
+        tr.classList.add("calendar-row-editable");
+        tr.addEventListener("click", function(){ openEditModal(d.rec); });
+      });
+    }
 
     // Keep the header row and the "Total do mês" row both visible while scrolling down —
     // the totals row's sticky offset must match the header's real rendered height.
@@ -3042,20 +3134,20 @@
     columns.forEach(function(ym){
       var val = getInvestimentoAmountForMonth(monthKey(ym));
       var isRef = (ym.year===refYM.year && ym.month===refYM.month);
-      var classes = [];
+      var classes = ["invest-cell-editable"];
       if (isRef) classes.push("current-month");
       else if (monthsBetween(ym, refYM) > 0) classes.push("past");
-      bodyHtml += '<td class="'+classes.join(" ")+'">'+fmtBRL(val)+'</td>';
+      bodyHtml += '<td class="'+classes.join(" ")+'" data-ym="'+monthKey(ym)+'" data-field="valor">'+fmtBRL(val)+'</td>';
     });
     bodyHtml += '</tr>';
     bodyHtml += '<tr><td>Retirado</td>';
     columns.forEach(function(ym){
       var retirado = getInvestimentoRetiradaForMonth(monthKey(ym));
       var isRef = (ym.year===refYM.year && ym.month===refYM.month);
-      var classes = [];
+      var classes = ["invest-cell-editable"];
       if (isRef) classes.push("current-month");
       else if (monthsBetween(ym, refYM) > 0) classes.push("past");
-      bodyHtml += '<td class="'+classes.join(" ")+'">'+(retirado ? fmtBRL(retirado) : "—")+'</td>';
+      bodyHtml += '<td class="'+classes.join(" ")+'" data-ym="'+monthKey(ym)+'" data-field="retirado">'+(retirado ? fmtBRL(retirado) : "—")+'</td>';
     });
     bodyHtml += '</tr>';
     bodyHtml += '<tr><td>Total investido</td>';
@@ -3069,6 +3161,25 @@
     });
     bodyHtml += '</tr>';
     $("investCalendarBody").innerHTML = bodyHtml;
+
+    var investBody = $("investCalendarBody");
+    if (!investBody.dataset.clickBound && !READONLY_MAE){
+      investBody.dataset.clickBound = "1";
+      investBody.addEventListener("click", function(e){
+        var td = e.target.closest("td[data-ym]");
+        if (!td) return;
+        filterMonth = parseYmString(td.dataset.ym);
+        onMonthChanged();
+        if (td.dataset.field === "retirado"){
+          var rec = state.debito.records.filter(function(r){
+            return r.tipo === RETIRADA_INVESTIMENTO_TIPO && serialToYearMonth(r.dataSerial) === td.dataset.ym;
+          })[0];
+          if (rec){ openEditDebModal(rec); return; }
+        }
+        var input = $("investMonthInput");
+        if (input){ input.focus(); input.scrollIntoView({block:"center", behavior:"smooth"}); }
+      });
+    }
   }
 
   function saveInvestimentoBaseValue(){
@@ -4294,15 +4405,19 @@
   }
 
   // ---------- Custom date fields ----------
-  // Same idea as enhanceSelect: keep the native <input type="date"> as the source of truth (so
-  // its native picker and existing .value get/set code paths all keep working untouched), but
-  // show our own always-DD/MM/AAAA label instead of whatever format the browser/OS locale would
-  // otherwise render.
+  // Same idea as enhanceSelect: keep the native <input type="date"> as an invisible source of
+  // truth (so its .value get/set code paths — every openEditModal/save call site — keep working
+  // untouched), but replace the OS date picker with our own calendar popover. The trigger is a
+  // real <button> covering the whole field (label + icon together, one clickable target), and the
+  // popover it opens is always styled like the rest of the app instead of the phone's default.
   var DATE_VALUE_DESC = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  var WEEKDAY_LETTERS_PT = ["D","S","T","Q","Q","S","S"];
   function isoToBR(iso){
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||""));
     return m ? (m[3] + "/" + m[2] + "/" + m[1]) : "";
   }
+  function pad2(n){ return String(n).padStart(2,"0"); }
+  function ymdToIso(y,m,d){ return y + "-" + pad2(m) + "-" + pad2(d); }
   function enhanceDateInput(input){
     if (input.dataset.dselDone) return;
     input.dataset.dselDone = "1";
@@ -4312,9 +4427,14 @@
     input.parentNode.insertBefore(wrap, input);
     wrap.appendChild(input);
     input.classList.add("dsel-native");
+    input.setAttribute("tabindex", "-1");
+    input.setAttribute("aria-hidden", "true");
 
-    var trigger = document.createElement("div");
+    var trigger = document.createElement("button");
+    trigger.type = "button";
     trigger.className = "dsel-trigger";
+    trigger.setAttribute("aria-haspopup", "dialog");
+    trigger.setAttribute("aria-expanded", "false");
     trigger.innerHTML = '<span class="dsel-value"></span>' +
       '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">' +
       '<rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
@@ -4322,19 +4442,116 @@
     wrap.appendChild(trigger);
     var valueEl = trigger.querySelector(".dsel-value");
 
+    var panel = document.createElement("div");
+    panel.className = "dsel-panel";
+    panel.innerHTML =
+      '<div class="dsel-panel-head">' +
+        '<button type="button" class="dsel-prev" aria-label="Mês anterior">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>' +
+        '</button>' +
+        '<span class="dsel-panel-label"></span>' +
+        '<button type="button" class="dsel-next" aria-label="Próximo mês">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>' +
+        '</button>' +
+      '</div>' +
+      '<div class="dsel-weekdays">' + WEEKDAY_LETTERS_PT.map(function(w){ return "<span>"+w+"</span>"; }).join("") + '</div>' +
+      '<div class="dsel-days"></div>' +
+      '<div class="dsel-panel-foot">' +
+        '<button type="button" class="dsel-today">Hoje</button>' +
+        '<button type="button" class="dsel-clear">Limpar</button>' +
+      '</div>';
+    wrap.appendChild(panel);
+    var labelEl = panel.querySelector(".dsel-panel-label");
+    var daysEl = panel.querySelector(".dsel-days");
+
+    var today = new Date();
+    var viewYear = today.getFullYear(), viewMonth = today.getMonth()+1; // 1-based; re-set on open
+
     function syncLabel(){
       var br = isoToBR(input.value);
       if (br){ valueEl.textContent = br; valueEl.classList.remove("placeholder"); }
       else { valueEl.textContent = "dd/mm/aaaa"; valueEl.classList.add("placeholder"); }
     }
 
+    function renderPanel(){
+      labelEl.textContent = MONTH_NAMES_PT[viewMonth-1] + " " + viewYear;
+      var selIso = input.value;
+      var todayIso = ymdToIso(today.getFullYear(), today.getMonth()+1, today.getDate());
+      var firstWeekday = new Date(viewYear, viewMonth-1, 1).getDay(); // 0=domingo
+      var daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
+      var html = "";
+      for (var i=0;i<firstWeekday;i++){
+        html += '<button type="button" class="dsel-day other-month" tabindex="-1"></button>';
+      }
+      for (var day=1; day<=daysInMonth; day++){
+        var iso = ymdToIso(viewYear, viewMonth, day);
+        var cls = "dsel-day";
+        if (iso === todayIso) cls += " today";
+        if (iso === selIso) cls += " selected";
+        html += '<button type="button" class="'+cls+'" data-iso="'+iso+'">'+day+'</button>';
+      }
+      var totalCells = firstWeekday + daysInMonth;
+      var trailing = (7 - (totalCells % 7)) % 7;
+      for (var j=0;j<trailing;j++){
+        html += '<button type="button" class="dsel-day other-month" tabindex="-1"></button>';
+      }
+      daysEl.innerHTML = html;
+    }
+
+    function closePanel(){
+      panel.classList.remove("show");
+      trigger.setAttribute("aria-expanded", "false");
+    }
+    function openPanel(){
+      document.querySelectorAll(".dsel-panel.show").forEach(function(p){ if (p !== panel) p.classList.remove("show"); });
+      document.querySelectorAll(".csel-list.show").forEach(function(l){ l.classList.remove("show"); });
+      var base = input.value ? new Date(input.value + "T00:00:00") : today;
+      viewYear = base.getFullYear(); viewMonth = base.getMonth()+1;
+      renderPanel();
+      panel.classList.add("show");
+      trigger.setAttribute("aria-expanded", "true");
+    }
+
+    trigger.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (input.disabled) return;
+      panel.classList.contains("show") ? closePanel() : openPanel();
+    });
+    panel.addEventListener("click", function(e){ e.stopPropagation(); });
+    panel.querySelector(".dsel-prev").addEventListener("click", function(){
+      viewMonth--; if (viewMonth<1){ viewMonth=12; viewYear--; } renderPanel();
+    });
+    panel.querySelector(".dsel-next").addEventListener("click", function(){
+      viewMonth++; if (viewMonth>12){ viewMonth=1; viewYear++; } renderPanel();
+    });
+    panel.querySelector(".dsel-today").addEventListener("click", function(){
+      input.value = ymdToIso(today.getFullYear(), today.getMonth()+1, today.getDate());
+      closePanel();
+    });
+    panel.querySelector(".dsel-clear").addEventListener("click", function(){
+      input.value = "";
+      closePanel();
+    });
+    daysEl.addEventListener("click", function(e){
+      var btn = e.target.closest(".dsel-day");
+      if (!btn || !btn.dataset.iso) return;
+      input.value = btn.dataset.iso;
+      closePanel();
+    });
+
     Object.defineProperty(input, "value", {
       configurable: true,
       get: function(){ return DATE_VALUE_DESC.get.call(input); },
-      set: function(v){ DATE_VALUE_DESC.set.call(input, v); syncLabel(); }
+      set: function(v){
+        DATE_VALUE_DESC.set.call(input, v);
+        syncLabel();
+        if (panel.classList.contains("show")) renderPanel();
+      }
     });
-    input.addEventListener("input", syncLabel);
-    input.addEventListener("change", syncLabel);
+
+    new MutationObserver(function(){
+      trigger.classList.toggle("disabled", input.disabled);
+    }).observe(input, {attributes:true, attributeFilter:["disabled"]});
 
     syncLabel();
   }
@@ -4347,11 +4564,17 @@
       document.querySelectorAll(".csel-list.show").forEach(function(l){ l.classList.remove("show"); });
       document.querySelectorAll('.csel-trigger[aria-expanded="true"]').forEach(function(t){ t.setAttribute("aria-expanded", "false"); });
     }
+    if (!e.target.closest(".dsel")) {
+      document.querySelectorAll(".dsel-panel.show").forEach(function(p){ p.classList.remove("show"); });
+      document.querySelectorAll('.dsel-trigger[aria-expanded="true"]').forEach(function(t){ t.setAttribute("aria-expanded", "false"); });
+    }
   });
   document.addEventListener("keydown", function(e){
     if (e.key === "Escape"){
       document.querySelectorAll(".csel-list.show").forEach(function(l){ l.classList.remove("show"); });
       document.querySelectorAll('.csel-trigger[aria-expanded="true"]').forEach(function(t){ t.setAttribute("aria-expanded", "false"); });
+      document.querySelectorAll(".dsel-panel.show").forEach(function(p){ p.classList.remove("show"); });
+      document.querySelectorAll('.dsel-trigger[aria-expanded="true"]').forEach(function(t){ t.setAttribute("aria-expanded", "false"); });
     }
   });
 
