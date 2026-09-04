@@ -289,11 +289,64 @@
 
   /* ---------- Filters ---------- */
   .filters{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
-  .filters input[type="text"], .filters select{
+  .filters input[type="text"], .filters select, .filters .csel-trigger{
     padding:8px 11px; border-radius:8px; border:1px solid var(--line-strong);
     background:var(--paper-raised); color:var(--ink); font-size:13.5px;
   }
   .filters input[type="text"]{ flex:1; min-width:180px; }
+  .filters .csel{ flex:none; }
+
+  /* ---------- Custom select ---------- */
+  .csel{ position:relative; display:flex; flex-direction:column; }
+  .csel-native{
+    position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; overflow:hidden;
+  }
+  .csel-trigger{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    cursor:pointer; text-align:left; white-space:nowrap;
+  }
+  .field .csel-trigger, .import-fields .csel-trigger{ width:100%; }
+  .csel-trigger:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  .csel-trigger.disabled{ opacity:0.55; cursor:not-allowed; }
+  .csel-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .csel-chevron{ flex:none; color:var(--ink-faint); transition:transform 0.15s ease; }
+  .csel-trigger[aria-expanded="true"] .csel-chevron{ transform:rotate(180deg); }
+  .csel-list{
+    display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:60;
+    min-width:100%; width:max-content; max-width:min(320px, 90vw);
+    max-height:240px; overflow-y:auto; background:var(--paper-raised); border:1px solid var(--line-strong);
+    border-radius:10px; box-shadow:0 8px 24px var(--shadow); padding:5px;
+  }
+  .csel-list.show{ display:block; }
+  .csel-item{
+    padding:8px 10px; border-radius:7px; font-size:13.5px; color:var(--ink); cursor:pointer;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .csel-item:hover{ background:var(--paper); }
+  .csel-item.selected{ background:var(--accent-soft); color:var(--accent); font-weight:600; }
+  .csel-item.disabled{ color:var(--ink-faint); cursor:not-allowed; }
+
+  /* ---------- Restricted "mãe" view ---------- */
+  /* Read-only: no add/edit buttons, no per-person breakdown, no bulk/out controls. */
+  html.mae-mode .header-actions,
+  html.mae-mode #panelFaturaPorPessoa,
+  html.mae-mode .row-select,
+  html.mae-mode .out-check,
+  html.mae-mode #btnConfig,
+  html.mae-mode #btnImportCsv,
+  html.mae-mode #pageTabs button[data-page="dashboard"],
+  html.mae-mode #pageTabs button[data-page="debito"],
+  html.mae-mode #pageTabs button[data-page="assinaturas"],
+  html.mae-mode #pageTabs button[data-page="diario"],
+  html.mae-mode #bottomNav button[data-page="dashboard"],
+  html.mae-mode #bottomNav button[data-page="debito"],
+  html.mae-mode #bottomNav button[data-page="assinaturas"],
+  html.mae-mode #bottomNav button[data-page="diario"]{
+    display:none !important;
+  }
+  html.mae-mode .dash-grid{ grid-template-columns:1fr; }
+  html.mae-mode .tx-row{ cursor:default; }
 
   /* ---------- Summary ---------- */
   .summary{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
@@ -370,6 +423,19 @@
     animation:busy-spin 0.7s linear infinite;
   }
   @keyframes busy-spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- Splash (covers the brief gap while the saved session is checked, so the
+     login form never flashes on launch/resume) ---------- */
+  #splashView{
+    position:fixed; inset:0; z-index:200;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    background:var(--paper); transition:opacity 0.2s ease;
+  }
+  #splashView.hide{ opacity:0; pointer-events:none; }
+  #splashView .splash-icon{ width:52px; height:52px; }
+  #splashView h2{ font-family:"Fraunces", Georgia, serif; font-size:18px; font-weight:600; color:var(--ink); margin:0; }
+  #splashView .spinner{ width:20px; height:20px; }
+
   .tx-desc{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .tx-amt{ font-weight:500; }
   .tipo-badge{
@@ -420,7 +486,7 @@
   .field{ display:flex; flex-direction:column; gap:5px; }
   .field label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); }
   .field .opt{ font-weight:400; color:var(--ink-faint); }
-  .field input, .field select{
+  .field input, .field select, .field .csel-trigger{
     padding:9px 11px; border-radius:8px; border:1px solid var(--line-strong);
     background:var(--paper); color:var(--ink);
   }
@@ -459,10 +525,11 @@
   .import-status-tag.payment{ background:var(--paper); color:var(--ink-faint); border:1px solid var(--line-strong); }
   .import-status-tag.invalid{ background:var(--danger-soft); color:var(--danger); }
   .import-fields{ display:grid; grid-template-columns:1.6fr 0.9fr 0.9fr; gap:8px; margin-top:4px; }
-  .import-fields input, .import-fields select{
+  .import-fields input, .import-fields select, .import-fields .csel-trigger{
     padding:6px 8px; border-radius:7px; border:1px solid var(--line-strong); background:var(--paper); color:var(--ink); font-size:12.5px;
   }
-  .import-row-invalid .import-fields input, .import-row-invalid .import-fields select{ border-color:var(--danger); }
+  .import-fields .csel-label{ font-size:12.5px; }
+  .import-row-invalid .import-fields input, .import-row-invalid .import-fields select, .import-row-invalid .import-fields .csel-trigger{ border-color:var(--danger); }
 
   .footer-note{ margin-top:24px; text-align:center; font-size:12px; color:var(--ink-faint); }
 
@@ -573,6 +640,15 @@
 </style>
 </head>
 <body>
+<div id="splashView">
+  <svg class="splash-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <ellipse cx="9.5" cy="15.7" rx="5.6" ry="3" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+    <ellipse cx="9.5" cy="12.7" rx="5.6" ry="3" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+    <ellipse cx="12.2" cy="9" rx="5.6" ry="3" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
+  </svg>
+  <h2>Control de Cuentas</h2>
+  <div class="spinner"></div>
+</div>
 <div class="wrap">
 
   <div class="topbar">
@@ -629,7 +705,7 @@
 
   <div class="banner danger" id="errorBanner"></div>
 
-  <div id="notConnectedView">
+  <div id="notConnectedView" style="display:none;">
     <div class="connect-hero" style="max-width:380px; margin:0 auto;">
       <h2>Entrar</h2>
       <p>Seus dados ficam guardados com segurança no seu banco de dados na nuvem, protegidos por login. Entre com email e senha — se ainda não tem conta, crie uma na primeira vez.</p>
@@ -759,7 +835,7 @@
         </div>
       </div>
       <div class="dash-grid" style="margin-bottom:18px;">
-        <div class="panel dash-card">
+        <div class="panel dash-card" id="panelFaturaPorPessoa">
           <div class="panel-head"><h2>Fatura por pessoa</h2></div>
           <div class="bar-list" id="compFaturaPorPessoa"></div>
         </div>
@@ -1102,6 +1178,11 @@
   var SUPABASE_ANON_KEY = "sb_publishable_CI3FY5MplWpHWaU25bewZg_l2YvjsmZ";
   var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   var currentUserEmail = null;
+
+  // Restricted "mãe" view: same shared login, but a stripped-down read-only page (see mae.html,
+  // which just sets these two globals before this same script runs). Off by default here.
+  var READONLY_MAE = !!window.READONLY_MAE;
+  var MAE_PESSOA_NAME = window.MAE_PESSOA_NAME || "mãe";
 
   var EXCEL_EPOCH_OFFSET = 25569; // days between 1899-12-30 and 1970-01-01
 
@@ -1560,6 +1641,20 @@
     if (!connected) closeHeaderMenu();
     $("notConnectedView").style.display = connected ? "none" : "block";
     $("connectedView").style.display = connected ? "block" : "none";
+    hideSplash();
+  }
+
+  // The splash covers the screen from first paint until the very first setConnectedUI() call
+  // (whichever fires first — the saved-session check or the auth listener), so the login form
+  // never has a chance to flash on launch or when resuming the installed app.
+  var splashHidden = false;
+  function hideSplash(){
+    if (splashHidden) return;
+    splashHidden = true;
+    var el = $("splashView");
+    if (!el) return;
+    el.classList.add("hide");
+    setTimeout(function(){ el.style.display = "none"; }, 250);
   }
 
   function nomes(tableKey){ return state[tableKey].records.map(function(r){ return r.nome; }); }
@@ -1582,6 +1677,27 @@
     populateSelect($("dPessoaSel"), nomes("pessoas"), null, true);
     populateSelect($("calPersona"), nomes("pessoas"), "Todas as pessoas", true);
     populateSelect($("calCartao"), nomes("cartoes"), "Todos os cartões", true);
+    if (READONLY_MAE){
+      // Restricted view: always locked to her own person, regardless of what reloads.
+      $("fPersona").value = MAE_PESSOA_NAME;
+      $("calPersona").value = MAE_PESSOA_NAME;
+      // And the cartão/tipo filters should only offer values she actually has purchases in —
+      // not every card or type that exists for the whole household.
+      var maeRecs = state.compras.records.filter(function(r){ return r.pessoa === MAE_PESSOA_NAME; });
+      var maeCartoes = uniqueValues(maeRecs.map(function(r){ return r.cartao; }));
+      var maeTipos = uniqueValues(maeRecs.map(function(r){ return r.tipo; }));
+      populateSelect($("fCartao"), maeCartoes, "Todos os cartões", true);
+      populateSelect($("fTipo"), maeTipos, "Todos os tipos", true);
+      populateSelect($("calCartao"), maeCartoes, "Todos os cartões", true);
+    }
+  }
+
+  function uniqueValues(list){
+    var seen = {}, out = [];
+    list.forEach(function(v){
+      if (v && !seen[v]){ seen[v] = true; out.push(v); }
+    });
+    return out;
   }
 
   // Months elapsed between two {year,month} points (can be negative).
@@ -1743,7 +1859,9 @@
       listEl.appendChild(row);
     });
 
-    renderCompFatura(recs.filter(function(r){ return !r.out; }));
+    var faturaRecs = recs.filter(function(r){ return !r.out; });
+    if (READONLY_MAE) faturaRecs = faturaRecs.filter(function(r){ return r.pessoa === MAE_PESSOA_NAME; });
+    renderCompFatura(faturaRecs);
   }
 
   function groupSum(recs, key){
@@ -2411,6 +2529,7 @@
     setTimeout(function(){ $("fDescricao").focus(); }, 30);
   }
   function openEditModal(r){
+    if (READONLY_MAE) return; // this view is read-only: no edit modal
     editingRow = r.row;
     editingRowOut = r.out || 0;
     $("txModalTitle").textContent = "Editar compra";
@@ -2651,6 +2770,7 @@
       html += '</div></div>';
     });
     listEl.innerHTML = html;
+    enhanceAllSelects(listEl);
   }
 
   $("importConfirm").addEventListener("click", function(){
@@ -2942,8 +3062,163 @@
     else if (debOverlay.classList.contains("show")) closeDebModal();
   });
 
+  // ---------- Modal body-scroll lock ----------
+  // While any .overlay is open, the page underneath must not scroll — otherwise, on phones,
+  // the background page's own (unthemed) scrollbar can still peek through at the very edge of
+  // the screen behind the modal. Watching every overlay's class list covers all of them
+  // (Configurações, Novo compra/débito, Importar CSV, Excluir) from one place.
+  (function(){
+    var overlays = document.querySelectorAll(".overlay");
+    function updateBodyScrollLock(){
+      var anyOpen = Array.prototype.some.call(overlays, function(o){ return o.classList.contains("show"); });
+      document.body.style.overflow = anyOpen ? "hidden" : "";
+    }
+    overlays.forEach(function(o){
+      new MutationObserver(updateBodyScrollLock).observe(o, {attributes:true, attributeFilter:["class"]});
+    });
+    updateBodyScrollLock();
+  })();
+
+  // ---------- Custom selects ----------
+  // Replaces the native OS picker (which can't be restyled) with an app-themed trigger + list,
+  // while keeping the original <select> as the single source of truth: existing code all over
+  // this file reads/writes `.value` and `.selectedIndex` directly (populateSelect, form resets,
+  // edit-modal prefill, filters) and none of that has to change. We override those two
+  // properties on the element itself so any programmatic set also re-syncs the visible label,
+  // and a MutationObserver catches the cases where populateSelect() rebuilds the option list via
+  // innerHTML (which changes the effective value without ever calling the setter).
+  var CSEL_VALUE_DESC = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  var CSEL_INDEX_DESC = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "selectedIndex");
+
+  function enhanceSelect(sel){
+    if (sel.dataset.cselDone) return;
+    sel.dataset.cselDone = "1";
+
+    var wrap = document.createElement("div");
+    wrap.className = "csel";
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+    sel.classList.add("csel-native");
+    sel.setAttribute("tabindex", "-1");
+    sel.setAttribute("aria-hidden", "true");
+
+    var trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "csel-trigger";
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.innerHTML = '<span class="csel-label"></span>' +
+      '<svg class="csel-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">' +
+      '<path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    wrap.appendChild(trigger);
+    var labelEl = trigger.querySelector(".csel-label");
+
+    var list = document.createElement("div");
+    list.className = "csel-list";
+    list.setAttribute("role", "listbox");
+    wrap.appendChild(list);
+
+    function syncLabel(){
+      var opt = sel.options[sel.selectedIndex];
+      labelEl.textContent = opt ? opt.textContent : "";
+      Array.prototype.forEach.call(list.children, function(item, i){
+        item.classList.toggle("selected", i === sel.selectedIndex);
+      });
+    }
+
+    function buildList(){
+      list.innerHTML = "";
+      Array.prototype.forEach.call(sel.options, function(opt, i){
+        var item = document.createElement("div");
+        item.className = "csel-item" + (opt.disabled ? " disabled" : "");
+        item.setAttribute("role", "option");
+        item.dataset.idx = i;
+        item.textContent = opt.textContent;
+        list.appendChild(item);
+      });
+      syncLabel();
+    }
+
+    Object.defineProperty(sel, "value", {
+      configurable: true,
+      get: function(){ return CSEL_VALUE_DESC.get.call(sel); },
+      set: function(v){ CSEL_VALUE_DESC.set.call(sel, v); syncLabel(); }
+    });
+    Object.defineProperty(sel, "selectedIndex", {
+      configurable: true,
+      get: function(){ return CSEL_INDEX_DESC.get.call(sel); },
+      set: function(v){ CSEL_INDEX_DESC.set.call(sel, v); syncLabel(); }
+    });
+
+    function closeList(){
+      list.classList.remove("show");
+      trigger.setAttribute("aria-expanded", "false");
+    }
+    function openList(){
+      document.querySelectorAll(".csel-list.show").forEach(function(l){ if (l !== list) l.classList.remove("show"); });
+      list.classList.add("show");
+      trigger.setAttribute("aria-expanded", "true");
+    }
+
+    trigger.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (sel.disabled) return;
+      list.classList.contains("show") ? closeList() : openList();
+    });
+    list.addEventListener("click", function(e){
+      var item = e.target.closest(".csel-item");
+      if (!item || item.classList.contains("disabled")) return;
+      var idx = parseInt(item.dataset.idx, 10);
+      if (idx !== sel.selectedIndex){
+        sel.selectedIndex = idx;
+        sel.dispatchEvent(new Event("input", {bubbles:true}));
+        sel.dispatchEvent(new Event("change", {bubbles:true}));
+      }
+      closeList();
+    });
+
+    new MutationObserver(buildList).observe(sel, {childList:true});
+    new MutationObserver(function(){
+      trigger.classList.toggle("disabled", sel.disabled);
+    }).observe(sel, {attributes:true, attributeFilter:["disabled"]});
+
+    buildList();
+  }
+
+  function enhanceAllSelects(root){
+    Array.prototype.forEach.call((root || document).querySelectorAll("select"), enhanceSelect);
+  }
+
+  document.addEventListener("click", function(e){
+    if (!e.target.closest(".csel")) {
+      document.querySelectorAll(".csel-list.show").forEach(function(l){ l.classList.remove("show"); });
+      document.querySelectorAll('.csel-trigger[aria-expanded="true"]').forEach(function(t){ t.setAttribute("aria-expanded", "false"); });
+    }
+  });
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape"){
+      document.querySelectorAll(".csel-list.show").forEach(function(l){ l.classList.remove("show"); });
+      document.querySelectorAll('.csel-trigger[aria-expanded="true"]').forEach(function(t){ t.setAttribute("aria-expanded", "false"); });
+    }
+  });
+
+  enhanceAllSelects(document);
+
+  // ---------- Restricted "mãe" view ----------
+  if (READONLY_MAE){
+    document.documentElement.classList.add("mae-mode");
+    setActivePage("tabela");
+    // The pessoa filter is locked to her own name (see refreshDropdowns), so the control
+    // itself is redundant here — hide the whole custom-select widget, not just the <select>.
+    [$("fPersona"), $("calPersona")].forEach(function(sel){
+      var wrap = sel.closest(".csel");
+      if (wrap) wrap.style.display = "none";
+    });
+  }
+
   // ---------- Init ----------
   renderMonthLabel();
+  setTimeout(hideSplash, 4000); // safety net: never leave the splash stuck if auth is slow/unreachable
   supabaseClient.auth.getSession().then(function(res){
     var session = res.data && res.data.session;
     if (session && session.user){
