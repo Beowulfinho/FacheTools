@@ -118,9 +118,7 @@
     justify-content:space-between;
     gap:20px;
     flex-wrap:wrap;
-    padding-bottom:20px;
-    border-bottom:1px solid var(--line);
-    margin-bottom:20px;
+    margin-bottom:14px;
   }
   .brand{ display:flex; flex-direction:column; gap:2px; }
   .brand .eyebrow{
@@ -131,12 +129,35 @@
   .brand-icon{ width:30px; height:30px; flex:none; }
   .brand h1{ font-size:28px; }
 
-  .conn-block{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
-  .conn-status{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft); }
+  /* conn-block sits at the top-right corner of the header: status text, then a single
+     "more options" icon (opening Recarregar / Configurações / Sair as a dropdown). */
+  .conn-block{ display:flex; align-items:center; gap:12px; }
+  .conn-status{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft); flex-wrap:wrap; justify-content:flex-end; }
   .conn-dot{ width:8px; height:8px; border-radius:50%; background:var(--ink-faint); flex:none; }
   .conn-dot.on{ background:var(--accent); }
   .conn-dot.off{ background:var(--danger); }
-  .conn-actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
+  .menu-wrap{ position:relative; flex:none; }
+  .menu-dropdown{
+    display:none; position:absolute; top:calc(100% + 8px); right:0; min-width:190px;
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:11px;
+    box-shadow:0 12px 32px var(--shadow); padding:6px; z-index:60; flex-direction:column; gap:2px;
+  }
+  .menu-dropdown.show{ display:flex; }
+  .menu-dropdown button{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px;
+    background:none; border:none; text-align:left; font-size:13px; font-weight:600; color:var(--ink);
+    width:100%;
+  }
+  .menu-dropdown button:hover{ background:var(--paper); }
+  .menu-dropdown button svg{ width:16px; height:16px; flex:none; color:var(--ink-soft); }
+  .menu-sep{ height:1px; background:var(--line); margin:4px 4px; }
+
+  /* New-record actions: their own row, centered below the header. */
+  .header-actions{
+    display:flex; justify-content:center; gap:10px; flex-wrap:wrap;
+    padding-bottom:20px; border-bottom:1px solid var(--line); margin-bottom:20px;
+  }
 
   .btn{
     display:inline-flex; align-items:center; gap:8px;
@@ -151,6 +172,11 @@
   .btn-ghost:hover{ background:var(--paper-raised); color:var(--ink); }
   .btn-danger{ color:var(--danger); }
   .btn-sm{ padding:6px 11px; font-size:12.5px; }
+  .btn-sm svg{ width:15px; height:15px; flex:none; }
+  .btn-icon{ padding:7px; width:32px; height:32px; justify-content:center; }
+  .btn-icon svg{ width:17px; height:17px; }
+  .btn-icon.is-spinning svg{ animation:btn-icon-spin 0.8s linear infinite; }
+  @keyframes btn-icon-spin{ to{ transform:rotate(360deg); } }
 
   /* ---------- Banners ---------- */
   .banner{
@@ -180,6 +206,10 @@
     font-size:13.5px; font-weight:600; color:var(--ink-soft);
   }
   .page-tabs button.active{ background:var(--accent-soft); color:var(--accent-ink); }
+
+  /* ---------- Bottom nav (phones): icon-only, fixed, like a native app's tab bar ---------- */
+  .bottom-nav{ display:none; }
+
   .month-filter{ display:flex; align-items:center; gap:8px; }
   .month-filter label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); }
   .month-stepper{
@@ -198,7 +228,7 @@
 
   /* ---------- Dashboard ---------- */
   .dash-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  @media (max-width: 820px){ .dash-grid{ grid-template-columns:1fr; } }
+  @media (max-width: 880px){ .dash-grid{ grid-template-columns:1fr; } }
   .dash-card .panel-head{ padding-bottom:10px; }
   .bar-list{ display:flex; flex-direction:column; gap:10px; padding:14px 18px 18px; }
   .bar-row{ display:flex; flex-direction:column; gap:4px; }
@@ -221,7 +251,17 @@
   .calendar-wrap{
     overflow-x:auto; overflow-y:auto; max-height:640px;
     border:1px solid var(--line); border-radius:12px; background:var(--paper-raised);
+    scrollbar-width:thin; scrollbar-color:var(--line-strong) var(--paper);
   }
+  /* Themed scrollbar (Chrome/Safari/Edge) so the scroll cue matches the rest of the app
+     instead of the browser's default bar. */
+  .calendar-wrap::-webkit-scrollbar{ height:11px; width:11px; }
+  .calendar-wrap::-webkit-scrollbar-track{ background:var(--paper); border-radius:8px; }
+  .calendar-wrap::-webkit-scrollbar-thumb{
+    background:var(--line-strong); border-radius:8px; border:2.5px solid var(--paper-raised);
+  }
+  .calendar-wrap::-webkit-scrollbar-thumb:hover{ background:var(--accent); }
+  .calendar-wrap::-webkit-scrollbar-corner{ background:var(--paper); }
   table.calendar{ border-collapse:collapse; width:100%; font-size:12.5px; font-family:"IBM Plex Mono",monospace; }
   table.calendar th, table.calendar td{
     padding:7px 12px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line);
@@ -272,7 +312,8 @@
     font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint);
     font-weight:600; margin:2px 2px 10px;
   }
-  @media (max-width: 720px){ .summary{ grid-template-columns:1fr; } }
+  .summary-2col{ grid-template-columns:repeat(2,1fr); }
+  @media (max-width: 880px){ .summary{ grid-template-columns:1fr; } .summary-2col{ grid-template-columns:1fr; } }
 
   /* ---------- List ---------- */
   .panel{
@@ -338,6 +379,16 @@
   .tipo-badge.estorno{ background:var(--danger-soft); color:var(--danger); }
   .tipo-badge.assinatura{ background:var(--warn-soft); color:var(--warn); }
   .tag-auto{ font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:600; margin-left:8px; }
+
+  /* ---------- Card-mode row fields ----------
+     These f-* classes exist on every list-row cell in every list (Compras, Ingresos/Salidas,
+     Assinaturas). On wide screens they do nothing — .tx-row stays the CSS Grid it always was,
+     laid out by source order via each row's own inline grid-template-columns. Below the phone
+     breakpoint, .tx-row switches to a wrapping flex "card": .f-linebreak is a zero-height,
+     100%-wide spacer that forces everything after it onto its own wrapped line, so every row
+     becomes a two-line card (description + amount on top, the rest as small meta chips below)
+     with no horizontal scrolling, regardless of how many columns the desktop table has. */
+  .f-linebreak{ display:none; }
 
   .empty{ padding:40px 18px; text-align:center; color:var(--ink-faint); font-size:13.5px; }
   .empty .big{ font-family:"Fraunces", serif; font-size:17px; color:var(--ink-soft); display:block; margin-bottom:6px; }
@@ -449,18 +500,75 @@
 
   /* ---------- Responsive (phones) ---------- */
   .tx-scroll{ overflow-x:auto; }
-  @media (max-width: 720px){
-    .wrap{ padding:16px 12px 60px; }
+  @media (max-width: 880px){
+    .wrap{ padding:16px 12px calc(76px + env(safe-area-inset-bottom)); }
     .brand h1{ font-size:22px; }
     .topbar{ gap:12px; }
-    .conn-block{ align-items:flex-start; width:100%; }
-    .conn-actions{ justify-content:flex-start; }
+    .conn-block{ width:100%; justify-content:flex-end; }
     .field-row{ grid-template-columns:1fr; }
-    .list-head-row, .tx-row{ min-width:640px; }
     .modal{ max-width:calc(100vw - 32px); }
     .modal.wide, .modal.xwide{ max-width:calc(100vw - 32px); }
     .cfg-row.cards{ grid-template-columns:1fr; row-gap:6px; }
     .cfg-row.pessoas{ grid-template-columns:1fr; row-gap:6px; }
+
+    /* Page navigation moves to a fixed, icon-only bottom bar (like a native app's tab bar);
+       the top tab strip is redundant on phones, so it's hidden here. */
+    .page-toolbar{ gap:10px; }
+    .page-tabs{ display:none; }
+    .month-filter{ flex-wrap:wrap; row-gap:6px; width:100%; justify-content:flex-start; }
+
+    .bottom-nav{
+      display:flex; position:fixed; left:0; right:0; bottom:0; z-index:40;
+      background:var(--paper-raised); border-top:1px solid var(--line);
+      padding:4px 4px calc(4px + env(safe-area-inset-bottom));
+      box-shadow:0 -2px 10px var(--shadow);
+    }
+    .bottom-nav button{
+      flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:none; border:none; padding:8px 2px 6px; border-radius:10px; color:var(--ink-faint);
+    }
+    .bottom-nav button svg{ width:22px; height:22px; }
+    .bottom-nav button.active{ color:var(--accent); }
+    .bottom-nav button:active{ background:var(--paper); }
+
+    /* ---------- Calendário: shrink the description column so at least 3 month columns
+       are visible on a phone screen without scrolling; the pessoa/cartão hint is dropped
+       here since there isn't room for it. ---------- */
+    table.calendar{ font-size:11px; }
+    table.calendar th, table.calendar td{ padding:6px 7px; }
+    table.calendar th:first-child, table.calendar td:first-child{ max-width:86px; }
+    table.calendar .meta-cell{ display:none; }
+
+    /* ---------- List rows become cards: no more horizontal scrolling ---------- */
+    .list-head-row{ display:none; }
+    .tx-row{
+      display:flex; flex-wrap:wrap; align-items:center; row-gap:6px; column-gap:8px;
+      padding:12px 14px;
+    }
+    .tx-row > *{ min-width:0; }
+    .f-select{ order:1; }
+    .f-desc{
+      order:2; flex:1 1 auto; white-space:normal; overflow-wrap:anywhere; text-overflow:clip;
+      font-size:14px;
+    }
+    .f-valor{ order:3; flex:none; font-size:14.5px; }
+    .f-linebreak{ display:block; order:4; flex:0 0 100%; height:0; margin:0; padding:0; }
+    .f-out{ order:5; }
+    .f-tipo{ order:5; }
+    .f-pessoa, .f-cartao, .f-pvalor, .f-parcela, .f-data{ order:6; }
+    .f-pessoa, .f-cartao, .f-pvalor, .f-parcela, .f-data{
+      font-size:12px; color:var(--ink-soft); background:var(--paper);
+      border:1px solid var(--line); border-radius:6px; padding:3px 7px;
+      white-space:nowrap;
+    }
+    .f-pessoa[data-label]::before, .f-cartao[data-label]::before,
+    .f-pvalor[data-label]::before, .f-parcela[data-label]::before, .f-data[data-label]::before{
+      content:attr(data-label) ": "; color:var(--ink-faint); font-weight:600;
+    }
+    .out-check.f-out{
+      background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:3px 8px 3px 6px; gap:4px;
+    }
+    .tipo-badge.f-tipo{ order:5; }
   }
 </style>
 </head>
@@ -485,14 +593,38 @@
         <span id="connLabel">Nenhum arquivo conectado</span>
         <span id="lastUpdatedLabel" style="color:var(--ink-faint);"></span>
       </div>
-      <div class="conn-actions">
-        <button class="btn btn-sm" id="btnReload" type="button" style="display:none;">Recarregar</button>
-        <button class="btn btn-sm" id="btnConfig" type="button" style="display:none;">Configurações</button>
-        <button class="btn btn-sm btn-primary" id="btnAddCompra" type="button" style="display:none;">Novo (Crédito)</button>
-        <button class="btn btn-sm btn-primary" id="btnAddDebitoTop" type="button" style="display:none;">Novo (Ingreso/Salida)</button>
-        <button class="btn btn-sm" id="btnLogout" type="button" style="display:none;">Sair</button>
+      <div class="menu-wrap" id="connMenuWrap" style="display:none;">
+        <button class="btn btn-sm btn-icon" id="btnMenu" type="button" title="Mais opções" aria-label="Mais opções" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>
+        </button>
+        <div class="menu-dropdown" id="menuDropdown">
+          <button type="button" id="btnReload">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg>
+            Recarregar
+          </button>
+          <button type="button" id="btnConfig">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6.5" x2="20" y2="6.5"/><circle cx="9.5" cy="6.5" r="2.1"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.1"/><line x1="4" y1="17.5" x2="20" y2="17.5"/><circle cx="8" cy="17.5" r="2.1"/></svg>
+            Configurações
+          </button>
+          <div class="menu-sep"></div>
+          <button type="button" id="btnLogout">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+            Sair
+          </button>
+        </div>
       </div>
     </div>
+  </div>
+
+  <div class="header-actions" id="headerActions">
+    <button class="btn btn-sm btn-primary" id="btnAddCompra" type="button" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Novo (Crédito)
+    </button>
+    <button class="btn btn-sm btn-primary" id="btnAddDebitoTop" type="button" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Novo (Ingreso/Salida)
+    </button>
   </div>
 
   <div class="banner danger" id="errorBanner"></div>
@@ -556,7 +688,7 @@
         </div>
       </div>
       <div class="summary-group-label">Divisão Fachero / Fachera</div>
-      <div class="summary" style="grid-template-columns:repeat(2,1fr); margin-bottom:0;">
+      <div class="summary summary-2col" style="margin-bottom:0;">
         <div class="sum-card">
           <span class="k">Balance Fachero</span>
           <div class="v num" id="dashBalanceFachero">R$ 0,00</div>
@@ -714,6 +846,27 @@
         <p class="cfg-hint" id="diarioMonthHint" style="padding:0 18px 18px;"></p>
       </div>
     </div>
+
+    <nav class="bottom-nav" id="bottomNav">
+      <button data-page="dashboard" class="active" type="button" title="Dashboard" aria-label="Dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>
+      </button>
+      <button data-page="tabela" type="button" title="Credito" aria-label="Credito">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.2"/><path d="M2.5 10h19"/></svg>
+      </button>
+      <button data-page="calendario" type="button" title="Calendário" aria-label="Calendário">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
+      </button>
+      <button data-page="debito" type="button" title="Ingresos/Salidas" aria-label="Ingresos/Salidas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h14.5M13.5 3.5l4 4-4 4"/><path d="M21 16.5H6.5M10.5 12.5l-4 4 4 4"/></svg>
+      </button>
+      <button data-page="assinaturas" type="button" title="Assinaturas" aria-label="Assinaturas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.5l4 4-4 4"/><path d="M3 12.5v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.5l-4-4 4-4"/><path d="M21 11.5v2a4 4 0 0 1-4 4H3"/></svg>
+      </button>
+      <button data-page="diario" type="button" title="Diario" aria-label="Diario">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5V4.8a1.8 1.8 0 0 1 1.8-1.8h11.4a1 1 0 0 1 1 1v16.5a1 1 0 0 1-1 1H6.3a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M4.5 19.5a1.8 1.8 0 0 1 1.8-1.8H18.7"/></svg>
+      </button>
+    </nav>
   </div>
 
   <div class="footer-note">Os dados ficam guardados com segurança no seu banco de dados na nuvem, acessíveis de qualquer dispositivo com login.</div>
@@ -1398,11 +1551,13 @@
   function setConnectedUI(connected, fileName){
     $("connDot").className = "conn-dot " + (connected ? "on" : "off");
     $("connLabel").textContent = connected ? ("Logado como " + fileName) : "Não conectado";
-    $("btnReload").style.display = connected ? "inline-flex" : "none";
-    $("btnConfig").style.display = connected ? "inline-flex" : "none";
+    $("connMenuWrap").style.display = connected ? "block" : "none";
+    $("btnReload").style.display = connected ? "flex" : "none";
+    $("btnConfig").style.display = connected ? "flex" : "none";
     $("btnAddCompra").style.display = connected ? "inline-flex" : "none";
     $("btnAddDebitoTop").style.display = connected ? "inline-flex" : "none";
-    $("btnLogout").style.display = connected ? "inline-flex" : "none";
+    $("btnLogout").style.display = connected ? "flex" : "none";
+    if (!connected) closeHeaderMenu();
     $("notConnectedView").style.display = connected ? "none" : "block";
     $("connectedView").style.display = connected ? "block" : "none";
   }
@@ -1556,16 +1711,17 @@
         ? (r.parcelaTotal||1) + "x"
         : (r.parcelaAtual < 1 ? "futura" : (r.parcelaAtual > r.parcelaTotal ? "concluída" : r.parcelaAtual + "/" + r.parcelaTotal));
       row.innerHTML =
-        '<input type="checkbox" class="row-select" '+(selectedCompras.has(r.row)?"checked":"")+'>'+
-        '<label class="out-check" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
-        '<span class="tx-desc">'+escapeHtml(r.descricao)+'</span>'+
-        '<span>'+escapeHtml(r.pessoa)+'</span>'+
-        '<span>'+escapeHtml(r.cartao)+'</span>'+
-        '<span class="tx-amt num">'+fmtBRL(r.valorTotal)+'</span>'+
-        '<span class="num">'+fmtBRL(r.effectiveValor)+'</span>'+
-        '<span class="num">'+parcelaLabel+'</span>'+
-        '<span class="num">'+serialToDisplay(r.dataSerial)+'</span>'+
-        '<span class="tipo-badge '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>';
+        '<input type="checkbox" class="row-select f-select" '+(selectedCompras.has(r.row)?"checked":"")+'>'+
+        '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'</span>'+
+        '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
+        '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartao)+'</span>'+
+        '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
+        '<span class="num f-pvalor" data-label="Parcela R$">'+fmtBRL(r.effectiveValor)+'</span>'+
+        '<span class="num f-parcela" data-label="Parcela">'+parcelaLabel+'</span>'+
+        '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+'</span>'+
+        '<span class="tipo-badge f-tipo '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
+        '<span class="f-linebreak" aria-hidden="true"></span>';
       var selectCheckbox = row.querySelector(".row-select");
       selectCheckbox.addEventListener("click", function(e){ e.stopPropagation(); });
       selectCheckbox.addEventListener("change", function(e){
@@ -1841,11 +1997,12 @@
       row.className = "tx-row tx-row-static";
       row.style.gridTemplateColumns = "1.6fr 0.9fr 1fr 0.9fr 1fr";
       row.innerHTML =
-        '<span class="tx-desc">'+escapeHtml(r.descricao)+'</span>'+
-        '<span>'+escapeHtml(r.pessoa)+'</span>'+
-        '<span>'+escapeHtml(r.cartao)+'</span>'+
-        '<span class="tx-amt num">'+fmtBRL(r.valorTotal)+'</span>'+
-        '<span class="num">'+(r.cancelSerial ? serialToDisplay(r.cancelSerial) : "—")+'</span>';
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'</span>'+
+        '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
+        '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartao)+'</span>'+
+        '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
+        '<span class="num f-data" data-label="Cancelamento">'+(r.cancelSerial ? serialToDisplay(r.cancelSerial) : "—")+'</span>'+
+        '<span class="f-linebreak" aria-hidden="true"></span>';
       listEl.appendChild(row);
     });
   }
@@ -1931,13 +2088,14 @@
       row.className = "tx-row tx-row-static";
       row.style.gridTemplateColumns = "0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr";
       row.innerHTML =
-        '<span></span>'+
-        '<span></span>'+
-        '<span class="tipo-badge">'+escapeHtml(r.tipo)+'</span>'+
-        '<span class="tx-desc">'+escapeHtml(r.descricao)+'<span class="tag-auto">auto</span></span>'+
-        '<span>'+escapeHtml(r.pessoa)+'</span>'+
-        '<span class="tx-amt num">'+fmtBRL(r.valor)+'</span>'+
-        '<span class="num">—</span>';
+        '<span class="f-select"></span>'+
+        '<span class="f-out"></span>'+
+        '<span class="tipo-badge f-tipo">'+escapeHtml(r.tipo)+'</span>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'<span class="tag-auto">auto</span></span>'+
+        '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
+        '<span class="tx-amt num f-valor">'+fmtBRL(r.valor)+'</span>'+
+        '<span class="num f-data" data-label="Data">—</span>'+
+        '<span class="f-linebreak" aria-hidden="true"></span>';
       listEl.appendChild(row);
     });
     sorted.forEach(function(r){
@@ -1947,13 +2105,14 @@
       row.style.gridTemplateColumns = "0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr";
       var badgeClass = r.tipo === "Ingreso" ? "" : (r.tipo === "Gasto fijo" ? "assinatura" : "estorno");
       row.innerHTML =
-        '<input type="checkbox" class="row-select" '+(selectedDebito.has(r.row)?"checked":"")+'>'+
-        '<label class="out-check" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
-        '<span class="tipo-badge '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
-        '<span class="tx-desc">'+escapeHtml(r.descricao)+'</span>'+
-        '<span>'+escapeHtml(r.pessoa)+'</span>'+
-        '<span class="tx-amt num">'+fmtBRL(r.valor)+'</span>'+
-        '<span class="num">'+serialToDisplay(r.dataSerial)+'</span>';
+        '<input type="checkbox" class="row-select f-select" '+(selectedDebito.has(r.row)?"checked":"")+'>'+
+        '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
+        '<span class="tipo-badge f-tipo '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'</span>'+
+        '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
+        '<span class="tx-amt num f-valor">'+fmtBRL(r.valor)+'</span>'+
+        '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+'</span>'+
+        '<span class="f-linebreak" aria-hidden="true"></span>';
       var selectCheckbox = row.querySelector(".row-select");
       selectCheckbox.addEventListener("click", function(e){ e.stopPropagation(); });
       selectCheckbox.addEventListener("change", function(e){
@@ -2116,6 +2275,27 @@
     $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") doSignIn(); });
   });
 
+  // ---------- Header "more options" menu (Recarregar / Configurações / Sair) ----------
+  function closeHeaderMenu(){
+    $("menuDropdown").classList.remove("show");
+    $("btnMenu").setAttribute("aria-expanded", "false");
+  }
+  $("btnMenu").addEventListener("click", function(e){
+    e.stopPropagation();
+    var willShow = !$("menuDropdown").classList.contains("show");
+    $("menuDropdown").classList.toggle("show", willShow);
+    $("btnMenu").setAttribute("aria-expanded", willShow ? "true" : "false");
+  });
+  $("menuDropdown").addEventListener("click", function(e){
+    if (e.target.closest("button")) closeHeaderMenu();
+  });
+  document.addEventListener("click", function(e){
+    if (!e.target.closest("#connMenuWrap")) closeHeaderMenu();
+  });
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape") closeHeaderMenu();
+  });
+
   supabaseClient.auth.onAuthStateChange(function(event, session){
     if (session && session.user){
       currentUserEmail = session.user.email;
@@ -2126,17 +2306,27 @@
     }
   });
 
+  // btnReload is now icon-only, so feedback happens via its title/aria-label tooltip and a
+  // spin animation on the icon instead of swapping button text.
   function reloadWithFeedback(btnEl, worker){
-    var original = btnEl.textContent;
+    var original = btnEl.getAttribute("title") || "Recarregar";
     btnEl.disabled = true;
-    btnEl.textContent = "Recarregando…";
+    btnEl.classList.add("is-spinning");
+    btnEl.setAttribute("title", "Recarregando…");
+    btnEl.setAttribute("aria-label", "Recarregando…");
     return worker().then(function(ok){
       btnEl.disabled = false;
+      btnEl.classList.remove("is-spinning");
       if (ok === false){
-        btnEl.textContent = original;
+        btnEl.setAttribute("title", original);
+        btnEl.setAttribute("aria-label", original);
       } else {
-        btnEl.textContent = "Atualizado ✓";
-        setTimeout(function(){ btnEl.textContent = original; }, 1200);
+        btnEl.setAttribute("title", "Atualizado ✓");
+        btnEl.setAttribute("aria-label", "Atualizado ✓");
+        setTimeout(function(){
+          btnEl.setAttribute("title", original);
+          btnEl.setAttribute("aria-label", original);
+        }, 1200);
       }
     });
   }
@@ -2159,13 +2349,15 @@
   $("fMonthClear").addEventListener("click", clearMonthFilter);
   $("fMonthToday").addEventListener("click", jumpToCurrentMonth);
 
-  // ---------- Page tabs (Dashboard / Compras / Assinaturas / Ingresos-Salidas) ----------
+  // ---------- Page navigation (Dashboard / Compras / Assinaturas / Ingresos-Salidas) ----------
+  // Two navs point at the same pages: #pageTabs (text, top — desktop/tablet) and #bottomNav
+  // (icon-only, fixed to the bottom — phones, like a native app's tab bar). Both are kept in
+  // sync from one place so either one can drive page switching.
   var PAGE_IDS = {dashboard:"pageDashboard", tabela:"pageTabela", calendario:"pageCalendario", assinaturas:"pageAssinaturas", debito:"pageDebito", diario:"pageDiario"};
-  $("pageTabs").addEventListener("click", function(e){
-    var btn = e.target.closest("button[data-page]");
-    if (!btn) return;
-    var page = btn.getAttribute("data-page");
-    $("pageTabs").querySelectorAll("button").forEach(function(b){ b.classList.toggle("active", b===btn); });
+  function setActivePage(page){
+    document.querySelectorAll('#pageTabs button[data-page], #bottomNav button[data-page]').forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-page") === page);
+    });
     Object.keys(PAGE_IDS).forEach(function(p){ $(PAGE_IDS[p]).classList.toggle("active", p === page); });
     if (page === "dashboard") renderDashboard();
     else if (page === "tabela") renderList();
@@ -2173,6 +2365,15 @@
     else if (page === "assinaturas") renderAssinaturasPage();
     else if (page === "debito") renderDebitoPage();
     else if (page === "diario") renderDiarioPage();
+  }
+  ["pageTabs", "bottomNav"].forEach(function(navId){
+    var navEl = $(navId);
+    if (!navEl) return;
+    navEl.addEventListener("click", function(e){
+      var btn = e.target.closest("button[data-page]");
+      if (!btn) return;
+      setActivePage(btn.getAttribute("data-page"));
+    });
   });
 
   // ---------- Add/Edit compra modal ----------
