@@ -237,6 +237,19 @@
   .bar-row .bar-value{ font-family:"IBM Plex Mono",monospace; color:var(--ink-soft); flex:none; margin-left:10px; }
   .bar-track{ height:7px; border-radius:5px; background:var(--paper); overflow:hidden; }
   .bar-fill{ height:100%; background:var(--accent); border-radius:5px; }
+
+  .limite-list{ display:flex; flex-direction:column; gap:16px; padding:16px 18px 20px; }
+  .limite-card{ border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--paper-raised); }
+  .limite-card-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px; }
+  .limite-card-head .name{ font-weight:600; font-size:14px; }
+  .limite-card-head .pct{ font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--ink-faint); }
+  .limite-track{ height:9px; border-radius:6px; background:var(--paper); overflow:hidden; margin-bottom:9px; }
+  .limite-fill{ height:100%; border-radius:6px; background:var(--accent); }
+  .limite-fill.warn{ background:var(--warn); }
+  .limite-fill.danger{ background:var(--danger); }
+  .limite-figures{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft); flex-wrap:wrap; gap:6px 14px; }
+  .limite-figures .num{ font-family:"IBM Plex Mono",monospace; }
+  @media (max-width: 880px){ .limite-figures{ flex-direction:column; gap:2px; } }
   .subs-list{ display:flex; flex-direction:column; padding:6px 0 6px; }
   .subs-item{
     display:flex; justify-content:space-between; align-items:center; gap:10px;
@@ -281,6 +294,7 @@
   table.calendar th.current-month, table.calendar td.current-month{ background:var(--accent-soft); }
   table.calendar td.past{ color:var(--ink-faint); }
   table.calendar td.last-installment{ box-shadow:inset 0 -2px 0 var(--accent); }
+  table.calendar td.over-limit{ color:var(--danger); font-weight:600; }
   table.calendar tr.totals-row td{
     font-weight:700; background:var(--paper); border-top:2px solid var(--line-strong);
     border-bottom:2px solid var(--line-strong); position:sticky; z-index:2;
@@ -334,15 +348,16 @@
   html.mae-mode .row-select,
   html.mae-mode .out-check,
   html.mae-mode #btnConfig,
+  html.mae-mode #btnMenuDiario,
   html.mae-mode #btnImportCsv,
   html.mae-mode #pageTabs button[data-page="dashboard"],
   html.mae-mode #pageTabs button[data-page="debito"],
   html.mae-mode #pageTabs button[data-page="assinaturas"],
-  html.mae-mode #pageTabs button[data-page="diario"],
+  html.mae-mode #pageTabs button[data-page="limite"],
   html.mae-mode #bottomNav button[data-page="dashboard"],
   html.mae-mode #bottomNav button[data-page="debito"],
   html.mae-mode #bottomNav button[data-page="assinaturas"],
-  html.mae-mode #bottomNav button[data-page="diario"]{
+  html.mae-mode #bottomNav button[data-page="limite"]{
     display:none !important;
   }
   html.mae-mode .dash-grid{ grid-template-columns:1fr; }
@@ -380,7 +395,11 @@
     font-weight:600; margin:2px 2px 10px;
   }
   .summary-2col{ grid-template-columns:repeat(2,1fr); }
-  @media (max-width: 880px){ .summary{ grid-template-columns:1fr; } .summary-2col{ grid-template-columns:1fr; } }
+  .summary-1col{ grid-template-columns:1fr; }
+  .sum-card-big{ padding:26px 28px; text-align:center; }
+  .sum-card-big .k{ font-size:13px; margin-bottom:10px; }
+  .sum-card-big .v{ font-size:40px; font-weight:600; }
+  @media (max-width: 880px){ .summary{ grid-template-columns:1fr; } .summary-2col{ grid-template-columns:1fr; } .sum-card-big .v{ font-size:32px; } }
 
   /* ---------- List ---------- */
   .panel{
@@ -401,9 +420,10 @@
     font-weight:600; border-bottom:1px solid var(--line);
   }
   .tx-list{ max-height:560px; overflow-y:auto; }
-  /* Compras registradas is the last thing on its page (nothing below it), so let it grow with
-     the page instead of scrolling in its own box — avoids the nested double-scrollbar problem. */
-  #txList{ max-height:none; overflow:visible; }
+  /* Compras registradas and Movimientos (Ingresos/Salidas) are each the last thing on their page
+     (nothing below them), so let them grow with the page instead of scrolling in their own box —
+     avoids the nested double-scrollbar problem. */
+  #txList, #debitoList{ max-height:none; overflow:visible; }
   .tx-row{
     border-bottom:1px solid var(--line); background:none; border-left:none; border-right:none; border-top:none;
     width:100%; text-align:left; font-size:13.5px; cursor:pointer;
@@ -704,6 +724,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6.5" x2="20" y2="6.5"/><circle cx="9.5" cy="6.5" r="2.1"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.1"/><line x1="4" y1="17.5" x2="20" y2="17.5"/><circle cx="8" cy="17.5" r="2.1"/></svg>
             Configurações
           </button>
+          <button type="button" id="btnMenuDiario">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5V4.8a1.8 1.8 0 0 1 1.8-1.8h11.4a1 1 0 0 1 1 1v16.5a1 1 0 0 1-1 1H6.3a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M4.5 19.5a1.8 1.8 0 0 1 1.8-1.8H18.7"/></svg>
+            Diário
+          </button>
           <div class="menu-sep"></div>
           <button type="button" id="btnLogout">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
@@ -753,9 +777,9 @@
         <button data-page="dashboard" class="active" type="button">Dashboard</button>
         <button data-page="tabela" type="button">Credito</button>
         <button data-page="calendario" type="button">Calendário</button>
+        <button data-page="limite" type="button">Limite</button>
         <button data-page="debito" type="button">Ingresos/Salidas</button>
         <button data-page="assinaturas" type="button">Assinaturas</button>
-        <button data-page="diario" type="button">Diario</button>
       </div>
       <div class="month-filter">
         <label>Mês</label>
@@ -781,6 +805,12 @@
           <div class="v num" id="dashBalance">R$ 0,00</div>
         </div>
         <div class="sum-card">
+          <span class="k">Diário</span>
+          <div class="v num" id="dashDiario">R$ 0,00</div>
+        </div>
+      </div>
+      <div class="summary summary-1col">
+        <div class="sum-card sum-card-big">
           <span class="k">Balance final</span>
           <div class="v num" id="dashBalanceFinal">R$ 0,00</div>
         </div>
@@ -912,36 +942,38 @@
       </div>
     </div>
 
-    <div class="page-section" id="pageDiario">
+    <div class="page-section" id="pageLimite">
       <p class="cfg-hint" style="margin-bottom:14px;">
-        O "diário" é o dinheiro separado para uso livre no mês, descontado do Balance final e das Balance
-        Fachero/Fachera na página Dashboard. Defina um valor padrão para todos os meses abaixo — ele vale para
-        qualquer mês que não tenha um valor próprio. Ao selecionar um mês específico no filtro, você também pode
-        definir um valor só para aquele mês.
+        Quanto de cada cartão já está comprometido com parcelas futuras de compras ativas ("Inside") — compras
+        marcadas como "Out" não contam. O valor considera todas as parcelas ainda não pagas a partir do mês
+        filtrado (ou do mês atual, se "Todos os meses" estiver selecionado).
       </p>
-      <div class="panel" style="max-width:460px;">
-        <div class="panel-head"><h2>Diário (todos os meses)</h2></div>
-        <div class="field" style="padding:0 18px 18px;">
-          <label for="diarioGlobalInput">Valor padrão, aplicado a todo mês sem valor próprio</label>
-          <div class="amount-wrap">
-            <span class="cur">R$</span>
-            <input type="text" inputmode="decimal" id="diarioGlobalInput" placeholder="0,00">
-          </div>
+      <div class="summary summary-2col">
+        <div class="sum-card">
+          <span class="k">Limite total usado (todos os cartões)</span>
+          <div class="v num" id="limiteTotalUsado">R$ 0,00</div>
+        </div>
+        <div class="sum-card">
+          <span class="k">Limite total livre (todos os cartões)</span>
+          <div class="v num" id="limiteTotalLivre">R$ 0,00</div>
         </div>
       </div>
-      <div class="panel" id="diarioMonthPanel" style="max-width:460px; margin-top:16px; display:none;">
-        <div class="panel-head">
-          <h2 id="diarioMonthLabel">Diário do mês</h2>
-          <button class="btn btn-sm" id="diarioResetMonth" type="button" style="display:none;">Restaurar herança</button>
+      <div class="panel">
+        <div class="panel-head"><h2>Limite por cartão</h2></div>
+        <div class="limite-list" id="limiteCartaoList"></div>
+      </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head"><h2>Calendário de limite</h2></div>
+        <p class="cfg-hint" style="padding:0 18px 14px;">
+          Cada linha é um cartão; cada célula é o limite que estará disponível naquele mês, considerando as
+          parcelas ainda não pagas até então.
+        </p>
+        <div class="calendar-wrap">
+          <table class="calendar" id="limiteCalendarTable">
+            <thead><tr id="limiteCalendarHeadRow"></tr></thead>
+            <tbody id="limiteCalendarBody"></tbody>
+          </table>
         </div>
-        <div class="field" style="padding:0 18px 18px;">
-          <label for="diarioMonthInput">Valor próprio deste mês</label>
-          <div class="amount-wrap">
-            <span class="cur">R$</span>
-            <input type="text" inputmode="decimal" id="diarioMonthInput" placeholder="0,00">
-          </div>
-        </div>
-        <p class="cfg-hint" id="diarioMonthHint" style="padding:0 18px 18px;"></p>
       </div>
     </div>
 
@@ -955,14 +987,14 @@
       <button data-page="calendario" type="button" title="Calendário" aria-label="Calendário">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
       </button>
+      <button data-page="limite" type="button" title="Limite" aria-label="Limite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1"/></svg>
+      </button>
       <button data-page="debito" type="button" title="Ingresos/Salidas" aria-label="Ingresos/Salidas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h14.5M13.5 3.5l4 4-4 4"/><path d="M21 16.5H6.5M10.5 12.5l-4 4 4 4"/></svg>
       </button>
       <button data-page="assinaturas" type="button" title="Assinaturas" aria-label="Assinaturas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.5l4 4-4 4"/><path d="M3 12.5v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.5l-4-4 4-4"/><path d="M21 11.5v2a4 4 0 0 1-4 4H3"/></svg>
-      </button>
-      <button data-page="diario" type="button" title="Diario" aria-label="Diario">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5V4.8a1.8 1.8 0 0 1 1.8-1.8h11.4a1 1 0 0 1 1 1v16.5a1 1 0 0 1-1 1H6.3a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M4.5 19.5a1.8 1.8 0 0 1 1.8-1.8H18.7"/></svg>
       </button>
     </nav>
   </div>
@@ -1156,6 +1188,7 @@
         <button data-tab="pessoas" class="active" type="button">Pessoas</button>
         <button data-tab="cartoes" type="button">Cartões</button>
         <button data-tab="tipos" type="button">Tipos</button>
+        <button data-tab="diario" type="button">Diário</button>
       </div>
 
       <div class="cfg-pane active" id="cfgPanePessoas">
@@ -1185,6 +1218,39 @@
         <div class="cfg-add-row">
           <input type="text" id="cfgTipoNew" placeholder="Novo tipo…">
           <button class="btn btn-sm" id="cfgTipoAdd" type="button">Adicionar</button>
+        </div>
+      </div>
+
+      <div class="cfg-pane" id="cfgPaneDiario">
+        <p class="cfg-hint">
+          O "diário" é o dinheiro separado para uso livre no mês, descontado do Balance final e das Balance
+          Fachero/Fachera na página Dashboard. Defina um valor padrão para todos os meses abaixo — ele vale para
+          qualquer mês que não tenha um valor próprio. Ao selecionar um mês específico no filtro (fora deste modal),
+          você também pode definir um valor só para aquele mês.
+        </p>
+        <div class="panel" style="box-shadow:none; border:1px solid var(--line);">
+          <div class="panel-head"><h2>Diário (todos os meses)</h2></div>
+          <div class="field" style="padding:0 18px 18px;">
+            <label for="diarioGlobalInput">Valor padrão, aplicado a todo mês sem valor próprio</label>
+            <div class="amount-wrap">
+              <span class="cur">R$</span>
+              <input type="text" inputmode="decimal" id="diarioGlobalInput" placeholder="0,00">
+            </div>
+          </div>
+        </div>
+        <div class="panel" id="diarioMonthPanel" style="box-shadow:none; border:1px solid var(--line); margin-top:16px; display:none;">
+          <div class="panel-head">
+            <h2 id="diarioMonthLabel">Diário do mês</h2>
+            <button class="btn btn-sm" id="diarioResetMonth" type="button" style="display:none;">Restaurar herança</button>
+          </div>
+          <div class="field" style="padding:0 18px 18px;">
+            <label for="diarioMonthInput">Valor próprio deste mês</label>
+            <div class="amount-wrap">
+              <span class="cur">R$</span>
+              <input type="text" inputmode="decimal" id="diarioMonthInput" placeholder="0,00">
+            </div>
+          </div>
+          <p class="cfg-hint" id="diarioMonthHint" style="padding:0 18px 18px;"></p>
         </div>
       </div>
     </div>
@@ -1524,6 +1590,7 @@
     renderList();
     renderDashboard();
     renderCalendarioPage();
+    renderLimitePage();
     renderAssinaturasPage();
     renderDebitoPage();
     renderDiarioPage();
@@ -2067,6 +2134,125 @@
     });
   }
 
+  // ---------- Limite (how much of each card's credit limit is already committed) ----------
+  // "Committed" = the sum of every remaining (not-yet-billed-as-of-the-reference-month)
+  // installment of every active ("Inside") purchase on that card — the same amount a real credit
+  // card blocks from its available limit, not just the current invoice. "Out" purchases (used only
+  // for temporal what-if simulations) never count here.
+  function getLimiteUsageByCartaoForMonth(ym){
+    var usage = {};
+    state.compras.records.forEach(function(r){
+      if (r.out) return;
+      if (!r.dataSerial || !r.cartao) return;
+      var total = r.parcelas || 1;
+      var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+      var idxAtYM = monthsBetween(startYM, ym) + 1;
+      var firstRemainingIdx = Math.max(idxAtYM, 1);
+      var remainingCount = total - firstRemainingIdx + 1;
+      if (remainingCount <= 0) return;
+      if (remainingCount > total) remainingCount = total;
+      var parcelaValor = (r.valorTotal||0) / total;
+      usage[r.cartao] = (usage[r.cartao]||0) + remainingCount * parcelaValor;
+    });
+    return usage;
+  }
+  function getLimiteUsageByCartao(){
+    return getLimiteUsageByCartaoForMonth(getRefMonth());
+  }
+
+  function renderLimitePage(){
+    var el = $("limiteCartaoList");
+    if (!el) return;
+    var usage = getLimiteUsageByCartao();
+    var cartoes = state.cartoes.records.slice().sort(function(a,b){ return a.nome.localeCompare(b.nome); });
+    el.innerHTML = "";
+    var totalUsado = 0, totalLimite = 0;
+    if (!cartoes.length){
+      el.innerHTML = '<div class="empty" style="padding:20px 4px;">Nenhum cartão cadastrado.</div>';
+      $("limiteTotalUsado").textContent = fmtBRL(0);
+      $("limiteTotalLivre").textContent = fmtBRL(0);
+    } else {
+      cartoes.forEach(function(c){
+        var usado = usage[c.nome] || 0;
+        totalUsado += usado;
+        totalLimite += (c.limite || 0);
+        var limite = c.limite || 0;
+        var pct = limite > 0 ? (usado/limite)*100 : 0;
+        var pctClamped = Math.max(0, Math.min(100, pct));
+        var disponivel = limite - usado;
+        var fillClass = pct >= 100 ? "danger" : (pct >= 80 ? "warn" : "");
+        var card = document.createElement("div");
+        card.className = "limite-card";
+        card.innerHTML =
+          '<div class="limite-card-head"><span class="name">'+escapeHtml(c.nome)+'</span><span class="pct">'+Math.round(pct)+'%</span></div>'+
+          '<div class="limite-track"><div class="limite-fill '+fillClass+'" style="width:'+pctClamped+'%;"></div></div>'+
+          '<div class="limite-figures">'+
+            '<span>Usado: <span class="num">'+fmtBRL(usado)+'</span></span>'+
+            '<span>Disponível: <span class="num">'+fmtBRL(disponivel)+'</span></span>'+
+            '<span>Limite: <span class="num">'+fmtBRL(limite)+'</span></span>'+
+          '</div>';
+        el.appendChild(card);
+      });
+      $("limiteTotalUsado").textContent = fmtBRL(totalUsado);
+      $("limiteTotalLivre").textContent = fmtBRL(totalLimite - totalUsado);
+    }
+    renderLimiteCalendar();
+  }
+
+  // Same visual pattern as the Compras calendar (Calendário page), but each row is a card
+  // (not a purchase) and each cell is that card's available limit in that month — i.e. the
+  // limit minus whatever's still committed from active installment purchases as of that month.
+  function renderLimiteCalendar(){
+    if (!$("limiteCalendarBody")) return;
+    var refYM = getRefMonth();
+    var cartoes = state.cartoes.records.slice().sort(function(a,b){ return a.nome.localeCompare(b.nome); });
+
+    var decoratedAll = decorateComprasForCalendar(state.compras.records.filter(function(r){ return !r.out; }), refYM);
+    var windowStart = addMonths(refYM, -1);
+    var maxYM = refYM;
+    if (decoratedAll.length){
+      maxYM = decoratedAll[0].endYM;
+      decoratedAll.forEach(function(d){ if (monthsBetween(maxYM, d.endYM) > 0) maxYM = d.endYM; });
+    }
+    var MAX_COLS = 48;
+    var totalCols = monthsBetween(windowStart, maxYM) + 1;
+    if (totalCols > MAX_COLS){ maxYM = addMonths(windowStart, MAX_COLS-1); totalCols = MAX_COLS; }
+    if (totalCols < 1) totalCols = 1;
+    var columns = [];
+    for (var i=0;i<totalCols;i++) columns.push(addMonths(windowStart, i));
+
+    var headHtml = '<th>Cartão</th>';
+    columns.forEach(function(ym){
+      var isRef = (ym.year===refYM.year && ym.month===refYM.month);
+      headHtml += '<th class="'+(isRef?"current-month":"")+'">'+MONTH_ABBR_PT[ym.month-1]+"/"+String(ym.year).slice(2)+'</th>';
+    });
+    $("limiteCalendarHeadRow").innerHTML = headHtml;
+
+    if (!cartoes.length){
+      $("limiteCalendarBody").innerHTML = '<tr><td class="empty-cell">Nenhum cartão cadastrado.</td></tr>';
+      return;
+    }
+
+    var usageByColumn = columns.map(function(ym){ return getLimiteUsageByCartaoForMonth(ym); });
+
+    var bodyHtml = "";
+    cartoes.forEach(function(c){
+      bodyHtml += '<tr><td>'+escapeHtml(c.nome)+'</td>';
+      columns.forEach(function(ym, idx){
+        var usado = usageByColumn[idx][c.nome] || 0;
+        var disponivel = (c.limite||0) - usado;
+        var isRef = (ym.year===refYM.year && ym.month===refYM.month);
+        var classes = [];
+        if (isRef) classes.push("current-month");
+        else if (monthsBetween(ym, refYM) > 0) classes.push("past");
+        if (disponivel < 0) classes.push("over-limit");
+        bodyHtml += '<td class="'+classes.join(" ")+'">'+fmtBRL(disponivel)+'</td>';
+      });
+      bodyHtml += '</tr>';
+    });
+    $("limiteCalendarBody").innerHTML = bodyHtml;
+  }
+
   // Diário: how much of the month's balance is set aside as "free to use" money. A single
   // default value (stored as the Diario sheet row with mes="") applies to every month; a
   // specific month can "break inheritance" with its own row (mes="YYYY-MM") that overrides it.
@@ -2108,6 +2294,7 @@
     setBalanceCard("dashBalance", balance);
 
     var diario = getDiarioAmount();
+    $("dashDiario").textContent = fmtBRL(diario);
     var restante = balance - total - diario;
     setBalanceCard("dashBalanceFinal", restante);
 
@@ -2452,6 +2639,7 @@
       renderList();
       renderDashboard();
       renderCalendarioPage();
+      renderLimitePage();
       renderAssinaturasPage();
       renderDebitoPage();
       renderDiarioPage();
@@ -2582,7 +2770,7 @@
   // Two navs point at the same pages: #pageTabs (text, top — desktop/tablet) and #bottomNav
   // (icon-only, fixed to the bottom — phones, like a native app's tab bar). Both are kept in
   // sync from one place so either one can drive page switching.
-  var PAGE_IDS = {dashboard:"pageDashboard", tabela:"pageTabela", calendario:"pageCalendario", assinaturas:"pageAssinaturas", debito:"pageDebito", diario:"pageDiario"};
+  var PAGE_IDS = {dashboard:"pageDashboard", tabela:"pageTabela", calendario:"pageCalendario", limite:"pageLimite", assinaturas:"pageAssinaturas", debito:"pageDebito"};
   function setActivePage(page){
     document.querySelectorAll('#pageTabs button[data-page], #bottomNav button[data-page]').forEach(function(b){
       b.classList.toggle("active", b.getAttribute("data-page") === page);
@@ -2591,9 +2779,9 @@
     if (page === "dashboard") renderDashboard();
     else if (page === "tabela") renderList();
     else if (page === "calendario") renderCalendarioPage();
+    else if (page === "limite") renderLimitePage();
     else if (page === "assinaturas") renderAssinaturasPage();
     else if (page === "debito") renderDebitoPage();
-    else if (page === "diario") renderDiarioPage();
   }
   ["pageTabs", "bottomNav"].forEach(function(navId){
     var navEl = $(navId);
@@ -3065,12 +3253,26 @@
 
   // ---------- Configurações modal ----------
   var cfgOverlay = $("cfgOverlay");
-  function openCfgModal(){
+  function switchCfgTab(tab){
+    $("cfgTabs").querySelectorAll("button[data-tab]").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+    });
+    ["pessoas","cartoes","tipos","diario"].forEach(function(t){
+      $("cfgPane"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active", t===tab);
+    });
+    if (tab === "diario") renderDiarioPage();
+  }
+  // tab is optional: pass it (e.g. "diario") to jump straight to that tab — used by the
+  // "Mais opções" menu's Diário shortcut — otherwise the modal opens on whichever tab was
+  // active last time.
+  function openCfgModal(tab){
     renderCfgLists();
+    if (tab) switchCfgTab(tab);
     cfgOverlay.classList.add("show");
   }
   function closeCfgModal(){ cfgOverlay.classList.remove("show"); }
-  $("btnConfig").addEventListener("click", openCfgModal);
+  $("btnConfig").addEventListener("click", function(){ openCfgModal(); });
+  $("btnMenuDiario").addEventListener("click", function(){ openCfgModal("diario"); });
   $("cfgClose").addEventListener("click", closeCfgModal);
   $("cfgDone").addEventListener("click", closeCfgModal);
   cfgOverlay.addEventListener("click", function(e){ if (e.target===cfgOverlay) closeCfgModal(); });
@@ -3078,11 +3280,7 @@
   $("cfgTabs").addEventListener("click", function(e){
     var btn = e.target.closest("button[data-tab]");
     if (!btn) return;
-    var tab = btn.getAttribute("data-tab");
-    $("cfgTabs").querySelectorAll("button").forEach(function(b){ b.classList.toggle("active", b===btn); });
-    ["pessoas","cartoes","tipos"].forEach(function(t){
-      $("cfgPane"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active", t===tab);
-    });
+    switchCfgTab(btn.getAttribute("data-tab"));
   });
 
   function simpleListRow(tableKey, rec){
