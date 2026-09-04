@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#B5541F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Planes">
+<title>Planes</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23B5541F'/%3E%3Cpath d='M11 25l-6-2V7l6 2 6-2 6 2v16l-6-2-6 2z' fill='none' stroke='%23FBF8F4' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'/%3E%3Cpath d='M11 9v16M17 11v16' stroke='%23FBF8F4' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --paper:#EFEAE3;
+    --paper-raised:#FBF8F4;
+    --ink:#2A2018;
+    --ink-soft:#6B5F52;
+    --ink-faint:#9A8E80;
+    --line:#DED4C6;
+    --line-strong:#CBBDA9;
+    --accent:#B5541F;
+    --accent-ink:#5E2A0F;
+    --accent-soft:#F1DCC9;
+    --warn:#9C7A1E;
+    --warn-soft:#F1E6C4;
+    --danger:#A8392C;
+    --danger-soft:#F1D9D3;
+    --success:#2E7D4F;
+    --success-soft:#DCEEE0;
+    --shadow:rgba(42,32,24,0.10);
+    --focus:#B5541F;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#1B1712; --paper-raised:#241F18; --ink:#F0E9E0; --ink-soft:#B8A996; --ink-faint:#87786A;
+      --line:#332B21; --line-strong:#453B2E; --accent:#E08A4E; --accent-ink:#FBE3CE; --accent-soft:#3A2A1B;
+      --warn:#D9B458; --warn-soft:#3A3018; --danger:#E08677; --danger-soft:#3B231F;
+      --success:#5FBE84; --success-soft:#1D3324; --shadow:rgba(0,0,0,0.35);
+      --focus:#E08A4E;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#1B1712; --paper-raised:#241F18; --ink:#F0E9E0; --ink-soft:#B8A996; --ink-faint:#87786A;
+    --line:#332B21; --line-strong:#453B2E; --accent:#E08A4E; --accent-ink:#FBE3CE; --accent-soft:#3A2A1B;
+    --warn:#D9B458; --warn-soft:#3A3018; --danger:#E08677; --danger-soft:#3B231F;
+    --success:#5FBE84; --success-soft:#1D3324; --shadow:rgba(0,0,0,0.35);
+    --focus:#E08A4E;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper); color:var(--ink); font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size:15px; line-height:1.5; min-height:100vh;
+  }
+  h1,h2,h3{ font-family:"Fraunces", Georgia, "Times New Roman", serif; text-wrap:balance; margin:0; color:var(--ink); font-weight:600; }
+  .num{ font-family:"IBM Plex Mono", ui-monospace, "SF Mono", monospace; font-variant-numeric:tabular-nums; }
+  button, input, select{ font-family:inherit; font-size:inherit; color:inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+  button{ cursor:pointer; }
+
+  .wrap{ max-width:1080px; margin:0 auto; padding:26px 20px 70px; }
+
+  /* ---------- Header / trip info ---------- */
+  .topbar{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .eyebrow{ font-size:11.5px; letter-spacing:0.09em; text-transform:uppercase; color:var(--ink-faint); font-weight:600; }
+  .topbar h1{ font-size:26px; margin-top:4px; display:flex; align-items:center; gap:10px; }
+  .app-icon{ display:inline-flex; flex:none; width:26px; height:26px; color:var(--accent); }
+  .app-icon svg{ width:100%; height:100%; }
+
+  /* ---------- Mode switch (Viajes / Salida) ---------- */
+  .mode-switch{ display:flex; gap:8px; margin-bottom:18px; }
+  .mode-switch button{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:12px; border-radius:11px; border:1px solid var(--line); background:var(--paper-raised);
+    font-weight:600; font-size:14px; color:var(--ink-soft); box-shadow:0 1px 2px var(--shadow);
+  }
+  .mode-switch button svg{ width:18px; height:18px; flex:none; }
+  .mode-switch button.active{ background:var(--accent); border-color:var(--accent); color:#FBF3EC; }
+  @media (max-width:480px){ .mode-switch{ flex-direction:column; } }
+
+  .trip-card{
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:13px; box-shadow:0 1px 2px var(--shadow);
+    padding:16px 18px; margin-bottom:20px; display:flex; gap:22px; flex-wrap:wrap; align-items:flex-end;
+  }
+  .trip-card .field{ display:flex; flex-direction:column; gap:5px; }
+  .trip-card .field label{ font-size:12px; font-weight:600; color:var(--ink-soft); }
+  .trip-card input{
+    padding:8px 10px; border-radius:8px; border:1px solid var(--line-strong); background:var(--paper);
+    color:var(--ink); min-width:150px;
+  }
+  .trip-card input#tripDestino{ min-width:220px; font-weight:600; }
+  .trip-card .dsel{ min-width:150px; }
+  .trip-card .dsel-trigger{ min-width:150px; }
+  .trip-stat{
+    margin-left:auto; text-align:center; padding:6px 18px; border-left:1px solid var(--line);
+  }
+  .trip-stat .k{ font-size:11.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); font-weight:600; }
+  .trip-stat .v{ font-size:30px; font-weight:700; font-family:"IBM Plex Mono",monospace; }
+
+  /* ---------- Tabs ---------- */
+  .page-tabs{
+    display:flex; gap:4px; background:var(--paper-raised); border:1px solid var(--line); border-radius:9px;
+    padding:4px; margin-bottom:18px; flex-wrap:wrap;
+  }
+  .page-tabs button{
+    border:none; background:transparent; padding:8px 16px; border-radius:6px; font-size:13.5px;
+    font-weight:600; color:var(--ink-soft);
+  }
+  .page-tabs button.active{ background:var(--accent-soft); color:var(--accent-ink); }
+  .page-section{ display:none; }
+  .page-section.active{ display:block; }
+
+  /* ---------- Summary cards ---------- */
+  .summary{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:20px; }
+  @media (max-width:760px){ .summary{ grid-template-columns:1fr; } }
+  .sum-card{
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; padding:16px 20px;
+    box-shadow:0 1px 2px var(--shadow);
+  }
+  .sum-card .k{ font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); font-weight:600; margin-bottom:8px; display:block; }
+  .sum-card .v{ font-size:24px; font-weight:600; }
+  .sum-card .v.negative{ color:var(--danger); }
+  .sum-card .v.positive{ color:var(--accent); }
+
+  /* ---------- Panels / lists ---------- */
+  .panel{ background:var(--paper-raised); border:1px solid var(--line); border-radius:13px; box-shadow:0 1px 2px var(--shadow); overflow:hidden; margin-bottom:20px; }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px 12px; border-bottom:1px solid var(--line); gap:10px; flex-wrap:wrap; }
+  .panel-head h2{ font-size:17px; }
+  .item-row{
+    display:grid; gap:10px; align-items:center; padding:12px 18px; border-bottom:1px solid var(--line);
+  }
+  .item-row:last-child{ border-bottom:none; }
+  .item-row:hover{ background:var(--paper); cursor:pointer; }
+  .row-title{ font-weight:600; }
+  .row-meta{ font-size:12.5px; color:var(--ink-soft); }
+  .row-amt{ font-family:"IBM Plex Mono",monospace; font-weight:600; text-align:right; }
+  .tag{
+    display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px;
+    background:var(--accent-soft); color:var(--accent-ink); white-space:nowrap; width:fit-content;
+  }
+  .tag.warn{ background:var(--warn-soft); color:var(--warn); }
+  .tag.tag-success{ background:var(--success-soft); color:var(--success); }
+  .tag.tag-danger{ background:var(--danger-soft); color:var(--danger); }
+  .empty{ padding:26px 18px; text-align:center; color:var(--ink-faint); font-size:13.5px; }
+
+  @media (max-width:760px){
+    .item-row{ grid-template-columns:1fr !important; }
+    .row-amt{ text-align:left; }
+  }
+
+  /* ---------- Orçamento em blocos ---------- */
+  .orc-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; padding:16px 18px; }
+  .orc-card{
+    border:1px solid var(--line); border-radius:11px; padding:14px 16px; background:var(--paper);
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .orc-card:hover{ border-color:var(--line-strong); cursor:pointer; background:var(--paper-raised); }
+  .orc-card .orc-cat{ font-weight:600; font-size:14.5px; }
+  .orc-card .orc-stat{ display:flex; justify-content:space-between; align-items:baseline; font-size:12.5px; color:var(--ink-soft); }
+  .orc-card .orc-stat b{ font-family:"IBM Plex Mono",monospace; color:var(--ink); font-weight:600; font-size:13px; }
+  .orc-card .orc-diff.negative b{ color:var(--danger); }
+  .orc-card .orc-diff.positive b{ color:var(--accent); }
+  .check-field{ display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--ink-soft); }
+  .check-field input{ width:auto; padding:0; }
+
+  /* ---------- Passagens em duas colunas ---------- */
+  .pas-cols{ display:grid; grid-template-columns:1fr 1fr; }
+  .pas-col + .pas-col{ border-left:1px solid var(--line); }
+  .pas-col-head{ font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-faint); font-weight:600; padding:10px 18px 6px; }
+  @media (max-width:640px){
+    .pas-cols{ grid-template-columns:1fr; }
+    .pas-col + .pas-col{ border-left:none; border-top:1px solid var(--line); }
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; padding:9px 15px; border-radius:9px; border:1px solid var(--line);
+    background:var(--paper-raised); color:var(--ink); font-weight:600; font-size:13.5px; box-shadow:0 1px 2px var(--shadow);
+  }
+  .btn:hover{ border-color:var(--line-strong); }
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:#FBF3EC; }
+  .btn-primary:hover{ filter:brightness(1.06); }
+  .btn-danger{ color:var(--danger); }
+  .btn-sm{ padding:6px 11px; font-size:12.5px; }
+
+  /* ---------- Modal ---------- */
+  .overlay{
+    display:none; position:fixed; inset:0; background:rgba(20,15,10,0.45); align-items:flex-start;
+    justify-content:center; padding:6vh 16px; z-index:50; overflow-y:auto;
+  }
+  .overlay.show{ display:flex; }
+  .modal{
+    background:var(--paper-raised); border-radius:14px; width:100%; max-width:460px; box-shadow:0 20px 50px var(--shadow);
+    overflow:hidden;
+  }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); }
+  .modal-close{ background:none; border:none; font-size:18px; color:var(--ink-faint); padding:4px; }
+  .modal-body{ padding:16px 18px; display:flex; flex-direction:column; gap:14px; max-height:60vh; overflow-y:auto; }
+  .modal-foot{ display:flex; gap:8px; padding:14px 18px; border-top:1px solid var(--line); }
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); }
+  .field input, .field select{
+    padding:9px 11px; border-radius:8px; border:1px solid var(--line-strong); background:var(--paper);
+    color:var(--ink); width:100%;
+  }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:480px){ .field-row{ grid-template-columns:1fr; } }
+  .field-error{ display:none; color:var(--danger); font-size:12.5px; }
+  .field-error.show{ display:block; }
+
+  /* ---------- Date / time picker custom (.dsel / .tsel) ---------- */
+  .dsel, .tsel{ position:relative; width:100%; }
+  .dsel-native, .tsel-native{ position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; overflow:hidden; }
+  .dsel-trigger, .tsel-trigger{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;
+    padding:9px 11px; border-radius:8px; border:1px solid var(--line-strong); background:var(--paper); color:var(--ink);
+    font-size:inherit; text-align:left; font-family:"IBM Plex Mono",monospace;
+  }
+  .dsel-trigger .dsel-label.ph, .tsel-trigger .tsel-label.ph{ color:var(--ink-faint); font-family:"IBM Plex Sans",sans-serif; }
+  .dsel-trigger svg, .tsel-trigger svg{ flex:none; width:16px; height:16px; color:var(--ink-faint); }
+  .dsel-panel, .tsel-panel{
+    display:none; position:absolute; z-index:60; top:calc(100% + 6px); left:0; min-width:260px;
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 30px var(--shadow); padding:12px;
+  }
+  .dsel-panel.show, .tsel-panel.show{ display:block; }
+  .dsel-panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .dsel-panel-label{ font-weight:600; font-size:13.5px; }
+  .dsel-nav{ display:flex; gap:4px; }
+  .dsel-nav button{ border:1px solid var(--line); background:var(--paper); border-radius:6px; width:26px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--ink-soft); }
+  .dsel-weekdays{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:4px; }
+  .dsel-weekdays span{ text-align:center; font-size:10.5px; color:var(--ink-faint); font-weight:600; }
+  .dsel-days{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .dsel-day{ border:none; background:transparent; border-radius:8px; padding:6px 0; font-size:12.5px; color:var(--ink); }
+  .dsel-day:hover{ background:var(--paper); }
+  .dsel-day.other-month{ color:var(--ink-faint); }
+  .dsel-day.today{ box-shadow:inset 0 0 0 1px var(--line-strong); }
+  .dsel-day.selected{ background:var(--accent); color:#FBF3EC; font-weight:700; }
+  .dsel-panel-foot, .tsel-panel-foot{ display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+  .dsel-panel-foot button, .tsel-panel-foot button{ border:none; background:none; color:var(--accent-ink); font-size:12.5px; font-weight:600; padding:4px 6px; }
+  .tsel-cols{ display:flex; align-items:flex-start; justify-content:center; gap:8px; min-width:150px; }
+  .tsel-col{
+    display:flex; flex-direction:column; gap:2px; max-height:180px; overflow-y:auto; width:48px;
+    scrollbar-width:thin; scrollbar-color:var(--line-strong) transparent;
+  }
+  .tsel-col::-webkit-scrollbar{ width:6px; }
+  .tsel-col::-webkit-scrollbar-track{ background:transparent; }
+  .tsel-col::-webkit-scrollbar-thumb{ background:var(--line-strong); border-radius:999px; }
+  .tsel-col::-webkit-scrollbar-thumb:hover{ background:var(--ink-faint); }
+  .tsel-col button{ border:none; background:transparent; padding:6px 0; border-radius:6px; font-size:13px; font-family:"IBM Plex Mono",monospace; text-align:center; color:var(--ink); }
+  .tsel-col button:hover{ background:var(--paper); }
+  .tsel-col button.selected{ background:var(--accent); color:#FBF3EC; font-weight:700; }
+  .tsel-sep{ display:flex; align-items:center; padding-top:6px; font-weight:700; font-size:15px; color:var(--ink-faint); }
+
+  /* ---------- Calendário ---------- */
+  .cal-toggle{ display:flex; gap:4px; background:var(--paper-raised); border:1px solid var(--line); border-radius:9px; padding:4px; margin-bottom:14px; width:fit-content; }
+  .cal-toggle button{ border:none; background:transparent; padding:7px 14px; border-radius:6px; font-size:13px; font-weight:600; color:var(--ink-soft); }
+  .cal-toggle button.active{ background:var(--accent-soft); color:var(--accent-ink); }
+  .cal-nav{ display:flex; gap:4px; }
+  .cal-nav button{ border:1px solid var(--line); background:var(--paper); border-radius:6px; width:28px; height:28px; color:var(--ink-soft); }
+
+  .cal-list{ display:flex; flex-direction:column; }
+  .cal-day{
+    display:grid; grid-template-columns:64px 1fr; gap:14px; padding:11px 18px; border-bottom:1px solid var(--line);
+    align-items:flex-start;
+  }
+  .cal-day:last-child{ border-bottom:none; }
+  .cal-day.today{ background:var(--accent-soft); }
+  .cal-day .d{ font-family:"IBM Plex Mono",monospace; text-align:center; }
+  .cal-day .d .num-day{ font-size:19px; font-weight:700; line-height:1; }
+  .cal-day .d .wk{ font-size:10.5px; text-transform:uppercase; color:var(--ink-faint); letter-spacing:0.04em; }
+  .cal-day .events{ display:flex; flex-direction:column; gap:5px; }
+  .cal-event{ display:flex; align-items:center; gap:7px; font-size:13px; }
+  .cal-event .ico{ flex:none; width:16px; height:16px; color:var(--accent); }
+  .cal-event.empty{ color:var(--ink-faint); font-style:italic; }
+  .cal-event-click{ cursor:pointer; border-radius:6px; padding:2px 4px; margin:-2px -4px; }
+  .cal-event-click:hover{ background:var(--paper); text-decoration:underline; }
+  .cal-day-label{ font-weight:600; }
+
+  .cal-grid-wrap{ }
+  .cal-grid-weekdays{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:6px; }
+  .cal-grid-weekdays span{ text-align:center; font-size:11px; font-weight:600; color:var(--ink-faint); text-transform:uppercase; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal-grid-cell{
+    min-height:64px; border:1px solid var(--line); border-radius:8px; padding:6px; display:flex; flex-direction:column; gap:5px;
+    background:var(--paper);
+  }
+  .cal-grid-cell.other-month{ opacity:0.35; }
+  .cal-grid-cell.in-trip{ background:var(--paper-raised); border-color:var(--line-strong); }
+  .cal-grid-cell.in-trip:hover{ cursor:pointer; border-color:var(--accent); }
+  .cal-grid-cell.today{ box-shadow:inset 0 0 0 2px var(--accent); }
+  .cal-grid-cell .gd-num{ font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:12.5px; }
+  .cal-grid-icons{ display:flex; gap:3px; flex-wrap:wrap; }
+  .cal-grid-icon{ width:13px; height:13px; flex:none; }
+  .cal-grid-icon svg{ width:100%; height:100%; display:block; }
+  .cal-grid-icon.icon-pas{ color:var(--accent); }
+  .cal-grid-icon.icon-hos{ color:var(--warn); }
+  .cal-grid-icon.icon-atv{ color:var(--success); }
+  @media (max-width:620px){ .cal-grid-cell{ min-height:46px; } }
+  .cal-day-budget{ font-size:11.5px; color:var(--ink-faint); }
+
+  .footer-note{ text-align:center; color:var(--ink-faint); font-size:12px; margin-top:26px; }
+
+  /* ---------- Splash / auth (Supabase login, mesmo padrão do Finanças) ---------- */
+  .splash{
+    position:fixed; inset:0; background:var(--paper); z-index:200; display:flex; align-items:center; justify-content:center;
+    transition:opacity 0.25s ease;
+  }
+  .splash.hide{ opacity:0; pointer-events:none; }
+  .auth-hero{ max-width:380px; margin:60px auto; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; }
+  .auth-hero h2{ font-size:20px; }
+  .auth-hero p{ color:var(--ink-soft); font-size:13.5px; margin:0; }
+  .conn-bar{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .conn-dot{ width:8px; height:8px; border-radius:999px; background:var(--ink-faint); flex:none; }
+  .conn-dot.on{ background:var(--success); }
+  .conn-label{ font-size:12px; color:var(--ink-soft); }
+  .banner{ padding:10px 14px; border-radius:10px; margin-bottom:14px; font-size:13px; display:none; }
+  .banner.danger{ background:var(--danger-soft); color:var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="splash" id="splashView">
+  <span class="app-icon" style="width:40px; height:40px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-6-2V4l6 2 6-2 6 2v14l-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span>
+</div>
+
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <div class="eyebrow">Planejamento &middot; protótipo</div>
+      <h1><span class="app-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-6-2V4l6 2 6-2 6 2v14l-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span> Planes</h1>
+    </div>
+  </div>
+
+  <div id="notConnectedView" style="display:none;">
+    <div class="auth-hero">
+      <h2>Entrar</h2>
+      <p>Seus dados ficam guardados com segurança na nuvem, protegidos por login — pode usar a mesma conta em qualquer dispositivo.</p>
+      <div class="field" style="width:100%; text-align:left;">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" autocomplete="username">
+      </div>
+      <div class="field" style="width:100%; text-align:left;">
+        <label for="authPassword">Senha</label>
+        <input type="password" id="authPassword" autocomplete="current-password">
+      </div>
+      <div class="field-error" id="authError" style="display:none;"></div>
+      <div style="display:flex; gap:10px; width:100%;">
+        <button class="btn" id="btnSignUp" type="button" style="flex:1;">Criar conta</button>
+        <button class="btn btn-primary" id="btnSignIn" type="button" style="flex:1;">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="connectedView" style="display:none;">
+
+  <div class="conn-bar">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span class="conn-dot on" id="connDot"></span>
+      <span class="conn-label" id="connLabel">Logado</span>
+    </div>
+    <button class="btn btn-sm" id="btnLogout" type="button">Sair</button>
+  </div>
+
+  <div class="banner danger" id="errorBanner"></div>
+
+  <div class="mode-switch" id="modeSwitch">
+    <button data-mode="viajes" class="active" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V6a2 2 0 012-2h2a2 2 0 012 2v2"/><path d="M4 13h16"/></svg> Viajes</button>
+    <button data-mode="salida" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> Salida</button>
+  </div>
+
+  <div class="trip-card" id="tripCard">
+    <div class="field">
+      <label for="tripDestino">Destino</label>
+      <input type="text" id="tripDestino" placeholder="Ex.: Bariloche, Argentina">
+    </div>
+    <div class="field">
+      <label for="tripInicio" id="tripInicioLabel">Início</label>
+      <input type="date" id="tripInicio">
+    </div>
+    <div class="field" id="tripFimField">
+      <label for="tripFim">Fim</label>
+      <input type="date" id="tripFim">
+    </div>
+    <div class="trip-stat" id="tripStat">
+      <span class="k">Total de dias</span>
+      <div class="v num" id="tripTotalDias">0</div>
+    </div>
+  </div>
+
+  <div class="page-tabs" id="pageTabs">
+    <button data-page="status" class="active">Status</button>
+    <button data-page="presupuesto">Orçamento</button>
+    <button data-page="passagens">Passagens</button>
+    <button data-page="hospedagem">Hospedagem</button>
+    <button data-page="calendario">Calendário</button>
+  </div>
+
+  <!-- ================= STATUS ================= -->
+  <div class="page-section active" id="pageStatus">
+    <div class="panel">
+      <div class="panel-head"><h2>Status da viagem</h2></div>
+      <div id="statusList"></div>
+    </div>
+  </div>
+
+  <!-- ================= ORÇAMENTO ================= -->
+  <div class="page-section" id="pagePresupuesto">
+    <div class="summary">
+      <div class="sum-card"><span class="k">Planejado</span><div class="v num" id="orcPlanejado">R$ 0,00</div></div>
+      <div class="sum-card"><span class="k">Gasto até agora</span><div class="v num" id="orcGasto">R$ 0,00</div></div>
+      <div class="sum-card"><span class="k">Saldo</span><div class="v num" id="orcSaldo">R$ 0,00</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Categorias</h2>
+        <button class="btn btn-sm btn-primary" id="btnAddOrc" type="button">+ Categoria</button>
+      </div>
+      <div class="orc-grid" id="orcList"></div>
+    </div>
+  </div>
+
+  <!-- ================= PASSAGENS ================= -->
+  <div class="page-section" id="pagePassagens">
+    <div class="summary" style="grid-template-columns:1fr;">
+      <div class="sum-card"><span class="k">Total em passagens</span><div class="v num" id="pasTotal">R$ 0,00</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Reservas de passagens</h2>
+        <button class="btn btn-sm btn-primary" id="btnAddPas" type="button">+ Passagem</button>
+      </div>
+      <div class="pas-cols">
+        <div class="pas-col">
+          <div class="pas-col-head">Ida</div>
+          <div id="pasColIda"></div>
+        </div>
+        <div class="pas-col">
+          <div class="pas-col-head">Volta</div>
+          <div id="pasColVolta"></div>
+        </div>
+      </div>
+      <div id="pasInternoWrap" style="display:none;">
+        <div class="pas-col-head" style="padding:10px 18px 4px;">Outras (interno)</div>
+        <div id="pasColInterno"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= HOSPEDAGEM ================= -->
+  <div class="page-section" id="pageHospedagem">
+    <div class="summary">
+      <div class="sum-card"><span class="k">Total em hospedagem</span><div class="v num" id="hosTotal">R$ 0,00</div></div>
+      <div class="sum-card"><span class="k">Noites reservadas</span><div class="v num" id="hosNoites">0</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Reservas de hospedagem</h2>
+        <button class="btn btn-sm btn-primary" id="btnAddHos" type="button">+ Hospedagem</button>
+      </div>
+      <div id="hosList"></div>
+    </div>
+  </div>
+
+  <!-- ================= CALENDÁRIO ================= -->
+  <div class="page-section" id="pageCalendario">
+    <div class="cal-toggle" id="calToggle">
+      <button data-view="lista" class="active" type="button">Lista</button>
+      <button data-view="grade" type="button">Calendário (mês)</button>
+    </div>
+    <div class="panel" id="calListPanel">
+      <div class="panel-head"><h2>Dia a dia da viagem</h2></div>
+      <div class="cal-list" id="calList"></div>
+    </div>
+    <div class="panel" id="calGradePanel" style="display:none;">
+      <div class="panel-head">
+        <h2 id="calGradeLabel">—</h2>
+        <div class="cal-nav"><button type="button" id="calGradePrev">‹</button><button type="button" id="calGradeNext">›</button></div>
+      </div>
+      <div class="cal-grid-wrap" style="padding:14px 18px;">
+        <div class="cal-grid-weekdays" id="calGradeWeekdays"></div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note" id="lastUpdatedLabel">Seus dados ficam salvos na nuvem.</div>
+
+  </div>
+</div>
+
+<!-- ================= Modal: categoria de orçamento ================= -->
+<div class="overlay" id="orcOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="orcModalTitle">Nova categoria</h3><button class="modal-close" id="orcClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="fOrcCategoria">Categoria</label><input type="text" id="fOrcCategoria" placeholder="Ex.: Alimentação"></div>
+      <div class="field-row">
+        <div class="field"><label for="fOrcPlanejado">Planejado (R$)</label><input type="text" inputmode="decimal" id="fOrcPlanejado" placeholder="0,00"></div>
+        <div class="field"><label for="fOrcGasto">Gasto até agora (R$)</label><input type="text" inputmode="decimal" id="fOrcGasto" placeholder="0,00"></div>
+      </div>
+      <label class="check-field"><input type="checkbox" id="fOrcPorDia"> Distribuir pelos dias da viagem</label>
+      <div class="field-error" id="orcError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="orcDelete" type="button" style="display:none;">Excluir</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="orcCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="orcSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: passagem ================= -->
+<div class="overlay" id="pasOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="pasModalTitle">Nova passagem</h3><button class="modal-close" id="pasClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label for="fPasTipo">Tipo</label>
+          <select id="fPasTipo"><option>Ida</option><option>Volta</option><option>Interno</option></select>
+        </div>
+        <div class="field"><label for="fPasCompanhia">Companhia</label><input type="text" id="fPasCompanhia" placeholder="Ex.: LATAM"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="fPasOrigem">Origem</label><input type="text" id="fPasOrigem" placeholder="Ex.: GRU"></div>
+        <div class="field"><label for="fPasDestino">Destino</label><input type="text" id="fPasDestino" placeholder="Ex.: BRC"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="fPasData">Data</label><input type="date" id="fPasData"></div>
+        <div class="field"><label for="fPasHora">Hora</label><input type="time" id="fPasHora"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="fPasPessoa">Pessoa(s)</label><input type="text" id="fPasPessoa" placeholder="Ex.: Andres e Gabriela"></div>
+        <div class="field"><label for="fPasValor">Valor (R$)</label><input type="text" inputmode="decimal" id="fPasValor" placeholder="0,00"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="fPasConfirmacao">Número da reserva</label><input type="text" id="fPasConfirmacao" placeholder="Ex.: ABC123"></div>
+        <div class="field"><label for="fPasStatus">Status</label>
+          <select id="fPasStatus"><option>Comprado</option><option>Pendente</option></select>
+        </div>
+      </div>
+      <div class="field-error" id="pasError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="pasDelete" type="button" style="display:none;">Excluir</button>
+      <button class="btn" id="pasDuplicate" type="button" style="display:none;">Duplicar</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="pasCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="pasSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: hospedagem ================= -->
+<div class="overlay" id="hosOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="hosModalTitle">Nova hospedagem</h3><button class="modal-close" id="hosClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="fHosNome">Nome do lugar</label><input type="text" id="fHosNome" placeholder="Ex.: Hotel Panamericano"></div>
+      <div class="field-row">
+        <div class="field"><label for="fHosCidade">Cidade</label><input type="text" id="fHosCidade" placeholder="Ex.: Bariloche"></div>
+        <div class="field"><label for="fHosPessoas">Pessoas</label><input type="text" id="fHosPessoas" placeholder="Ex.: Andres e Gabriela"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="fHosCheckin">Check-in</label><input type="date" id="fHosCheckin"></div>
+        <div class="field"><label for="fHosCheckout">Check-out</label><input type="date" id="fHosCheckout"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="fHosValor">Valor total (R$)</label><input type="text" inputmode="decimal" id="fHosValor" placeholder="0,00"></div>
+        <div class="field"><label for="fHosConfirmacao">Nº de confirmação</label><input type="text" id="fHosConfirmacao" placeholder="Ex.: RES987"></div>
+      </div>
+      <div class="field"><label for="fHosEndereco">Endereço</label><input type="text" id="fHosEndereco" placeholder="Opcional"></div>
+      <div class="field-error" id="hosError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="hosDelete" type="button" style="display:none;">Excluir</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="hosCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="hosSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: atividade ================= -->
+<div class="overlay" id="atvOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="atvModalTitle">Nova atividade</h3><button class="modal-close" id="atvClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="fAtvTitulo">Atividade</label><input type="text" id="fAtvTitulo" placeholder="Ex.: Trilha ao Cerro Campanario"></div>
+      <div class="field-row">
+        <div class="field"><label for="fAtvData">Data</label><input type="date" id="fAtvData"></div>
+        <div class="field"><label for="fAtvHora">Hora</label><input type="time" id="fAtvHora"></div>
+      </div>
+      <div class="field"><label for="fAtvNotas">Notas</label><input type="text" id="fAtvNotas" placeholder="Opcional"></div>
+      <div class="field-error" id="atvError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="atvDelete" type="button" style="display:none;">Excluir</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="atvCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="atvSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: eventos do dia (grade) ================= -->
+<div class="overlay" id="dayOverlay">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-head"><h3 id="dayModalTitle">Eventos do dia</h3><button class="modal-close" id="dayClose" type="button">✕</button></div>
+    <div class="modal-body" id="dayModalBody"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+  var currencyFmt = new Intl.NumberFormat("pt-BR", {style:"currency", currency:"BRL"});
+  function fmtBRL(v){ return currencyFmt.format(v||0); }
+  function parseAmountInput(str){
+    str = String(str||"").trim();
+    if (!str) return 0;
+    str = str.replace(/\./g,"").replace(",", ".");
+    var v = parseFloat(str);
+    return isFinite(v) ? v : 0;
+  }
+  function escapeHtml(s){
+    return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  // ---------- Supabase client ----------
+  var SUPABASE_URL = "https://qdetwdneqncblxwylpyw.supabase.co";
+  var SUPABASE_ANON_KEY = "sb_publishable_CI3FY5MplWpHWaU25bewZg_l2YvjsmZ";
+  var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function showError(msg){ var e=$("errorBanner"); if(e){ e.textContent=msg; e.style.display="block"; } }
+  function clearError(){ var e=$("errorBanner"); if(e) e.style.display="none"; }
+
+  // ---------- Estado por modo (Viajes / Salida) — independentes, carregados do Supabase ----------
+  // Salida usa a mesma estrutura de dados que Viajes; para um único dia, "inicio" e "fim"
+  // sempre recebem a mesma data (ver applyModeUI / listener de tripInicio), então totalDias()
+  // e todo o resto do código (calendário, orçamento por dia etc.) funcionam sem alterações.
+  var STORE = {
+    viajes: { trip: {id:null, destino:"", inicio:"", fim:""}, presupuesto: [], passagens: [], hospedagem: [], atividades: [] },
+    salida: { trip: {id:null, destino:"", inicio:"", fim:""}, presupuesto: [], passagens: [], hospedagem: [], atividades: [] }
+  };
+  var currentMode = "viajes";
+  var state = STORE[currentMode];
+
+  // ---------- Data layer (Supabase: auth + tables, mesmo padrão do Finanças) ----------
+  function throwIfError(res){ if (res && res.error) throw res.error; return res; }
+
+  function buildPayload(tableKey, modo, rec){
+    switch(tableKey){
+      case "planes_trip":
+        return { modo: modo, destino: rec.destino || null, inicio: rec.inicio || null, fim: rec.fim || null };
+      case "planes_orcamento":
+        return { modo: modo, categoria: rec.categoria, planejado: rec.planejado, gasto: rec.gasto, por_dia: !!rec.porDia };
+      case "planes_passagens":
+        return {
+          modo: modo, tipo: rec.tipo, companhia: rec.companhia||null, origem: rec.origem, destino: rec.destino,
+          data: rec.data||null, hora: rec.hora||null, pessoa: rec.pessoa||null, valor: rec.valor,
+          confirmacao: rec.confirmacao||null, status: rec.status
+        };
+      case "planes_hospedagem":
+        return {
+          modo: modo, nome: rec.nome, cidade: rec.cidade||null, checkin: rec.checkin||null, checkout: rec.checkout||null,
+          valor: rec.valor, confirmacao: rec.confirmacao||null, endereco: rec.endereco||null, pessoas: rec.pessoas||null
+        };
+      case "planes_atividades":
+        return { modo: modo, titulo: rec.titulo, data: rec.data, hora: rec.hora||null, notas: rec.notas||null };
+    }
+  }
+
+  function saveTableRow(tableKey, action, rowId, rec, modo){
+    if (action === "delete"){
+      return supabaseClient.from(tableKey).delete().eq("id", rowId).then(throwIfError);
+    }
+    var payload = buildPayload(tableKey, modo, rec);
+    if (action === "insert"){
+      return supabaseClient.from(tableKey).insert(payload).then(throwIfError);
+    }
+    return supabaseClient.from(tableKey).update(payload).eq("id", rowId).then(throwIfError);
+  }
+
+  function loadEverything(){
+    return Promise.all([
+      supabaseClient.from("planes_trip").select("*"),
+      supabaseClient.from("planes_orcamento").select("*").order("id"),
+      supabaseClient.from("planes_passagens").select("*").order("id"),
+      supabaseClient.from("planes_hospedagem").select("*").order("id"),
+      supabaseClient.from("planes_atividades").select("*").order("id")
+    ]).then(function(results){
+      results.forEach(throwIfError);
+      var tripRows = results[0].data||[], orcRows = results[1].data||[], pasRows = results[2].data||[];
+      var hosRows = results[3].data||[], atvRows = results[4].data||[];
+      function byModo(rows, modo){ return rows.filter(function(r){ return r.modo === modo; }); }
+      function hhmm(v){ return v ? String(v).slice(0,5) : ""; }
+
+      ["viajes","salida"].forEach(function(modo){
+        var tripRow = byModo(tripRows, modo)[0];
+        STORE[modo].trip = tripRow
+          ? {id: tripRow.id, destino: tripRow.destino||"", inicio: tripRow.inicio||"", fim: tripRow.fim||""}
+          : {id: null, destino: "", inicio: "", fim: ""};
+        STORE[modo].presupuesto = byModo(orcRows, modo).map(function(r){
+          return {id:r.id, categoria:r.categoria, planejado:Number(r.planejado)||0, gasto:Number(r.gasto)||0, porDia: !!r.por_dia};
+        });
+        STORE[modo].passagens = byModo(pasRows, modo).map(function(r){
+          return {id:r.id, tipo:r.tipo, companhia:r.companhia||"", origem:r.origem||"", destino:r.destino||"", data:r.data||"", hora:hhmm(r.hora), pessoa:r.pessoa||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", status:r.status||"Pendente"};
+        });
+        STORE[modo].hospedagem = byModo(hosRows, modo).map(function(r){
+          return {id:r.id, nome:r.nome, cidade:r.cidade||"", checkin:r.checkin||"", checkout:r.checkout||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", endereco:r.endereco||"", pessoas:r.pessoas||""};
+        });
+        STORE[modo].atividades = byModo(atvRows, modo).map(function(r){
+          return {id:r.id, titulo:r.titulo, data:r.data||"", hora:hhmm(r.hora), notas:r.notas||""};
+        });
+      });
+      state = STORE[currentMode];
+    });
+  }
+
+  function loadAndRender(){
+    clearError();
+    return loadEverything().then(function(){
+      applyModeUI();
+      calGradeViewY = null; calGradeViewM = null;
+      renderTripInfo();
+      renderOrcamento();
+      renderPassagens();
+      renderHospedagem();
+      renderCalendario();
+      renderStatus();
+    }).catch(function(err){
+      showError("Não foi possível carregar seus dados: " + err.message);
+    });
+  }
+
+  var MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  var WEEKDAY_ABBR_PT = ["dom","seg","ter","qua","qui","sex","sáb"];
+  var WEEKDAY_LETTERS_PT = ["D","S","T","Q","Q","S","S"];
+  var CAL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>';
+  var CLOCK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
+  var FLIGHT_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16l20-7-7 20-3-8-8-3z"/></svg>';
+  var BED_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-7a2 2 0 012-2h14a2 2 0 012 2v7"/><path d="M3 13v-3a2 2 0 012-2h4a2 2 0 012 2v3"/><path d="M3 18h18"/></svg>';
+  var ACTIVITY_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h11l-3 4 3 4H5"/></svg>';
+
+  function pad2(n){ return n<10 ? "0"+n : ""+n; }
+  function ymdToIso(y,m,d){ return y+"-"+pad2(m+1)+"-"+pad2(d); }
+  function isoToBR(iso){
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||""));
+    return m ? (m[3]+"/"+m[2]+"/"+m[1]) : "";
+  }
+
+  // ---------- Custom date picker (.dsel) — replaces the native date picker ----------
+  function enhanceDateInput(input){
+    if (input.dataset.dselDone) return;
+    input.dataset.dselDone = "1";
+
+    var wrap = document.createElement("div");
+    wrap.className = "dsel";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.classList.add("dsel-native");
+    input.tabIndex = -1;
+
+    var trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "dsel-trigger";
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.innerHTML = '<span class="dsel-label ph">Selecionar data</span>' + CAL_ICON;
+    wrap.appendChild(trigger);
+
+    var panel = document.createElement("div");
+    panel.className = "dsel-panel";
+    wrap.appendChild(panel);
+
+    var labelEl = trigger.querySelector(".dsel-label");
+    var viewY = null, viewM = null;
+
+    function syncLabel(){
+      var v = nativeDesc.get.call(input);
+      if (v){ labelEl.textContent = isoToBR(v); labelEl.classList.remove("ph"); }
+      else { labelEl.textContent = "Selecionar data"; labelEl.classList.add("ph"); }
+    }
+
+    var nativeDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    Object.defineProperty(input, "value", {
+      get: function(){ return nativeDesc.get.call(input); },
+      set: function(v){
+        nativeDesc.set.call(input, v);
+        syncLabel();
+        if (panel.classList.contains("show")){ viewY = null; viewM = null; renderPanel(); }
+      },
+      configurable: true
+    });
+
+    function renderPanel(){
+      var v = nativeDesc.get.call(input);
+      var base = v ? new Date(v+"T00:00:00") : new Date();
+      if (viewY == null){ viewY = base.getFullYear(); viewM = base.getMonth(); }
+      var first = new Date(viewY, viewM, 1);
+      var startOffset = first.getDay();
+      var daysInMonth = new Date(viewY, viewM+1, 0).getDate();
+      var daysInPrevMonth = new Date(viewY, viewM, 0).getDate();
+      var todayIso = new Date().toISOString().slice(0,10);
+      var totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+      var cells = "";
+      for (var i=0;i<totalCells;i++){
+        var dayNum = i - startOffset + 1;
+        var cellY = viewY, cellM = viewM, cellD = dayNum, otherMonth = false;
+        if (dayNum < 1){ cellM = viewM - 1; cellD = daysInPrevMonth + dayNum; otherMonth = true; if (cellM<0){cellM=11;cellY--;} }
+        else if (dayNum > daysInMonth){ cellD = dayNum - daysInMonth; cellM = viewM + 1; otherMonth = true; if (cellM>11){cellM=0;cellY++;} }
+        var iso = ymdToIso(cellY, cellM, cellD);
+        var cls = "dsel-day" + (otherMonth?" other-month":"") + (iso===todayIso?" today":"") + (iso===v?" selected":"");
+        cells += '<button type="button" class="'+cls+'" data-iso="'+iso+'">'+cellD+'</button>';
+      }
+      panel.innerHTML =
+        '<div class="dsel-panel-head"><span class="dsel-panel-label">'+MESES_PT[viewM]+' '+viewY+'</span>'+
+        '<div class="dsel-nav"><button type="button" class="dsel-prev">‹</button><button type="button" class="dsel-next">›</button></div></div>'+
+        '<div class="dsel-weekdays">'+WEEKDAY_LETTERS_PT.map(function(l){ return "<span>"+l+"</span>"; }).join("")+'</div>'+
+        '<div class="dsel-days">'+cells+'</div>'+
+        '<div class="dsel-panel-foot"><button type="button" class="dsel-today">Hoje</button><button type="button" class="dsel-clear">Limpar</button></div>';
+
+      panel.querySelector(".dsel-prev").addEventListener("click", function(){ viewM--; if(viewM<0){viewM=11;viewY--;} renderPanel(); });
+      panel.querySelector(".dsel-next").addEventListener("click", function(){ viewM++; if(viewM>11){viewM=0;viewY++;} renderPanel(); });
+      panel.querySelector(".dsel-today").addEventListener("click", function(){
+        var t = new Date();
+        input.value = t.toISOString().slice(0,10);
+        input.dispatchEvent(new Event("change", {bubbles:true}));
+        closePanel();
+      });
+      panel.querySelector(".dsel-clear").addEventListener("click", function(){
+        input.value = "";
+        input.dispatchEvent(new Event("change", {bubbles:true}));
+        closePanel();
+      });
+      Array.prototype.forEach.call(panel.querySelectorAll(".dsel-day"), function(btn){
+        btn.addEventListener("click", function(){
+          input.value = btn.dataset.iso;
+          input.dispatchEvent(new Event("change", {bubbles:true}));
+          closePanel();
+        });
+      });
+    }
+
+    function openPanel(){
+      document.querySelectorAll(".dsel-panel.show").forEach(function(p){ if (p!==panel) p.classList.remove("show"); });
+      document.querySelectorAll(".dsel-trigger[aria-expanded='true']").forEach(function(b){ if (b!==trigger) b.setAttribute("aria-expanded","false"); });
+      viewY = null; viewM = null;
+      renderPanel();
+      panel.classList.add("show");
+      trigger.setAttribute("aria-expanded","true");
+    }
+    function closePanel(){ panel.classList.remove("show"); trigger.setAttribute("aria-expanded","false"); }
+
+    trigger.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (panel.classList.contains("show")) closePanel(); else openPanel();
+    });
+
+    syncLabel();
+  }
+
+  // ---------- Custom time picker (.tsel) — 24h format, replaces the native time picker ----------
+  function enhanceTimeInput(input){
+    if (input.dataset.tselDone) return;
+    input.dataset.tselDone = "1";
+
+    var wrap = document.createElement("div");
+    wrap.className = "tsel";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.classList.add("tsel-native");
+    input.tabIndex = -1;
+
+    var trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "tsel-trigger";
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.innerHTML = '<span class="tsel-label ph">Selecionar horário</span>' + CLOCK_ICON;
+    wrap.appendChild(trigger);
+
+    var panel = document.createElement("div");
+    panel.className = "tsel-panel";
+    wrap.appendChild(panel);
+
+    var labelEl = trigger.querySelector(".tsel-label");
+    var nativeDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+
+    function syncLabel(){
+      var v = nativeDesc.get.call(input);
+      if (v){ labelEl.textContent = v; labelEl.classList.remove("ph"); }
+      else { labelEl.textContent = "Selecionar horário"; labelEl.classList.add("ph"); }
+    }
+
+    Object.defineProperty(input, "value", {
+      get: function(){ return nativeDesc.get.call(input); },
+      set: function(v){
+        nativeDesc.set.call(input, v);
+        syncLabel();
+        if (panel.classList.contains("show")) renderPanel();
+      },
+      configurable: true
+    });
+
+    function currentParts(){
+      var v = nativeDesc.get.call(input);
+      var m = /^(\d{2}):(\d{2})$/.exec(v||"");
+      return m ? {h:parseInt(m[1],10), m:parseInt(m[2],10)} : {h:null, m:null};
+    }
+
+    function renderPanel(){
+      var cur = currentParts();
+      var hoursHtml = "";
+      for (var h=0; h<24; h++){
+        hoursHtml += '<button type="button" class="'+(h===cur.h?"selected":"")+'" data-h="'+h+'">'+pad2(h)+'</button>';
+      }
+      var minuteOptions = [];
+      for (var mm=0; mm<60; mm+=5) minuteOptions.push(mm);
+      if (cur.m!=null && minuteOptions.indexOf(cur.m)===-1) minuteOptions.push(cur.m);
+      minuteOptions.sort(function(a,b){ return a-b; });
+      var minsHtml = minuteOptions.map(function(mm){
+        return '<button type="button" class="'+(mm===cur.m?"selected":"")+'" data-m="'+mm+'">'+pad2(mm)+'</button>';
+      }).join("");
+      panel.innerHTML =
+        '<div class="tsel-cols">'+
+          '<div class="tsel-col tsel-col-h">'+hoursHtml+'</div>'+
+          '<div class="tsel-sep">:</div>'+
+          '<div class="tsel-col tsel-col-m">'+minsHtml+'</div>'+
+        '</div>'+
+        '<div class="tsel-panel-foot"><button type="button" class="tsel-clear">Limpar</button><button type="button" class="tsel-ok">OK</button></div>';
+
+      Array.prototype.forEach.call(panel.querySelectorAll(".tsel-col-h button"), function(btn){
+        btn.addEventListener("click", function(){
+          var c = currentParts();
+          var hh = parseInt(btn.dataset.h,10);
+          var mm2 = c.m!=null ? c.m : 0;
+          input.value = pad2(hh)+":"+pad2(mm2);
+          input.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+      });
+      Array.prototype.forEach.call(panel.querySelectorAll(".tsel-col-m button"), function(btn){
+        btn.addEventListener("click", function(){
+          var c = currentParts();
+          var hh2 = c.h!=null ? c.h : 0;
+          var mm3 = parseInt(btn.dataset.m,10);
+          input.value = pad2(hh2)+":"+pad2(mm3);
+          input.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+      });
+      panel.querySelector(".tsel-clear").addEventListener("click", function(){
+        input.value = "";
+        input.dispatchEvent(new Event("change", {bubbles:true}));
+        closePanel();
+      });
+      panel.querySelector(".tsel-ok").addEventListener("click", function(){ closePanel(); });
+    }
+
+    function openPanel(){
+      document.querySelectorAll(".dsel-panel.show, .tsel-panel.show").forEach(function(p){ if (p!==panel) p.classList.remove("show"); });
+      document.querySelectorAll(".dsel-trigger[aria-expanded='true'], .tsel-trigger[aria-expanded='true']").forEach(function(b){ if (b!==trigger) b.setAttribute("aria-expanded","false"); });
+      renderPanel();
+      panel.classList.add("show");
+      trigger.setAttribute("aria-expanded","true");
+    }
+    function closePanel(){ panel.classList.remove("show"); trigger.setAttribute("aria-expanded","false"); }
+
+    trigger.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (panel.classList.contains("show")) closePanel(); else openPanel();
+    });
+
+    syncLabel();
+  }
+
+  // Outside-click / Escape closing for both pickers. Uses composedPath() (fixed at dispatch time)
+  // instead of e.target.closest(), because clicking a nav/day/hour button re-renders the panel's
+  // innerHTML synchronously — which detaches the clicked element from the DOM before the click
+  // finishes bubbling, making a closest()-based check on the bubble phase unreliable.
+  document.addEventListener("click", function(e){
+    var path = typeof e.composedPath === "function" ? e.composedPath() : [];
+    var insidePicker = path.some(function(el){
+      return el && el.classList && (el.classList.contains("dsel") || el.classList.contains("tsel"));
+    });
+    if (!insidePicker){
+      document.querySelectorAll(".dsel-panel.show, .tsel-panel.show").forEach(function(p){ p.classList.remove("show"); });
+      document.querySelectorAll(".dsel-trigger[aria-expanded='true'], .tsel-trigger[aria-expanded='true']").forEach(function(b){ b.setAttribute("aria-expanded","false"); });
+    }
+  });
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape"){
+      document.querySelectorAll(".dsel-panel.show, .tsel-panel.show").forEach(function(p){ p.classList.remove("show"); });
+      document.querySelectorAll(".dsel-trigger[aria-expanded='true'], .tsel-trigger[aria-expanded='true']").forEach(function(b){ b.setAttribute("aria-expanded","false"); });
+    }
+  });
+
+  // ---------- Trip info / total de dias ----------
+  function dateInputToSerial(str){
+    if (!str) return null;
+    var d = new Date(str + "T00:00:00");
+    return Math.round(d.getTime() / 86400000);
+  }
+  function serialToDate(serial){ return new Date(serial * 86400000); }
+  function totalDias(){
+    var a = dateInputToSerial(state.trip.inicio), b = dateInputToSerial(state.trip.fim);
+    if (a === null || b === null || b < a) return 0;
+    return (b - a) + 1;
+  }
+  function renderTripInfo(){
+    $("tripDestino").value = state.trip.destino;
+    $("tripInicio").value = state.trip.inicio;
+    $("tripFim").value = state.trip.fim;
+    $("tripTotalDias").textContent = totalDias();
+  }
+  ["tripDestino","tripInicio","tripFim"].forEach(function(id){
+    $(id).addEventListener("change", function(){
+      var key = id === "tripDestino" ? "destino" : (id === "tripInicio" ? "inicio" : "fim");
+      state.trip[key] = this.value;
+      if (currentMode === "salida" && id === "tripInicio"){ state.trip.fim = this.value; }
+      var action = state.trip.id ? "update" : "insert";
+      saveTableRow("planes_trip", action, state.trip.id, state.trip, currentMode).then(function(){
+        return loadAndRender();
+      }).catch(function(err){
+        showError("Não foi possível salvar a viagem: " + err.message);
+      });
+    });
+  });
+
+  // ---------- Modo Viajes / Salida ----------
+  function applyModeUI(){
+    var isSalida = currentMode === "salida";
+    $("tripFimField").style.display = isSalida ? "none" : "";
+    $("tripInicioLabel").textContent = isSalida ? "Data" : "Início";
+    $("tripStat").style.display = isSalida ? "none" : "";
+  }
+  document.querySelectorAll("#modeSwitch button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      if (btn.dataset.mode === currentMode) return;
+      document.querySelectorAll("#modeSwitch button").forEach(function(b){ b.classList.remove("active"); });
+      btn.classList.add("active");
+      currentMode = btn.dataset.mode;
+      state = STORE[currentMode];
+      applyModeUI();
+      calGradeViewY = null; calGradeViewM = null;
+      renderTripInfo();
+      renderOrcamento();
+      renderPassagens();
+      renderHospedagem();
+      renderCalendario();
+      renderStatus();
+      setActivePage("status");
+      // Nota: os dados de ambos os modos já foram carregados em loadAndRender() no login,
+      // então trocar de modo aqui é só uma troca de referência local — sem round-trip ao banco.
+    });
+  });
+
+  // ---------- Tabs ----------
+  function setActivePage(page){
+    document.querySelectorAll(".page-section").forEach(function(s){ s.classList.remove("active"); });
+    document.querySelectorAll("#pageTabs button").forEach(function(b){ b.classList.toggle("active", b.dataset.page === page); });
+    $("page" + page.charAt(0).toUpperCase() + page.slice(1)).classList.add("active");
+  }
+  document.querySelectorAll("#pageTabs button").forEach(function(btn){
+    btn.addEventListener("click", function(){ setActivePage(btn.dataset.page); });
+  });
+
+  // ---------- Orçamento (blocos por categoria) ----------
+  function renderOrcamento(){
+    var totalPlan = 0, totalGasto = 0;
+    var listEl = $("orcList");
+    listEl.innerHTML = "";
+    if (!state.presupuesto.length){
+      listEl.innerHTML = '<div class="empty">Nenhuma categoria ainda.</div>';
+    }
+    var totalDiasVal = totalDias();
+    state.presupuesto.forEach(function(r){
+      totalPlan += r.planejado; totalGasto += r.gasto;
+      var diff = r.planejado - r.gasto;
+      var perDiaHtml = "";
+      if (r.porDia){
+        var perDia = totalDiasVal>0 ? (r.planejado/totalDiasVal) : 0;
+        perDiaHtml = '<div class="orc-stat"><span>Por dia ('+totalDiasVal+'d)</span><b class="num">'+fmtBRL(perDia)+'</b></div>';
+      }
+      var card = document.createElement("div");
+      card.className = "orc-card";
+      card.innerHTML =
+        '<div class="orc-cat">'+escapeHtml(r.categoria)+(r.porDia?' <span class="tag">Diário</span>':'')+'</div>'+
+        '<div class="orc-stat"><span>Planejado</span><b class="num">'+fmtBRL(r.planejado)+'</b></div>'+
+        '<div class="orc-stat"><span>Gasto</span><b class="num">'+fmtBRL(r.gasto)+'</b></div>'+
+        perDiaHtml+
+        '<div class="orc-stat orc-diff '+(diff<0?"negative":"positive")+'"><span>Diferença</span><b class="num">'+fmtBRL(diff)+'</b></div>';
+      card.addEventListener("click", function(){ openOrcModal(r); });
+      listEl.appendChild(card);
+    });
+    $("orcPlanejado").textContent = fmtBRL(totalPlan);
+    $("orcGasto").textContent = fmtBRL(totalGasto);
+    var saldo = totalPlan - totalGasto;
+    var saldoEl = $("orcSaldo");
+    saldoEl.textContent = fmtBRL(saldo);
+    saldoEl.className = "v num " + (saldo < 0 ? "negative" : "positive");
+  }
+
+  var orcOverlay = $("orcOverlay");
+  var editingOrc = null;
+  function openOrcModal(r){
+    editingOrc = r || null;
+    $("orcModalTitle").textContent = r ? "Editar categoria" : "Nova categoria";
+    $("orcDelete").style.display = r ? "inline-flex" : "none";
+    $("orcError").classList.remove("show");
+    $("fOrcCategoria").value = r ? r.categoria : "";
+    $("fOrcPlanejado").value = r ? String(r.planejado).replace(".", ",") : "";
+    $("fOrcGasto").value = r ? String(r.gasto).replace(".", ",") : "";
+    $("fOrcPorDia").checked = r ? !!r.porDia : false;
+    orcOverlay.classList.add("show");
+  }
+  function closeOrcModal(){ orcOverlay.classList.remove("show"); }
+  $("btnAddOrc").addEventListener("click", function(){ openOrcModal(null); });
+  $("orcClose").addEventListener("click", closeOrcModal);
+  $("orcCancel").addEventListener("click", closeOrcModal);
+  $("orcSave").addEventListener("click", function(){
+    var categoria = $("fOrcCategoria").value.trim();
+    if (!categoria){ $("orcError").textContent = "Informe a categoria."; $("orcError").classList.add("show"); return; }
+    var rec = { categoria: categoria, planejado: parseAmountInput($("fOrcPlanejado").value), gasto: parseAmountInput($("fOrcGasto").value), porDia: $("fOrcPorDia").checked };
+    var action = editingOrc ? "update" : "insert";
+    saveTableRow("planes_orcamento", action, editingOrc ? editingOrc.id : null, rec, currentMode).then(function(){
+      closeOrcModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("orcError").textContent = "Não foi possível salvar: " + err.message; $("orcError").classList.add("show");
+    });
+  });
+  $("orcDelete").addEventListener("click", function(){
+    if (!editingOrc) return;
+    saveTableRow("planes_orcamento", "delete", editingOrc.id, null, currentMode).then(function(){
+      closeOrcModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("orcError").textContent = "Não foi possível excluir: " + err.message; $("orcError").classList.add("show");
+    });
+  });
+
+  // ---------- Passagens (colunas Ida / Volta) ----------
+  function serialToBR(iso){ return isoToBR(iso); }
+  function buildPasCard(r){
+    var card = document.createElement("div");
+    card.className = "item-row";
+    card.style.gridTemplateColumns = "1fr";
+    var statusTag = r.status === "Comprado" ? '<span class="tag tag-success">Comprado</span>' : '<span class="tag tag-danger">Pendente</span>';
+    card.innerHTML =
+      '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">'+
+        '<span class="row-title">'+escapeHtml(r.origem)+' → '+escapeHtml(r.destino)+'</span>'+
+        statusTag+
+      '</div>'+
+      '<span class="row-meta">'+escapeHtml(r.companhia)+' · '+(r.data?serialToBR(r.data):"—")+' '+escapeHtml(r.hora||"")+'</span>'+
+      '<span class="row-meta">'+escapeHtml(r.pessoa||"")+'</span>'+
+      '<span class="num row-amt" style="text-align:left;">'+fmtBRL(r.valor)+'</span>';
+    card.addEventListener("click", function(){ openPasModal(r); });
+    return card;
+  }
+  function renderPassagens(){
+    var idaEl = $("pasColIda"), voltaEl = $("pasColVolta"), internoEl = $("pasColInterno"), internoWrap = $("pasInternoWrap");
+    idaEl.innerHTML = ""; voltaEl.innerHTML = ""; internoEl.innerHTML = "";
+    var total = 0;
+    var sorted = state.passagens.slice().sort(function(a,b){ return (a.data||"").localeCompare(b.data||""); });
+    var idaList = sorted.filter(function(r){ return r.tipo === "Ida"; });
+    var voltaList = sorted.filter(function(r){ return r.tipo === "Volta"; });
+    var internoList = sorted.filter(function(r){ return r.tipo !== "Ida" && r.tipo !== "Volta"; });
+    if (!idaList.length){ idaEl.innerHTML = '<div class="empty">Nenhuma passagem de ida.</div>'; }
+    idaList.forEach(function(r){ total += r.valor; idaEl.appendChild(buildPasCard(r)); });
+    if (!voltaList.length){ voltaEl.innerHTML = '<div class="empty">Nenhuma passagem de volta.</div>'; }
+    voltaList.forEach(function(r){ total += r.valor; voltaEl.appendChild(buildPasCard(r)); });
+    internoList.forEach(function(r){ total += r.valor; internoEl.appendChild(buildPasCard(r)); });
+    internoWrap.style.display = internoList.length ? "" : "none";
+    $("pasTotal").textContent = fmtBRL(total);
+  }
+
+  var pasOverlay = $("pasOverlay");
+  var editingPas = null;
+  function openPasModal(r, seed){
+    editingPas = r || null;
+    var src = r || seed || null;
+    $("pasModalTitle").textContent = r ? "Editar passagem" : (seed ? "Duplicar passagem" : "Nova passagem");
+    $("pasDelete").style.display = r ? "inline-flex" : "none";
+    $("pasDuplicate").style.display = r ? "inline-flex" : "none";
+    $("pasError").classList.remove("show");
+    $("fPasTipo").value = src ? src.tipo : "Ida";
+    $("fPasCompanhia").value = src ? src.companhia : "";
+    $("fPasOrigem").value = src ? src.origem : "";
+    $("fPasDestino").value = src ? src.destino : "";
+    $("fPasData").value = src ? src.data : "";
+    $("fPasHora").value = src ? src.hora : "";
+    $("fPasPessoa").value = src ? src.pessoa : "";
+    $("fPasValor").value = src ? String(src.valor).replace(".", ",") : "";
+    $("fPasConfirmacao").value = src ? src.confirmacao : "";
+    $("fPasStatus").value = src ? src.status : "Comprado";
+    pasOverlay.classList.add("show");
+  }
+  function closePasModal(){ pasOverlay.classList.remove("show"); }
+  $("btnAddPas").addEventListener("click", function(){ openPasModal(null); });
+  $("pasClose").addEventListener("click", closePasModal);
+  $("pasCancel").addEventListener("click", closePasModal);
+  $("pasDuplicate").addEventListener("click", function(){
+    if (!editingPas) return;
+    var seed = Object.assign({}, editingPas);
+    closePasModal();
+    openPasModal(null, seed);
+  });
+  $("pasSave").addEventListener("click", function(){
+    var origem = $("fPasOrigem").value.trim(), destino = $("fPasDestino").value.trim();
+    if (!origem || !destino){ $("pasError").textContent = "Informe origem e destino."; $("pasError").classList.add("show"); return; }
+    var rec = {
+      tipo: $("fPasTipo").value, companhia: $("fPasCompanhia").value.trim(), origem: origem, destino: destino,
+      data: $("fPasData").value, hora: $("fPasHora").value, pessoa: $("fPasPessoa").value.trim(),
+      valor: parseAmountInput($("fPasValor").value), confirmacao: $("fPasConfirmacao").value.trim(), status: $("fPasStatus").value
+    };
+    var action = editingPas ? "update" : "insert";
+    saveTableRow("planes_passagens", action, editingPas ? editingPas.id : null, rec, currentMode).then(function(){
+      closePasModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("pasError").textContent = "Não foi possível salvar: " + err.message; $("pasError").classList.add("show");
+    });
+  });
+  $("pasDelete").addEventListener("click", function(){
+    if (!editingPas) return;
+    saveTableRow("planes_passagens", "delete", editingPas.id, null, currentMode).then(function(){
+      closePasModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("pasError").textContent = "Não foi possível excluir: " + err.message; $("pasError").classList.add("show");
+    });
+  });
+
+  // ---------- Hospedagem ----------
+  function nightsBetween(checkin, checkout){
+    var a = dateInputToSerial(checkin), b = dateInputToSerial(checkout);
+    if (a === null || b === null || b <= a) return 0;
+    return b - a;
+  }
+  function renderHospedagem(){
+    var listEl = $("hosList");
+    listEl.innerHTML = "";
+    if (!state.hospedagem.length){ listEl.innerHTML = '<div class="empty">Nenhuma hospedagem cadastrada.</div>'; }
+    var total = 0, noites = 0;
+    var sorted = state.hospedagem.slice().sort(function(a,b){ return (a.checkin||"").localeCompare(b.checkin||""); });
+    sorted.forEach(function(r){
+      total += r.valor;
+      var n = nightsBetween(r.checkin, r.checkout);
+      noites += n;
+      var row = document.createElement("div");
+      row.className = "item-row";
+      row.style.gridTemplateColumns = "2fr 1fr 1fr";
+      row.innerHTML =
+        '<span><span class="row-title">'+escapeHtml(r.nome)+'</span><br>'+
+          '<span class="row-meta">'+escapeHtml(r.cidade)+' · '+(r.checkin?serialToBR(r.checkin):"—")+' → '+(r.checkout?serialToBR(r.checkout):"—")+' ('+n+' noites)</span></span>'+
+        '<span class="row-meta">'+escapeHtml(r.pessoas||"")+'</span>'+
+        '<span class="num row-amt">'+fmtBRL(r.valor)+'</span>';
+      row.addEventListener("click", function(){ openHosModal(r); });
+      listEl.appendChild(row);
+    });
+    $("hosTotal").textContent = fmtBRL(total);
+    $("hosNoites").textContent = noites;
+  }
+
+  var hosOverlay = $("hosOverlay");
+  var editingHos = null;
+  function openHosModal(r){
+    editingHos = r || null;
+    $("hosModalTitle").textContent = r ? "Editar hospedagem" : "Nova hospedagem";
+    $("hosDelete").style.display = r ? "inline-flex" : "none";
+    $("hosError").classList.remove("show");
+    $("fHosNome").value = r ? r.nome : "";
+    $("fHosCidade").value = r ? r.cidade : "";
+    $("fHosPessoas").value = r ? r.pessoas : "";
+    $("fHosCheckin").value = r ? r.checkin : "";
+    $("fHosCheckout").value = r ? r.checkout : "";
+    $("fHosValor").value = r ? String(r.valor).replace(".", ",") : "";
+    $("fHosConfirmacao").value = r ? r.confirmacao : "";
+    $("fHosEndereco").value = r ? r.endereco : "";
+    hosOverlay.classList.add("show");
+  }
+  function closeHosModal(){ hosOverlay.classList.remove("show"); }
+  $("btnAddHos").addEventListener("click", function(){ openHosModal(null); });
+  $("hosClose").addEventListener("click", closeHosModal);
+  $("hosCancel").addEventListener("click", closeHosModal);
+  $("hosSave").addEventListener("click", function(){
+    var nome = $("fHosNome").value.trim();
+    if (!nome){ $("hosError").textContent = "Informe o nome do lugar."; $("hosError").classList.add("show"); return; }
+    var rec = {
+      nome: nome, cidade: $("fHosCidade").value.trim(), pessoas: $("fHosPessoas").value.trim(),
+      checkin: $("fHosCheckin").value, checkout: $("fHosCheckout").value,
+      valor: parseAmountInput($("fHosValor").value), confirmacao: $("fHosConfirmacao").value.trim(),
+      endereco: $("fHosEndereco").value.trim()
+    };
+    var action = editingHos ? "update" : "insert";
+    saveTableRow("planes_hospedagem", action, editingHos ? editingHos.id : null, rec, currentMode).then(function(){
+      closeHosModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("hosError").textContent = "Não foi possível salvar: " + err.message; $("hosError").classList.add("show");
+    });
+  });
+  $("hosDelete").addEventListener("click", function(){
+    if (!editingHos) return;
+    saveTableRow("planes_hospedagem", "delete", editingHos.id, null, currentMode).then(function(){
+      closeHosModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("hosError").textContent = "Não foi possível excluir: " + err.message; $("hosError").classList.add("show");
+    });
+  });
+
+  // ---------- Calendário (lista + grade editáveis) ----------
+  function porDiaCategorias(){ return state.presupuesto.filter(function(r){ return r.porDia; }); }
+  function porDiaBudgetLabel(){
+    var cats = porDiaCategorias();
+    if (!cats.length) return "";
+    var totalDiasVal = totalDias();
+    return cats.map(function(r){
+      var perDia = totalDiasVal>0 ? (r.planejado/totalDiasVal) : 0;
+      return escapeHtml(r.categoria)+": "+fmtBRL(perDia);
+    }).join(" · ");
+  }
+  function collectEventsForDay(iso){
+    var events = [];
+    state.passagens.forEach(function(r){
+      if (r.data === iso){
+        events.push({kind:"pas", rec:r, html: FLIGHT_ICON+'<span>'+escapeHtml(r.tipo)+': '+escapeHtml(r.origem)+' → '+escapeHtml(r.destino)+(r.hora?(" · "+escapeHtml(r.hora)):"")+'</span>'});
+      }
+    });
+    state.hospedagem.forEach(function(r){
+      if (r.checkin === iso) events.push({kind:"hos", rec:r, html: BED_ICON+'<span>Check-in: '+escapeHtml(r.nome)+'</span>'});
+      if (r.checkout === iso) events.push({kind:"hos", rec:r, html: BED_ICON+'<span>Check-out: '+escapeHtml(r.nome)+'</span>'});
+      else if (r.checkin && r.checkout && iso > r.checkin && iso < r.checkout) events.push({kind:"hos", rec:r, html: BED_ICON+'<span>Hospedado em '+escapeHtml(r.nome)+'</span>'});
+    });
+    state.atividades.forEach(function(r){
+      if (r.data === iso) events.push({kind:"atv", rec:r, html: ACTIVITY_ICON+'<span>'+escapeHtml(r.titulo)+(r.hora?(" · "+escapeHtml(r.hora)):"")+'</span>'});
+    });
+    return events;
+  }
+  function openEventFromCollected(ev){
+    if (ev.kind === "pas") openPasModal(ev.rec);
+    else if (ev.kind === "hos") openHosModal(ev.rec);
+    else openAtvModal(ev.rec);
+  }
+
+  function renderCalendarioLista(){
+    var listEl = $("calList");
+    var total = totalDias();
+    listEl.innerHTML = "";
+    if (total <= 0 || !state.trip.inicio){
+      listEl.innerHTML = '<div class="empty">Defina a data de início e fim da viagem para ver o calendário.</div>';
+      return;
+    }
+    var startSerial = dateInputToSerial(state.trip.inicio);
+    var todaySerial = dateInputToSerial(new Date().toISOString().slice(0,10));
+    var budgetLabel = porDiaBudgetLabel();
+    for (var i=0;i<total;i++){
+      var serial = startSerial + i;
+      var d = serialToDate(serial);
+      var iso = d.toISOString().slice(0,10);
+      var events = collectEventsForDay(iso);
+
+      var dayEl = document.createElement("div");
+      dayEl.className = "cal-day" + (serial===todaySerial ? " today" : "");
+      var dEl = document.createElement("div");
+      dEl.className = "d";
+      dEl.innerHTML = '<div class="num-day">'+d.getDate()+'</div><div class="wk">'+WEEKDAY_ABBR_PT[d.getDay()]+'</div>';
+      var evWrap = document.createElement("div");
+      evWrap.className = "events";
+
+      var labelRow = document.createElement("div");
+      labelRow.style.display = "flex";
+      labelRow.style.alignItems = "center";
+      labelRow.style.justifyContent = "space-between";
+      labelRow.style.gap = "8px";
+      var labelDiv = document.createElement("div");
+      labelDiv.className = "cal-day-label";
+      labelDiv.textContent = "Dia "+(i+1)+" de "+total;
+      var addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "btn btn-sm";
+      addBtn.textContent = "+ Atividade";
+      addBtn.addEventListener("click", function(iso2){ return function(){ openAtvModal(null, iso2); }; }(iso));
+      labelRow.appendChild(labelDiv);
+      labelRow.appendChild(addBtn);
+      evWrap.appendChild(labelRow);
+
+      if (!events.length){
+        var emptyDiv = document.createElement("div");
+        emptyDiv.className = "cal-event empty";
+        emptyDiv.textContent = "Sem eventos marcados";
+        evWrap.appendChild(emptyDiv);
+      } else {
+        events.forEach(function(ev){
+          var evDiv = document.createElement("div");
+          evDiv.className = "cal-event cal-event-click";
+          evDiv.innerHTML = ev.html;
+          evDiv.addEventListener("click", function(){ openEventFromCollected(ev); });
+          evWrap.appendChild(evDiv);
+        });
+      }
+      if (budgetLabel){
+        var budgetDiv = document.createElement("div");
+        budgetDiv.className = "cal-day-budget";
+        budgetDiv.textContent = "Orçamento do dia — " + budgetLabel;
+        evWrap.appendChild(budgetDiv);
+      }
+      dayEl.appendChild(dEl);
+      dayEl.appendChild(evWrap);
+      listEl.appendChild(dayEl);
+    }
+  }
+
+  var calGradeViewY = null, calGradeViewM = null;
+  function renderCalendarioGrade(){
+    var total = totalDias();
+    var wkWrap = $("calGradeWeekdays");
+    if (total <= 0 || !state.trip.inicio){
+      $("calGrid").innerHTML = '<div class="empty">Defina a data de início e fim da viagem para ver o calendário.</div>';
+      $("calGradeLabel").textContent = "—";
+      wkWrap.innerHTML = "";
+      return;
+    }
+    if (calGradeViewY == null){
+      var start = new Date(state.trip.inicio + "T00:00:00");
+      calGradeViewY = start.getFullYear(); calGradeViewM = start.getMonth();
+    }
+    var startSerial = dateInputToSerial(state.trip.inicio);
+    var endSerial = startSerial + total - 1;
+    var todaySerial = dateInputToSerial(new Date().toISOString().slice(0,10));
+
+    $("calGradeLabel").textContent = MESES_PT[calGradeViewM] + " " + calGradeViewY;
+    wkWrap.innerHTML = WEEKDAY_ABBR_PT.map(function(w){ return "<span>"+w+"</span>"; }).join("");
+
+    var first = new Date(calGradeViewY, calGradeViewM, 1);
+    var startOffset = first.getDay();
+    var daysInMonth = new Date(calGradeViewY, calGradeViewM+1, 0).getDate();
+    var daysInPrevMonth = new Date(calGradeViewY, calGradeViewM, 0).getDate();
+    var totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+    var gridEl = $("calGrid");
+    gridEl.innerHTML = "";
+    for (var i=0;i<totalCells;i++){
+      var dayNum = i - startOffset + 1;
+      var cellY = calGradeViewY, cellM = calGradeViewM, cellD = dayNum, otherMonth = false;
+      if (dayNum < 1){ cellM = calGradeViewM - 1; cellD = daysInPrevMonth + dayNum; otherMonth = true; if (cellM<0){cellM=11;cellY--;} }
+      else if (dayNum > daysInMonth){ cellD = dayNum - daysInMonth; cellM = calGradeViewM + 1; otherMonth = true; if (cellM>11){cellM=0;cellY++;} }
+      var iso = ymdToIso(cellY, cellM, cellD);
+      var serial = dateInputToSerial(iso);
+      var inTrip = (serial >= startSerial && serial <= endSerial);
+      var events = inTrip ? collectEventsForDay(iso) : [];
+
+      var cell = document.createElement("div");
+      cell.className = "cal-grid-cell" + (otherMonth?" other-month":"") + (inTrip?" in-trip":"") + (serial===todaySerial?" today":"");
+      var numDiv = document.createElement("div"); numDiv.className = "gd-num"; numDiv.textContent = cellD;
+      cell.appendChild(numDiv);
+      if (events.length){
+        var iconsWrap = document.createElement("div"); iconsWrap.className = "cal-grid-icons";
+        events.forEach(function(ev){
+          var iconSpan = document.createElement("span");
+          iconSpan.className = "cal-grid-icon icon-"+ev.kind;
+          iconSpan.innerHTML = ev.kind==="pas" ? FLIGHT_ICON : (ev.kind==="hos" ? BED_ICON : ACTIVITY_ICON);
+          iconsWrap.appendChild(iconSpan);
+        });
+        cell.appendChild(iconsWrap);
+      }
+      if (inTrip){
+        (function(iso2, evArr){
+          cell.addEventListener("click", function(){ openDayDetail(evArr, iso2); });
+        })(iso, events);
+      }
+      gridEl.appendChild(cell);
+    }
+  }
+
+  $("calGradePrev").addEventListener("click", function(){ calGradeViewM--; if(calGradeViewM<0){calGradeViewM=11;calGradeViewY--;} renderCalendarioGrade(); });
+  $("calGradeNext").addEventListener("click", function(){ calGradeViewM++; if(calGradeViewM>11){calGradeViewM=0;calGradeViewY++;} renderCalendarioGrade(); });
+
+  document.querySelectorAll("#calToggle button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll("#calToggle button").forEach(function(b){ b.classList.remove("active"); });
+      btn.classList.add("active");
+      var view = btn.dataset.view;
+      $("calListPanel").style.display = view === "lista" ? "" : "none";
+      $("calGradePanel").style.display = view === "grade" ? "" : "none";
+      if (view === "grade") renderCalendarioGrade();
+    });
+  });
+
+  var dayOverlay = $("dayOverlay");
+  function openDayDetail(events, iso){
+    $("dayModalTitle").textContent = "Eventos do dia " + isoToBR(iso);
+    var body = $("dayModalBody");
+    body.innerHTML = "";
+    if (!events.length){
+      var emptyMsg = document.createElement("div");
+      emptyMsg.className = "empty";
+      emptyMsg.textContent = "Nenhum evento neste dia ainda.";
+      body.appendChild(emptyMsg);
+    } else {
+      events.forEach(function(ev){
+        var row = document.createElement("div");
+        row.className = "item-row";
+        row.style.cursor = "pointer";
+        row.style.gridTemplateColumns = "1fr";
+        row.innerHTML = '<span class="cal-event">'+ev.html+'</span>';
+        row.addEventListener("click", function(){ dayOverlay.classList.remove("show"); openEventFromCollected(ev); });
+        body.appendChild(row);
+      });
+    }
+    var budgetLabel = porDiaBudgetLabel();
+    if (budgetLabel){
+      var budgetDiv = document.createElement("div");
+      budgetDiv.className = "row-meta";
+      budgetDiv.textContent = "Orçamento do dia — " + budgetLabel;
+      body.appendChild(budgetDiv);
+    }
+    var addRow = document.createElement("button");
+    addRow.type = "button";
+    addRow.className = "btn btn-primary btn-sm";
+    addRow.textContent = "+ Adicionar atividade";
+    addRow.addEventListener("click", function(){ dayOverlay.classList.remove("show"); openAtvModal(null, iso); });
+    body.appendChild(addRow);
+    dayOverlay.classList.add("show");
+  }
+  $("dayClose").addEventListener("click", function(){ dayOverlay.classList.remove("show"); });
+
+  // ---------- Atividades ----------
+  var atvOverlay = $("atvOverlay");
+  var editingAtv = null;
+  function openAtvModal(r, seedIso){
+    editingAtv = r || null;
+    $("atvModalTitle").textContent = r ? "Editar atividade" : "Nova atividade";
+    $("atvDelete").style.display = r ? "inline-flex" : "none";
+    $("atvError").classList.remove("show");
+    $("fAtvTitulo").value = r ? r.titulo : "";
+    $("fAtvData").value = r ? r.data : (seedIso || state.trip.inicio || "");
+    $("fAtvHora").value = r ? (r.hora||"") : "";
+    $("fAtvNotas").value = r ? (r.notas||"") : "";
+    atvOverlay.classList.add("show");
+  }
+  function closeAtvModal(){ atvOverlay.classList.remove("show"); }
+  $("atvClose").addEventListener("click", closeAtvModal);
+  $("atvCancel").addEventListener("click", closeAtvModal);
+  $("atvSave").addEventListener("click", function(){
+    var titulo = $("fAtvTitulo").value.trim();
+    var data = $("fAtvData").value;
+    if (!titulo || !data){ $("atvError").textContent = "Informe o título e a data."; $("atvError").classList.add("show"); return; }
+    var rec = { titulo: titulo, data: data, hora: $("fAtvHora").value, notas: $("fAtvNotas").value.trim() };
+    var action = editingAtv ? "update" : "insert";
+    saveTableRow("planes_atividades", action, editingAtv ? editingAtv.id : null, rec, currentMode).then(function(){
+      closeAtvModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("atvError").textContent = "Não foi possível salvar: " + err.message; $("atvError").classList.add("show");
+    });
+  });
+  $("atvDelete").addEventListener("click", function(){
+    if (!editingAtv) return;
+    saveTableRow("planes_atividades", "delete", editingAtv.id, null, currentMode).then(function(){
+      closeAtvModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("atvError").textContent = "Não foi possível excluir: " + err.message; $("atvError").classList.add("show");
+    });
+  });
+
+  function renderCalendario(){
+    renderCalendarioLista();
+    renderCalendarioGrade();
+  }
+
+  // ---------- Status da viagem ----------
+  function renderStatus(){
+    var listEl = $("statusList");
+    listEl.innerHTML = "";
+    var items = [
+      {
+        page: "presupuesto", titulo: "Orçamento",
+        done: state.presupuesto.length > 0,
+        detail: state.presupuesto.length ? (state.presupuesto.length+" categoria(s) · "+fmtBRL(state.presupuesto.reduce(function(s,r){ return s+r.planejado; },0))+" planejado") : "Nenhuma categoria cadastrada"
+      },
+      {
+        page: "passagens", titulo: "Passagens",
+        done: state.passagens.length > 0,
+        detail: state.passagens.length ? (state.passagens.length+" passagem(ns) · "+fmtBRL(state.passagens.reduce(function(s,r){ return s+r.valor; },0))) : "Nenhuma passagem cadastrada"
+      },
+      {
+        page: "hospedagem", titulo: "Hospedagem",
+        done: state.hospedagem.length > 0,
+        detail: state.hospedagem.length ? (state.hospedagem.length+" reserva(s) · "+fmtBRL(state.hospedagem.reduce(function(s,r){ return s+r.valor; },0))) : "Nenhuma hospedagem cadastrada"
+      },
+      {
+        page: "calendario", titulo: "Atividades no calendário",
+        done: state.atividades.length > 0,
+        detail: state.atividades.length ? (state.atividades.length+" atividade(s) planejada(s)") : "Nenhuma atividade adicionada ainda"
+      }
+    ];
+    items.forEach(function(it){
+      var row = document.createElement("div");
+      row.className = "item-row";
+      row.style.gridTemplateColumns = "1fr auto";
+      row.innerHTML =
+        '<span><span class="row-title">'+it.titulo+'</span><br><span class="row-meta">'+it.detail+'</span></span>'+
+        '<span class="tag '+(it.done?"tag-success":"tag-danger")+'">'+(it.done?"Definido":"Pendente")+'</span>';
+      row.addEventListener("click", function(){ setActivePage(it.page); });
+      listEl.appendChild(row);
+    });
+  }
+
+  // ---------- Auth flow (Supabase email/password, mesmo padrão do Finanças) ----------
+  function showAuthError(msg){ var e=$("authError"); e.textContent=msg; e.style.display="block"; }
+  function clearAuthError(){ $("authError").style.display="none"; }
+
+  function doSignIn(){
+    clearAuthError();
+    var email = $("authEmail").value.trim();
+    var password = $("authPassword").value;
+    if (!email || !password){ showAuthError("Informe email e senha."); return; }
+    supabaseClient.auth.signInWithPassword({email:email, password:password}).then(function(res){
+      if (res.error) showAuthError(res.error.message);
+    });
+  }
+  function doSignUp(){
+    clearAuthError();
+    var email = $("authEmail").value.trim();
+    var password = $("authPassword").value;
+    if (!email || !password){ showAuthError("Informe email e senha."); return; }
+    if (password.length < 6){ showAuthError("A senha deve ter pelo menos 6 caracteres."); return; }
+    supabaseClient.auth.signUp({email:email, password:password}).then(function(res){
+      if (res.error){ showAuthError(res.error.message); return; }
+      if (res.data && res.data.user && !res.data.session){
+        showAuthError("Conta criada! Verifique seu email para confirmar antes de entrar.");
+      }
+    });
+  }
+  $("btnSignIn").addEventListener("click", doSignIn);
+  $("btnSignUp").addEventListener("click", doSignUp);
+  $("btnLogout").addEventListener("click", function(){ supabaseClient.auth.signOut(); });
+  ["authEmail","authPassword"].forEach(function(id){
+    $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") doSignIn(); });
+  });
+
+  var splashHidden = false;
+  function hideSplash(){
+    if (splashHidden) return;
+    splashHidden = true;
+    var el = $("splashView");
+    if (!el) return;
+    el.classList.add("hide");
+    setTimeout(function(){ el.style.display = "none"; }, 250);
+  }
+  function setConnectedUI(connected, email){
+    $("connDot").className = "conn-dot " + (connected ? "on" : "off");
+    $("connLabel").textContent = connected ? ("Logado como " + email) : "Não conectado";
+    $("notConnectedView").style.display = connected ? "none" : "block";
+    $("connectedView").style.display = connected ? "block" : "none";
+    hideSplash();
+  }
+  supabaseClient.auth.onAuthStateChange(function(event, session){
+    if (session && session.user){
+      setConnectedUI(true, session.user.email);
+      loadAndRender();
+    } else {
+      setConnectedUI(false, "");
+    }
+  });
+
+  // ---------- Init ----------
+  ["tripInicio","tripFim","fPasData","fHosCheckin","fHosCheckout","fAtvData"].forEach(function(id){
+    enhanceDateInput($(id));
+  });
+  ["fPasHora","fAtvHora"].forEach(function(id){ enhanceTimeInput($(id)); });
+  applyModeUI();
+})();
+</script>
+</body>
+</html>
