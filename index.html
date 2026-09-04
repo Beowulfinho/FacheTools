@@ -349,6 +349,7 @@
   html.mae-mode .out-check,
   html.mae-mode #btnConfig,
   html.mae-mode #btnMenuDiario,
+  html.mae-mode #btnMenuInvestimentos,
   html.mae-mode #btnImportCsv,
   html.mae-mode #pageTabs button[data-page="dashboard"],
   html.mae-mode #pageTabs button[data-page="debito"],
@@ -740,6 +741,10 @@
           <button type="button" id="btnMenuDiario">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5V4.8a1.8 1.8 0 0 1 1.8-1.8h11.4a1 1 0 0 1 1 1v16.5a1 1 0 0 1-1 1H6.3a1.8 1.8 0 0 1-1.8-1.8z"/><path d="M4.5 19.5a1.8 1.8 0 0 1 1.8-1.8H18.7"/></svg>
             Diário
+          </button>
+          <button type="button" id="btnMenuInvestimentos">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+            Investimentos
           </button>
           <div class="menu-sep"></div>
           <button type="button" id="btnLogout">
@@ -3587,6 +3592,7 @@
   function closeCfgModal(){ cfgOverlay.classList.remove("show"); }
   $("btnConfig").addEventListener("click", function(){ openCfgModal(); });
   $("btnMenuDiario").addEventListener("click", function(){ openCfgModal("diario"); });
+  $("btnMenuInvestimentos").addEventListener("click", function(){ openCfgModal("investimentos"); });
   $("cfgClose").addEventListener("click", closeCfgModal);
   $("cfgDone").addEventListener("click", closeCfgModal);
   cfgOverlay.addEventListener("click", function(e){ if (e.target===cfgOverlay) closeCfgModal(); });
