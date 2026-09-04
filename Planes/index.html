@@ -53,7 +53,7 @@
     --focus:#E08A4E;
   }
   *{ box-sizing:border-box; }
-  html,body{ margin:0; padding:0; }
+  html,body{ margin:0; padding:0; overflow-x:hidden; }
   body{
     background:var(--paper); color:var(--ink); font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
     font-size:15px; line-height:1.5; min-height:100vh;
@@ -74,6 +74,12 @@
   .app-icon svg{ width:100%; height:100%; }
 
   /* ---------- Mode switch (Viajes / Salida) ---------- */
+  .page-done-bar{ padding:10px 18px 0; }
+  .page-done-bar button{
+    border:1px solid var(--line-strong); background:var(--paper); color:var(--ink-soft);
+    border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600;
+  }
+  .page-done-bar button.btn-primary{ background:var(--accent); border-color:var(--accent); color:#FBF3EC; }
   .mode-switch{ display:flex; gap:8px; margin-bottom:18px; }
   .mode-switch button{
     flex:1; display:flex; align-items:center; justify-content:center; gap:8px;
@@ -226,6 +232,7 @@
   .dsel-trigger svg, .tsel-trigger svg{ flex:none; width:16px; height:16px; color:var(--ink-faint); }
   .dsel-panel, .tsel-panel{
     display:none; position:absolute; z-index:60; top:calc(100% + 6px); left:0; min-width:260px;
+    max-width:calc(100vw - 24px); box-sizing:border-box;
     background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 30px var(--shadow); padding:12px;
   }
   .dsel-panel.show, .tsel-panel.show{ display:block; }
@@ -374,6 +381,21 @@
     <button data-mode="salida" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> Salida</button>
   </div>
 
+  <!-- ================= PICKER: viagens/salidas já criadas + opção de criar nova ================= -->
+  <div id="tripPickerView">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="tripPickerTitle">Suas viagens</h2>
+        <button class="btn btn-sm btn-primary" id="btnNewTrip" type="button">+ Nova</button>
+      </div>
+      <div id="tripPickerList"></div>
+    </div>
+  </div>
+
+  <div id="tripWorkspace" style="display:none;">
+
+  <button class="btn btn-sm" id="btnBackToPicker" type="button" style="margin-bottom:14px;">← Trocar viagem</button>
+
   <div class="trip-card" id="tripCard">
     <div class="field">
       <label for="tripDestino">Destino</label>
@@ -421,6 +443,7 @@
         <h2>Categorias</h2>
         <button class="btn btn-sm btn-primary" id="btnAddOrc" type="button">+ Categoria</button>
       </div>
+      <div class="page-done-bar" id="orcDoneBar"></div>
       <div class="orc-grid" id="orcList"></div>
     </div>
   </div>
@@ -435,6 +458,7 @@
         <h2>Reservas de passagens</h2>
         <button class="btn btn-sm btn-primary" id="btnAddPas" type="button">+ Passagem</button>
       </div>
+      <div class="page-done-bar" id="pasDoneBar"></div>
       <div class="pas-cols">
         <div class="pas-col">
           <div class="pas-col-head">Ida</div>
@@ -463,12 +487,14 @@
         <h2>Reservas de hospedagem</h2>
         <button class="btn btn-sm btn-primary" id="btnAddHos" type="button">+ Hospedagem</button>
       </div>
+      <div class="page-done-bar" id="hosDoneBar"></div>
       <div id="hosList"></div>
     </div>
   </div>
 
   <!-- ================= CALENDÁRIO ================= -->
   <div class="page-section" id="pageCalendario">
+    <div class="page-done-bar" id="calDoneBar"></div>
     <div class="cal-toggle" id="calToggle">
       <button data-view="lista" class="active" type="button">Lista</button>
       <button data-view="grade" type="button">Calendário (mês)</button>
@@ -490,6 +516,9 @@
   </div>
 
   <div class="footer-note" id="lastUpdatedLabel">Seus dados ficam salvos na nuvem.</div>
+
+  </div>
+  <!-- /tripWorkspace -->
 
   </div>
 </div>
@@ -647,52 +676,82 @@
   // Salida usa a mesma estrutura de dados que Viajes; para um único dia, "inicio" e "fim"
   // sempre recebem a mesma data (ver applyModeUI / listener de tripInicio), então totalDias()
   // e todo o resto do código (calendário, orçamento por dia etc.) funcionam sem alterações.
+  function emptyTrip(){
+    return {
+      id:null, destino:"", inicio:"", fim:"",
+      concluido_orcamento:false, concluido_passagens:false, concluido_hospedagem:false, concluido_atividades:false
+    };
+  }
+  // Cada modo agora guarda uma LISTA de viagens/salidas (trips) + qual delas está ativa (activeId).
+  // As tabelas filhas (orçamento/passagens/hospedagem/atividades) pertencem a uma trip específica
+  // (trip_id), não apenas a um modo — por isso guardamos todas as linhas do modo (all*) e filtramos
+  // pela trip ativa em rebuildActiveState().
   var STORE = {
-    viajes: { trip: {id:null, destino:"", inicio:"", fim:""}, presupuesto: [], passagens: [], hospedagem: [], atividades: [] },
-    salida: { trip: {id:null, destino:"", inicio:"", fim:""}, presupuesto: [], passagens: [], hospedagem: [], atividades: [] }
+    viajes: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [] },
+    salida: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [] }
   };
   var currentMode = "viajes";
-  var state = STORE[currentMode];
+  // "state" é sempre a viagem/salida ATIVA (destrinchada de STORE[currentMode]); todo o resto do
+  // código (renderOrcamento, renderCalendario etc.) lê só daqui, sem precisar saber de multi-trip.
+  var state = { trip: emptyTrip(), presupuesto: [], passagens: [], hospedagem: [], atividades: [] };
+
+  function activeTripId(){ return STORE[currentMode].activeId; }
+
+  function rebuildActiveState(){
+    var bucket = STORE[currentMode];
+    var tid = bucket.activeId;
+    var trip = null;
+    for (var i=0;i<bucket.trips.length;i++){ if (bucket.trips[i].id === tid){ trip = bucket.trips[i]; break; } }
+    state.trip = trip || emptyTrip();
+    state.presupuesto = bucket.allOrc.filter(function(r){ return r.trip_id === tid; });
+    state.passagens = bucket.allPas.filter(function(r){ return r.trip_id === tid; });
+    state.hospedagem = bucket.allHos.filter(function(r){ return r.trip_id === tid; });
+    state.atividades = bucket.allAtv.filter(function(r){ return r.trip_id === tid; });
+  }
 
   // ---------- Data layer (Supabase: auth + tables, mesmo padrão do Finanças) ----------
   function throwIfError(res){ if (res && res.error) throw res.error; return res; }
 
-  function buildPayload(tableKey, modo, rec){
+  function buildPayload(tableKey, modo, rec, tripId){
     switch(tableKey){
       case "planes_trip":
-        return { modo: modo, destino: rec.destino || null, inicio: rec.inicio || null, fim: rec.fim || null };
+        return {
+          modo: modo, destino: rec.destino || null, inicio: rec.inicio || null, fim: rec.fim || null,
+          concluido_orcamento: !!rec.concluido_orcamento, concluido_passagens: !!rec.concluido_passagens,
+          concluido_hospedagem: !!rec.concluido_hospedagem, concluido_atividades: !!rec.concluido_atividades
+        };
       case "planes_orcamento":
-        return { modo: modo, categoria: rec.categoria, planejado: rec.planejado, gasto: rec.gasto, por_dia: !!rec.porDia };
+        return { modo: modo, trip_id: tripId, categoria: rec.categoria, planejado: rec.planejado, gasto: rec.gasto, por_dia: !!rec.porDia };
       case "planes_passagens":
         return {
-          modo: modo, tipo: rec.tipo, companhia: rec.companhia||null, origem: rec.origem, destino: rec.destino,
+          modo: modo, trip_id: tripId, tipo: rec.tipo, companhia: rec.companhia||null, origem: rec.origem, destino: rec.destino,
           data: rec.data||null, hora: rec.hora||null, pessoa: rec.pessoa||null, valor: rec.valor,
           confirmacao: rec.confirmacao||null, status: rec.status
         };
       case "planes_hospedagem":
         return {
-          modo: modo, nome: rec.nome, cidade: rec.cidade||null, checkin: rec.checkin||null, checkout: rec.checkout||null,
+          modo: modo, trip_id: tripId, nome: rec.nome, cidade: rec.cidade||null, checkin: rec.checkin||null, checkout: rec.checkout||null,
           valor: rec.valor, confirmacao: rec.confirmacao||null, endereco: rec.endereco||null, pessoas: rec.pessoas||null
         };
       case "planes_atividades":
-        return { modo: modo, titulo: rec.titulo, data: rec.data, hora: rec.hora||null, notas: rec.notas||null };
+        return { modo: modo, trip_id: tripId, titulo: rec.titulo, data: rec.data, hora: rec.hora||null, notas: rec.notas||null };
     }
   }
 
-  function saveTableRow(tableKey, action, rowId, rec, modo){
+  function saveTableRow(tableKey, action, rowId, rec, modo, tripId){
     if (action === "delete"){
       return supabaseClient.from(tableKey).delete().eq("id", rowId).then(throwIfError);
     }
-    var payload = buildPayload(tableKey, modo, rec);
+    var payload = buildPayload(tableKey, modo, rec, tripId);
     if (action === "insert"){
-      return supabaseClient.from(tableKey).insert(payload).then(throwIfError);
+      return supabaseClient.from(tableKey).insert(payload).select().then(throwIfError);
     }
     return supabaseClient.from(tableKey).update(payload).eq("id", rowId).then(throwIfError);
   }
 
   function loadEverything(){
     return Promise.all([
-      supabaseClient.from("planes_trip").select("*"),
+      supabaseClient.from("planes_trip").select("*").order("id"),
       supabaseClient.from("planes_orcamento").select("*").order("id"),
       supabaseClient.from("planes_passagens").select("*").order("id"),
       supabaseClient.from("planes_hospedagem").select("*").order("id"),
@@ -705,41 +764,140 @@
       function hhmm(v){ return v ? String(v).slice(0,5) : ""; }
 
       ["viajes","salida"].forEach(function(modo){
-        var tripRow = byModo(tripRows, modo)[0];
-        STORE[modo].trip = tripRow
-          ? {id: tripRow.id, destino: tripRow.destino||"", inicio: tripRow.inicio||"", fim: tripRow.fim||""}
-          : {id: null, destino: "", inicio: "", fim: ""};
-        STORE[modo].presupuesto = byModo(orcRows, modo).map(function(r){
-          return {id:r.id, categoria:r.categoria, planejado:Number(r.planejado)||0, gasto:Number(r.gasto)||0, porDia: !!r.por_dia};
+        STORE[modo].trips = byModo(tripRows, modo).map(function(r){
+          return {
+            id: r.id, destino: r.destino||"", inicio: r.inicio||"", fim: r.fim||"",
+            concluido_orcamento: !!r.concluido_orcamento, concluido_passagens: !!r.concluido_passagens,
+            concluido_hospedagem: !!r.concluido_hospedagem, concluido_atividades: !!r.concluido_atividades
+          };
         });
-        STORE[modo].passagens = byModo(pasRows, modo).map(function(r){
-          return {id:r.id, tipo:r.tipo, companhia:r.companhia||"", origem:r.origem||"", destino:r.destino||"", data:r.data||"", hora:hhmm(r.hora), pessoa:r.pessoa||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", status:r.status||"Pendente"};
+        STORE[modo].allOrc = byModo(orcRows, modo).map(function(r){
+          return {id:r.id, trip_id:r.trip_id, categoria:r.categoria, planejado:Number(r.planejado)||0, gasto:Number(r.gasto)||0, porDia: !!r.por_dia};
         });
-        STORE[modo].hospedagem = byModo(hosRows, modo).map(function(r){
-          return {id:r.id, nome:r.nome, cidade:r.cidade||"", checkin:r.checkin||"", checkout:r.checkout||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", endereco:r.endereco||"", pessoas:r.pessoas||""};
+        STORE[modo].allPas = byModo(pasRows, modo).map(function(r){
+          return {id:r.id, trip_id:r.trip_id, tipo:r.tipo, companhia:r.companhia||"", origem:r.origem||"", destino:r.destino||"", data:r.data||"", hora:hhmm(r.hora), pessoa:r.pessoa||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", status:r.status||"Pendente"};
         });
-        STORE[modo].atividades = byModo(atvRows, modo).map(function(r){
-          return {id:r.id, titulo:r.titulo, data:r.data||"", hora:hhmm(r.hora), notas:r.notas||""};
+        STORE[modo].allHos = byModo(hosRows, modo).map(function(r){
+          return {id:r.id, trip_id:r.trip_id, nome:r.nome, cidade:r.cidade||"", checkin:r.checkin||"", checkout:r.checkout||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", endereco:r.endereco||"", pessoas:r.pessoas||""};
         });
+        STORE[modo].allAtv = byModo(atvRows, modo).map(function(r){
+          return {id:r.id, trip_id:r.trip_id, titulo:r.titulo, data:r.data||"", hora:hhmm(r.hora), notas:r.notas||""};
+        });
+        // Se a trip ativa não existe mais (ex.: excluída em outro dispositivo), volta para o seletor.
+        if (STORE[modo].activeId != null && !STORE[modo].trips.some(function(t){ return t.id === STORE[modo].activeId; })){
+          STORE[modo].activeId = null;
+        }
       });
-      state = STORE[currentMode];
+      rebuildActiveState();
     });
+  }
+
+  // Re-renderiza tudo a partir do estado local já carregado (sem round-trip ao banco) —
+  // usado tanto depois de loadEverything() quanto ao trocar/selecionar/voltar de trip.
+  function renderAll(){
+    renderTripPicker();
+    updateWorkspaceVisibility();
+    applyModeUI();
+    renderTripInfo();
+    renderOrcamento();
+    renderPassagens();
+    renderHospedagem();
+    renderCalendario();
+    renderStatus();
   }
 
   function loadAndRender(){
     clearError();
     return loadEverything().then(function(){
-      applyModeUI();
       calGradeViewY = null; calGradeViewM = null;
-      renderTripInfo();
-      renderOrcamento();
-      renderPassagens();
-      renderHospedagem();
-      renderCalendario();
-      renderStatus();
+      renderAll();
     }).catch(function(err){
       showError("Não foi possível carregar seus dados: " + err.message);
     });
+  }
+
+  // ---------- Seletor de viagens/salidas (picker) ----------
+  function updateWorkspaceVisibility(){
+    var hasActive = activeTripId() != null;
+    $("tripPickerView").style.display = hasActive ? "none" : "";
+    $("tripWorkspace").style.display = hasActive ? "" : "none";
+  }
+  function tripLabel(t){
+    if (t.destino) return t.destino;
+    return currentMode === "salida" ? "Salida sem nome" : "Viagem sem nome";
+  }
+  function tripPickerDetail(t){
+    if (currentMode === "salida"){
+      return t.inicio ? isoToBR(t.inicio) : "Sem data definida";
+    }
+    if (t.inicio && t.fim) return isoToBR(t.inicio) + " – " + isoToBR(t.fim);
+    if (t.inicio) return "Início: " + isoToBR(t.inicio);
+    return "Datas ainda não definidas";
+  }
+  function renderTripPicker(){
+    $("tripPickerTitle").textContent = currentMode === "salida" ? "Suas salidas" : "Suas viagens";
+    $("btnNewTrip").textContent = currentMode === "salida" ? "+ Nova salida" : "+ Nova viagem";
+    var listEl = $("tripPickerList");
+    listEl.innerHTML = "";
+    var trips = STORE[currentMode].trips;
+    if (!trips.length){
+      listEl.innerHTML = '<div class="empty">'+(currentMode === "salida" ? "Nenhuma salida criada ainda." : "Nenhuma viagem criada ainda.")+'</div>';
+      return;
+    }
+    trips.slice().sort(function(a,b){ return (b.inicio||"").localeCompare(a.inicio||""); }).forEach(function(t){
+      var row = document.createElement("div");
+      row.className = "item-row";
+      row.style.gridTemplateColumns = "1fr auto";
+      row.innerHTML =
+        '<span><span class="row-title">'+escapeHtml(tripLabel(t))+'</span><br><span class="row-meta">'+escapeHtml(tripPickerDetail(t))+'</span></span>'+
+        '<span class="row-meta">›</span>';
+      row.addEventListener("click", function(){ selectTrip(t.id); });
+      listEl.appendChild(row);
+    });
+  }
+  function selectTrip(tripId){
+    STORE[currentMode].activeId = tripId;
+    rebuildActiveState();
+    calGradeViewY = null; calGradeViewM = null;
+    renderAll();
+    setActivePage("status");
+  }
+  function backToPicker(){
+    STORE[currentMode].activeId = null;
+    rebuildActiveState();
+    renderTripPicker();
+    updateWorkspaceVisibility();
+  }
+  function createTrip(){
+    var payload = buildPayload("planes_trip", currentMode, emptyTrip());
+    supabaseClient.from("planes_trip").insert(payload).select().then(throwIfError).then(function(res){
+      var row = res.data && res.data[0];
+      if (row) STORE[currentMode].activeId = row.id;
+      return loadAndRender();
+    }).then(function(){
+      if (activeTripId() != null) setActivePage("status");
+    }).catch(function(err){
+      showError("Não foi possível criar: " + err.message);
+    });
+  }
+  $("btnNewTrip").addEventListener("click", createTrip);
+  $("btnBackToPicker").addEventListener("click", backToPicker);
+
+  // ---------- Toggle "concluído" por página (marcado dentro de cada página, não inferido) ----------
+  function toggleConcluido(flagKey){
+    state.trip[flagKey] = !state.trip[flagKey];
+    saveTableRow("planes_trip", "update", state.trip.id, state.trip, currentMode).then(function(){
+      return loadAndRender();
+    }).catch(function(err){
+      showError("Não foi possível atualizar o status: " + err.message);
+    });
+  }
+  function renderDoneBar(containerId, flagKey, label){
+    var el = $(containerId);
+    if (!el) return;
+    var done = !!state.trip[flagKey];
+    el.innerHTML = '<button type="button" class="'+(done?"btn-primary":"")+'">'+(done ? "✓ "+label+" concluído" : "Marcar "+label+" como concluído")+'</button>';
+    el.querySelector("button").addEventListener("click", function(){ toggleConcluido(flagKey); });
   }
 
   var MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -756,6 +914,23 @@
   function isoToBR(iso){
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||""));
     return m ? (m[3]+"/"+m[2]+"/"+m[1]) : "";
+  }
+
+  // Mantém painéis .dsel-panel/.tsel-panel dentro dos limites da tela (evita
+  // scroll horizontal quando o campo está perto da borda direita, ex.: "Fim").
+  function clampPanelToViewport(panel){
+    panel.style.left = "0px";
+    panel.style.right = "auto";
+    var rect = panel.getBoundingClientRect();
+    var margin = 8;
+    var overflowRight = rect.right - (window.innerWidth - margin);
+    if (overflowRight > 0){
+      panel.style.left = (-overflowRight) + "px";
+    }
+    var rect2 = panel.getBoundingClientRect();
+    if (rect2.left < margin){
+      panel.style.left = (parseFloat(panel.style.left)||0) + (margin - rect2.left) + "px";
+    }
   }
 
   // ---------- Custom date picker (.dsel) — replaces the native date picker ----------
@@ -857,6 +1032,7 @@
       renderPanel();
       panel.classList.add("show");
       trigger.setAttribute("aria-expanded","true");
+      clampPanelToViewport(panel);
     }
     function closePanel(){ panel.classList.remove("show"); trigger.setAttribute("aria-expanded","false"); }
 
@@ -969,6 +1145,7 @@
       renderPanel();
       panel.classList.add("show");
       trigger.setAttribute("aria-expanded","true");
+      clampPanelToViewport(panel);
     }
     function closePanel(){ panel.classList.remove("show"); trigger.setAttribute("aria-expanded","false"); }
 
@@ -1046,18 +1223,13 @@
       document.querySelectorAll("#modeSwitch button").forEach(function(b){ b.classList.remove("active"); });
       btn.classList.add("active");
       currentMode = btn.dataset.mode;
-      state = STORE[currentMode];
-      applyModeUI();
+      // Trocar de modo sempre volta para o seletor (lista de viagens/salidas já criadas + opção
+      // de criar nova) — os dados de todos os modos já foram carregados em loadAndRender() no
+      // login, então isso é só uma troca de referência local, sem round-trip ao banco.
+      STORE[currentMode].activeId = null;
+      rebuildActiveState();
       calGradeViewY = null; calGradeViewM = null;
-      renderTripInfo();
-      renderOrcamento();
-      renderPassagens();
-      renderHospedagem();
-      renderCalendario();
-      renderStatus();
-      setActivePage("status");
-      // Nota: os dados de ambos os modos já foram carregados em loadAndRender() no login,
-      // então trocar de modo aqui é só uma troca de referência local — sem round-trip ao banco.
+      renderAll();
     });
   });
 
@@ -1073,6 +1245,7 @@
 
   // ---------- Orçamento (blocos por categoria) ----------
   function renderOrcamento(){
+    renderDoneBar("orcDoneBar", "concluido_orcamento", "orçamento");
     var totalPlan = 0, totalGasto = 0;
     var listEl = $("orcList");
     listEl.innerHTML = "";
@@ -1129,7 +1302,7 @@
     if (!categoria){ $("orcError").textContent = "Informe a categoria."; $("orcError").classList.add("show"); return; }
     var rec = { categoria: categoria, planejado: parseAmountInput($("fOrcPlanejado").value), gasto: parseAmountInput($("fOrcGasto").value), porDia: $("fOrcPorDia").checked };
     var action = editingOrc ? "update" : "insert";
-    saveTableRow("planes_orcamento", action, editingOrc ? editingOrc.id : null, rec, currentMode).then(function(){
+    saveTableRow("planes_orcamento", action, editingOrc ? editingOrc.id : null, rec, currentMode, activeTripId()).then(function(){
       closeOrcModal();
       return loadAndRender();
     }).catch(function(err){
@@ -1138,7 +1311,7 @@
   });
   $("orcDelete").addEventListener("click", function(){
     if (!editingOrc) return;
-    saveTableRow("planes_orcamento", "delete", editingOrc.id, null, currentMode).then(function(){
+    saveTableRow("planes_orcamento", "delete", editingOrc.id, null, currentMode, activeTripId()).then(function(){
       closeOrcModal();
       return loadAndRender();
     }).catch(function(err){
@@ -1165,6 +1338,7 @@
     return card;
   }
   function renderPassagens(){
+    renderDoneBar("pasDoneBar", "concluido_passagens", "passagens");
     var idaEl = $("pasColIda"), voltaEl = $("pasColVolta"), internoEl = $("pasColInterno"), internoWrap = $("pasInternoWrap");
     idaEl.innerHTML = ""; voltaEl.innerHTML = ""; internoEl.innerHTML = "";
     var total = 0;
@@ -1221,7 +1395,7 @@
       valor: parseAmountInput($("fPasValor").value), confirmacao: $("fPasConfirmacao").value.trim(), status: $("fPasStatus").value
     };
     var action = editingPas ? "update" : "insert";
-    saveTableRow("planes_passagens", action, editingPas ? editingPas.id : null, rec, currentMode).then(function(){
+    saveTableRow("planes_passagens", action, editingPas ? editingPas.id : null, rec, currentMode, activeTripId()).then(function(){
       closePasModal();
       return loadAndRender();
     }).catch(function(err){
@@ -1230,7 +1404,7 @@
   });
   $("pasDelete").addEventListener("click", function(){
     if (!editingPas) return;
-    saveTableRow("planes_passagens", "delete", editingPas.id, null, currentMode).then(function(){
+    saveTableRow("planes_passagens", "delete", editingPas.id, null, currentMode, activeTripId()).then(function(){
       closePasModal();
       return loadAndRender();
     }).catch(function(err){
@@ -1245,6 +1419,7 @@
     return b - a;
   }
   function renderHospedagem(){
+    renderDoneBar("hosDoneBar", "concluido_hospedagem", "hospedagem");
     var listEl = $("hosList");
     listEl.innerHTML = "";
     if (!state.hospedagem.length){ listEl.innerHTML = '<div class="empty">Nenhuma hospedagem cadastrada.</div>'; }
@@ -1300,7 +1475,7 @@
       endereco: $("fHosEndereco").value.trim()
     };
     var action = editingHos ? "update" : "insert";
-    saveTableRow("planes_hospedagem", action, editingHos ? editingHos.id : null, rec, currentMode).then(function(){
+    saveTableRow("planes_hospedagem", action, editingHos ? editingHos.id : null, rec, currentMode, activeTripId()).then(function(){
       closeHosModal();
       return loadAndRender();
     }).catch(function(err){
@@ -1309,7 +1484,7 @@
   });
   $("hosDelete").addEventListener("click", function(){
     if (!editingHos) return;
-    saveTableRow("planes_hospedagem", "delete", editingHos.id, null, currentMode).then(function(){
+    saveTableRow("planes_hospedagem", "delete", editingHos.id, null, currentMode, activeTripId()).then(function(){
       closeHosModal();
       return loadAndRender();
     }).catch(function(err){
@@ -1372,7 +1547,7 @@
       dayEl.className = "cal-day" + (serial===todaySerial ? " today" : "");
       var dEl = document.createElement("div");
       dEl.className = "d";
-      dEl.innerHTML = '<div class="num-day">'+d.getDate()+'</div><div class="wk">'+WEEKDAY_ABBR_PT[d.getDay()]+'</div>';
+      dEl.innerHTML = '<div class="num-day">'+d.getUTCDate()+'</div><div class="wk">'+WEEKDAY_ABBR_PT[d.getUTCDay()]+'</div>';
       var evWrap = document.createElement("div");
       evWrap.className = "events";
 
@@ -1555,7 +1730,7 @@
     if (!titulo || !data){ $("atvError").textContent = "Informe o título e a data."; $("atvError").classList.add("show"); return; }
     var rec = { titulo: titulo, data: data, hora: $("fAtvHora").value, notas: $("fAtvNotas").value.trim() };
     var action = editingAtv ? "update" : "insert";
-    saveTableRow("planes_atividades", action, editingAtv ? editingAtv.id : null, rec, currentMode).then(function(){
+    saveTableRow("planes_atividades", action, editingAtv ? editingAtv.id : null, rec, currentMode, activeTripId()).then(function(){
       closeAtvModal();
       return loadAndRender();
     }).catch(function(err){
@@ -1564,7 +1739,7 @@
   });
   $("atvDelete").addEventListener("click", function(){
     if (!editingAtv) return;
-    saveTableRow("planes_atividades", "delete", editingAtv.id, null, currentMode).then(function(){
+    saveTableRow("planes_atividades", "delete", editingAtv.id, null, currentMode, activeTripId()).then(function(){
       closeAtvModal();
       return loadAndRender();
     }).catch(function(err){
@@ -1573,33 +1748,36 @@
   });
 
   function renderCalendario(){
+    renderDoneBar("calDoneBar", "concluido_atividades", "atividades");
     renderCalendarioLista();
     renderCalendarioGrade();
   }
 
   // ---------- Status da viagem ----------
+  // "done" agora reflete só o que o usuário marcou dentro de cada página (state.trip.concluido_*),
+  // não mais uma inferência automática pela quantidade de itens cadastrados.
   function renderStatus(){
     var listEl = $("statusList");
     listEl.innerHTML = "";
     var items = [
       {
         page: "presupuesto", titulo: "Orçamento",
-        done: state.presupuesto.length > 0,
+        done: !!state.trip.concluido_orcamento,
         detail: state.presupuesto.length ? (state.presupuesto.length+" categoria(s) · "+fmtBRL(state.presupuesto.reduce(function(s,r){ return s+r.planejado; },0))+" planejado") : "Nenhuma categoria cadastrada"
       },
       {
         page: "passagens", titulo: "Passagens",
-        done: state.passagens.length > 0,
+        done: !!state.trip.concluido_passagens,
         detail: state.passagens.length ? (state.passagens.length+" passagem(ns) · "+fmtBRL(state.passagens.reduce(function(s,r){ return s+r.valor; },0))) : "Nenhuma passagem cadastrada"
       },
       {
         page: "hospedagem", titulo: "Hospedagem",
-        done: state.hospedagem.length > 0,
+        done: !!state.trip.concluido_hospedagem,
         detail: state.hospedagem.length ? (state.hospedagem.length+" reserva(s) · "+fmtBRL(state.hospedagem.reduce(function(s,r){ return s+r.valor; },0))) : "Nenhuma hospedagem cadastrada"
       },
       {
         page: "calendario", titulo: "Atividades no calendário",
-        done: state.atividades.length > 0,
+        done: !!state.trip.concluido_atividades,
         detail: state.atividades.length ? (state.atividades.length+" atividade(s) planejada(s)") : "Nenhuma atividade adicionada ainda"
       }
     ];
