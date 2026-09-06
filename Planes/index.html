@@ -80,15 +80,21 @@
     border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600;
   }
   .page-done-bar button.btn-primary{ background:var(--accent); border-color:var(--accent); color:#FBF3EC; }
-  .mode-switch{ display:flex; gap:8px; margin-bottom:18px; }
-  .mode-switch button{
-    flex:1; display:flex; align-items:center; justify-content:center; gap:8px;
-    padding:12px; border-radius:11px; border:1px solid var(--line); background:var(--paper-raised);
-    font-weight:600; font-size:14px; color:var(--ink-soft); box-shadow:0 1px 2px var(--shadow);
+  /* Barra inferior fixa, como o menu de abas de um app nativo */
+  .mode-switch{
+    position:fixed; left:0; right:0; bottom:0; z-index:80;
+    background:var(--paper-raised); border-top:1px solid var(--line); box-shadow:0 -2px 12px var(--shadow);
+    padding-bottom:env(safe-area-inset-bottom, 0px);
   }
-  .mode-switch button svg{ width:18px; height:18px; flex:none; }
-  .mode-switch button.active{ background:var(--accent); border-color:var(--accent); color:#FBF3EC; }
-  @media (max-width:480px){ .mode-switch{ flex-direction:column; } }
+  .mode-switch-inner{ max-width:1080px; margin:0 auto; display:flex; }
+  .mode-switch button{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    padding:9px 4px 8px; border:none; background:none; font-weight:600; font-size:11px; color:var(--ink-faint);
+  }
+  .mode-switch button svg{ width:22px; height:22px; flex:none; }
+  .mode-switch button.active{ color:var(--accent); }
+  /* Espaço para o conteúdo não ficar escondido atrás da barra inferior fixa */
+  .wrap{ padding-bottom:calc(70px + env(safe-area-inset-bottom, 0px)); }
 
   .trip-card{
     background:var(--paper-raised); border:1px solid var(--line); border-radius:13px; box-shadow:0 1px 2px var(--shadow);
@@ -153,6 +159,11 @@
   .tag.warn{ background:var(--warn-soft); color:var(--warn); }
   .tag.tag-success{ background:var(--success-soft); color:var(--success); }
   .tag.tag-danger{ background:var(--danger-soft); color:var(--danger); }
+  .btn-icon-danger{
+    border:none; background:var(--danger-soft); color:var(--danger); border-radius:8px;
+    width:34px; height:34px; display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .btn-icon-danger svg{ width:18px; height:18px; }
   .empty{ padding:26px 18px; text-align:center; color:var(--ink-faint); font-size:13.5px; }
 
   @media (max-width:760px){
@@ -397,8 +408,10 @@
   <div class="banner danger" id="errorBanner"></div>
 
   <div class="mode-switch" id="modeSwitch">
-    <button data-mode="viajes" class="active" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V6a2 2 0 012-2h2a2 2 0 012 2v2"/><path d="M4 13h16"/></svg> Viajes</button>
-    <button data-mode="salida" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> Aventura</button>
+    <div class="mode-switch-inner">
+      <button data-mode="viajes" class="active" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V6a2 2 0 012-2h2a2 2 0 012 2v2"/><path d="M4 13h16"/></svg><span>Viajes</span></button>
+      <button data-mode="salida" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg><span>Aventuras</span></button>
+    </div>
   </div>
 
   <!-- ================= PICKER: viagens/salidas já criadas + opção de criar nova ================= -->
@@ -556,6 +569,19 @@
   </div>
   <!-- /tripWorkspace -->
 
+  </div>
+</div>
+
+<!-- ================= Modal: confirmação (genérico, no estilo do app) ================= -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-head"><h3 id="confirmTitle">Confirmar</h3><button class="modal-close" id="confirmClose" type="button">✕</button></div>
+    <div class="modal-body"><div id="confirmMessage" style="font-size:14px; color:var(--ink-soft); line-height:1.5;"></div></div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="confirmCancel" type="button">Cancelar</button>
+      <button class="btn btn-danger" id="confirmOk" type="button">Confirmar</button>
+    </div>
   </div>
 </div>
 
@@ -930,6 +956,12 @@
       : [t.concluido_orcamento, t.concluido_passagens, t.concluido_hospedagem, t.concluido_atividades];
     return flags.every(function(f){ return !!f; });
   }
+  // Segurar (~1s) uma linha da lista revela o ícone de lixeira nela — só aí a exclusão fica
+  // acessível, evitando um botão "Excluir" sempre visível. Um toque comum continua selecionando
+  // a viagem/aventura normalmente.
+  var TRASH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7l1 13a2 2 0 002 2h6a2 2 0 002-2l1-13"/><path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>';
+  var LONG_PRESS_MS = 1000;
+  var pendingDeleteId = null;
   function renderTripPicker(){
     $("tripPickerTitle").textContent = currentMode === "salida" ? "Suas aventuras" : "Suas viagens";
     $("btnNewTrip").textContent = currentMode === "salida" ? "+ Nova aventura" : "+ Nova viagem";
@@ -943,30 +975,62 @@
     trips.slice().sort(function(a,b){ return (b.inicio||"").localeCompare(a.inicio||""); }).forEach(function(t){
       var row = document.createElement("div");
       row.className = "item-row";
-      row.style.gridTemplateColumns = "1fr auto auto";
+      row.style.gridTemplateColumns = "1fr auto";
       var infoSpan = document.createElement("span");
       infoSpan.innerHTML =
         '<span class="row-title">'+escapeHtml(tripLabel(t))+(tripAllDone(t) ? ' <span class="tag tag-success">✓ Concluído</span>' : '')+'</span><br>'+
         '<span class="row-meta">'+escapeHtml(tripPickerDetail(t))+' · '+fmtBRL(tripBudgetTotal(t))+' planejado</span>';
-      var delBtn = document.createElement("button");
-      delBtn.type = "button";
-      delBtn.className = "btn btn-sm btn-danger";
-      delBtn.textContent = "Excluir";
-      delBtn.addEventListener("click", function(e){ e.stopPropagation(); deleteTrip(t); });
-      var chevron = document.createElement("span");
-      chevron.className = "row-meta";
-      chevron.textContent = "›";
+      var actionSpan = document.createElement("span");
+      if (pendingDeleteId === t.id){
+        var delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "btn-icon-danger";
+        delBtn.setAttribute("aria-label", "Excluir");
+        delBtn.innerHTML = TRASH_ICON;
+        delBtn.addEventListener("click", function(e){ e.stopPropagation(); pendingDeleteId = null; deleteTrip(t); });
+        actionSpan.appendChild(delBtn);
+      } else {
+        actionSpan.className = "row-meta";
+        actionSpan.textContent = "›";
+      }
       row.appendChild(infoSpan);
-      row.appendChild(delBtn);
-      row.appendChild(chevron);
-      row.addEventListener("click", function(){ selectTrip(t.id); });
+      row.appendChild(actionSpan);
+
+      var pressTimer = null, longPressFired = false;
+      function startPress(){
+        longPressFired = false;
+        pressTimer = setTimeout(function(){
+          longPressFired = true;
+          pendingDeleteId = t.id;
+          renderTripPicker();
+        }, LONG_PRESS_MS);
+      }
+      function cancelPress(){ if (pressTimer){ clearTimeout(pressTimer); pressTimer = null; } }
+      row.addEventListener("touchstart", startPress, {passive:true});
+      row.addEventListener("touchend", cancelPress);
+      row.addEventListener("touchmove", cancelPress);
+      row.addEventListener("touchcancel", cancelPress);
+      row.addEventListener("mousedown", startPress);
+      row.addEventListener("mouseup", cancelPress);
+      row.addEventListener("mouseleave", cancelPress);
+      row.addEventListener("click", function(){
+        if (longPressFired){ longPressFired = false; return; }
+        if (pendingDeleteId !== null){ pendingDeleteId = null; renderTripPicker(); return; }
+        selectTrip(t.id);
+      });
       listEl.appendChild(row);
     });
   }
   function deleteTrip(t){
     var tipo = currentMode === "salida" ? "aventura" : "viagem";
-    var ok = window.confirm('Excluir "'+tripLabel(t)+'"? Isso apaga todos os dados dessa '+tipo+' (orçamento, passagens'+(currentMode==="salida"?"":", hospedagem")+', atividades e comentários). Essa ação não pode ser desfeita.');
-    if (!ok) return;
+    showConfirm(
+      "Excluir "+tipo,
+      'Excluir "'+tripLabel(t)+'"? Isso apaga todos os dados dessa '+tipo+' (orçamento, passagens'+(currentMode==="salida"?"":", hospedagem")+', atividades e comentários). Essa ação não pode ser desfeita.',
+      "Excluir",
+      function(){ confirmDeleteTrip(t); }
+    );
+  }
+  function confirmDeleteTrip(t){
     supabaseClient.from("planes_trip").delete().eq("id", t.id).then(throwIfError).then(function(){
       return loadAndRender();
     }).catch(function(err){
@@ -986,6 +1050,7 @@
   }
   window.addEventListener("popstate", function(){
     workspaceHistoryPushed = false;
+    pendingDeleteId = null;
     if (activeTripId() != null){
       STORE[currentMode].activeId = null;
       rebuildActiveState();
@@ -1003,6 +1068,7 @@
   }
   function backToPicker(){
     STORE[currentMode].activeId = null;
+    pendingDeleteId = null;
     rebuildActiveState();
     renderTripPicker();
     updateWorkspaceVisibility();
@@ -1042,6 +1108,25 @@
     el.innerHTML = '<button type="button" class="'+(done?"btn-primary":"")+'">'+(done ? "✓ "+label+" concluído" : "Marcar "+label+" como concluído")+'</button>';
     el.querySelector("button").addEventListener("click", function(){ toggleConcluido(flagKey); });
   }
+
+  // ---------- Confirmação genérica (substitui window.confirm por um modal no estilo do app) ----------
+  var confirmOverlay = $("confirmOverlay");
+  var confirmCallback = null;
+  function showConfirm(title, message, okLabel, onConfirm){
+    $("confirmTitle").textContent = title;
+    $("confirmMessage").textContent = message;
+    $("confirmOk").textContent = okLabel || "Confirmar";
+    confirmCallback = onConfirm;
+    confirmOverlay.classList.add("show");
+  }
+  function closeConfirm(){ confirmOverlay.classList.remove("show"); confirmCallback = null; }
+  $("confirmClose").addEventListener("click", closeConfirm);
+  $("confirmCancel").addEventListener("click", closeConfirm);
+  $("confirmOk").addEventListener("click", function(){
+    var cb = confirmCallback;
+    closeConfirm();
+    if (cb) cb();
+  });
 
   // ---------- Menu ⋮ (Categorias / Sair) ----------
   $("btnKebab").addEventListener("click", function(e){
@@ -1455,6 +1540,7 @@
       // de criar nova) — os dados de todos os modos já foram carregados em loadAndRender() no
       // login, então isso é só uma troca de referência local, sem round-trip ao banco.
       STORE[currentMode].activeId = null;
+      pendingDeleteId = null;
       rebuildActiveState();
       calGradeViewY = null; calGradeViewM = null;
       renderAll();
