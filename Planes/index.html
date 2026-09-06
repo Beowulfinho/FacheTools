@@ -211,10 +211,11 @@
   .modal-foot{ display:flex; gap:8px; padding:14px 18px; border-top:1px solid var(--line); }
   .field{ display:flex; flex-direction:column; gap:5px; }
   .field label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); }
-  .field input, .field select{
+  .field input, .field select, .field textarea{
     padding:9px 11px; border-radius:8px; border:1px solid var(--line-strong); background:var(--paper);
-    color:var(--ink); width:100%;
+    color:var(--ink); width:100%; font-family:inherit; font-size:inherit;
   }
+  .field textarea{ resize:vertical; box-sizing:border-box; }
   .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:480px){ .field-row{ grid-template-columns:1fr; } }
   .field-error{ display:none; color:var(--danger); font-size:12.5px; }
@@ -378,7 +379,7 @@
 
   <div class="mode-switch" id="modeSwitch">
     <button data-mode="viajes" class="active" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V6a2 2 0 012-2h2a2 2 0 012 2v2"/><path d="M4 13h16"/></svg> Viajes</button>
-    <button data-mode="salida" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> Salida</button>
+    <button data-mode="salida" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg> Aventura</button>
   </div>
 
   <!-- ================= PICKER: viagens/salidas já criadas + opção de criar nova ================= -->
@@ -397,6 +398,10 @@
   <button class="btn btn-sm" id="btnBackToPicker" type="button" style="margin-bottom:14px;">← Trocar viagem</button>
 
   <div class="trip-card" id="tripCard">
+    <div class="field">
+      <label for="tripNome" id="tripNomeLabel">Nome da viagem</label>
+      <input type="text" id="tripNome" placeholder="Ex.: Viagem de final do ano">
+    </div>
     <div class="field">
       <label for="tripDestino">Destino</label>
       <input type="text" id="tripDestino" placeholder="Ex.: Bariloche, Argentina">
@@ -419,8 +424,9 @@
     <button data-page="status" class="active">Status</button>
     <button data-page="presupuesto">Orçamento</button>
     <button data-page="passagens">Passagens</button>
-    <button data-page="hospedagem">Hospedagem</button>
-    <button data-page="calendario">Calendário</button>
+    <button data-page="hospedagem" id="tabHospedagem">Hospedagem</button>
+    <button data-page="calendario" id="tabCalendario">Calendário</button>
+    <button data-page="comentarios">Comentários</button>
   </div>
 
   <!-- ================= STATUS ================= -->
@@ -515,6 +521,17 @@
     </div>
   </div>
 
+  <!-- ================= COMENTÁRIOS (log) ================= -->
+  <div class="page-section" id="pageComentarios">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Comentários</h2>
+        <button class="btn btn-sm btn-primary" id="btnAddCom" type="button">+ Comentário</button>
+      </div>
+      <div id="comList"></div>
+    </div>
+  </div>
+
   <div class="footer-note" id="lastUpdatedLabel">Seus dados ficam salvos na nuvem.</div>
 
   </div>
@@ -529,6 +546,7 @@
     <div class="modal-head"><h3 id="orcModalTitle">Nova categoria</h3><button class="modal-close" id="orcClose" type="button">✕</button></div>
     <div class="modal-body">
       <div class="field"><label for="fOrcCategoria">Categoria</label><input type="text" id="fOrcCategoria" placeholder="Ex.: Alimentação"></div>
+      <div class="field"><label for="fOrcSubtitulo">Subtítulo (opcional)</label><input type="text" id="fOrcSubtitulo" placeholder="Ex.: Ida até o ponto A"></div>
       <div class="field-row">
         <div class="field"><label for="fOrcPlanejado">Planejado (R$)</label><input type="text" inputmode="decimal" id="fOrcPlanejado" placeholder="0,00"></div>
         <div class="field"><label for="fOrcGasto">Gasto até agora (R$)</label><input type="text" inputmode="decimal" id="fOrcGasto" placeholder="0,00"></div>
@@ -541,6 +559,23 @@
       <div style="flex:1;"></div>
       <button class="btn" id="orcCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="orcSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: comentário (log) ================= -->
+<div class="overlay" id="comOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="comModalTitle">Novo comentário</h3><button class="modal-close" id="comClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="fComTexto">Comentário</label><textarea id="fComTexto" rows="5" placeholder="Ex.: Hoje a Fachera pesquisou na internet, as opções são X e Y por tal preço..."></textarea></div>
+      <div class="field-error" id="comError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="comDelete" type="button" style="display:none;">Excluir</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="comCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="comSave" type="button">Salvar</button>
     </div>
   </div>
 </div>
@@ -678,22 +713,22 @@
   // e todo o resto do código (calendário, orçamento por dia etc.) funcionam sem alterações.
   function emptyTrip(){
     return {
-      id:null, destino:"", inicio:"", fim:"",
+      id:null, nome:"", destino:"", inicio:"", fim:"",
       concluido_orcamento:false, concluido_passagens:false, concluido_hospedagem:false, concluido_atividades:false
     };
   }
   // Cada modo agora guarda uma LISTA de viagens/salidas (trips) + qual delas está ativa (activeId).
-  // As tabelas filhas (orçamento/passagens/hospedagem/atividades) pertencem a uma trip específica
-  // (trip_id), não apenas a um modo — por isso guardamos todas as linhas do modo (all*) e filtramos
-  // pela trip ativa em rebuildActiveState().
+  // As tabelas filhas (orçamento/passagens/hospedagem/atividades/comentários) pertencem a uma trip
+  // específica (trip_id), não apenas a um modo — por isso guardamos todas as linhas do modo (all*)
+  // e filtramos pela trip ativa em rebuildActiveState().
   var STORE = {
-    viajes: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [] },
-    salida: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [] }
+    viajes: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [], allCom: [] },
+    salida: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [], allCom: [] }
   };
   var currentMode = "viajes";
   // "state" é sempre a viagem/salida ATIVA (destrinchada de STORE[currentMode]); todo o resto do
   // código (renderOrcamento, renderCalendario etc.) lê só daqui, sem precisar saber de multi-trip.
-  var state = { trip: emptyTrip(), presupuesto: [], passagens: [], hospedagem: [], atividades: [] };
+  var state = { trip: emptyTrip(), presupuesto: [], passagens: [], hospedagem: [], atividades: [], comentarios: [] };
 
   function activeTripId(){ return STORE[currentMode].activeId; }
 
@@ -707,6 +742,7 @@
     state.passagens = bucket.allPas.filter(function(r){ return r.trip_id === tid; });
     state.hospedagem = bucket.allHos.filter(function(r){ return r.trip_id === tid; });
     state.atividades = bucket.allAtv.filter(function(r){ return r.trip_id === tid; });
+    state.comentarios = bucket.allCom.filter(function(r){ return r.trip_id === tid; });
   }
 
   // ---------- Data layer (Supabase: auth + tables, mesmo padrão do Finanças) ----------
@@ -716,12 +752,12 @@
     switch(tableKey){
       case "planes_trip":
         return {
-          modo: modo, destino: rec.destino || null, inicio: rec.inicio || null, fim: rec.fim || null,
+          modo: modo, nome: rec.nome || null, destino: rec.destino || null, inicio: rec.inicio || null, fim: rec.fim || null,
           concluido_orcamento: !!rec.concluido_orcamento, concluido_passagens: !!rec.concluido_passagens,
           concluido_hospedagem: !!rec.concluido_hospedagem, concluido_atividades: !!rec.concluido_atividades
         };
       case "planes_orcamento":
-        return { modo: modo, trip_id: tripId, categoria: rec.categoria, planejado: rec.planejado, gasto: rec.gasto, por_dia: !!rec.porDia };
+        return { modo: modo, trip_id: tripId, categoria: rec.categoria, subtitulo: rec.subtitulo||null, planejado: rec.planejado, gasto: rec.gasto, por_dia: !!rec.porDia };
       case "planes_passagens":
         return {
           modo: modo, trip_id: tripId, tipo: rec.tipo, companhia: rec.companhia||null, origem: rec.origem, destino: rec.destino,
@@ -735,6 +771,8 @@
         };
       case "planes_atividades":
         return { modo: modo, trip_id: tripId, titulo: rec.titulo, data: rec.data, hora: rec.hora||null, notas: rec.notas||null };
+      case "planes_comentarios":
+        return { modo: modo, trip_id: tripId, texto: rec.texto };
     }
   }
 
@@ -755,24 +793,25 @@
       supabaseClient.from("planes_orcamento").select("*").order("id"),
       supabaseClient.from("planes_passagens").select("*").order("id"),
       supabaseClient.from("planes_hospedagem").select("*").order("id"),
-      supabaseClient.from("planes_atividades").select("*").order("id")
+      supabaseClient.from("planes_atividades").select("*").order("id"),
+      supabaseClient.from("planes_comentarios").select("*").order("created_at", {ascending:false})
     ]).then(function(results){
       results.forEach(throwIfError);
       var tripRows = results[0].data||[], orcRows = results[1].data||[], pasRows = results[2].data||[];
-      var hosRows = results[3].data||[], atvRows = results[4].data||[];
+      var hosRows = results[3].data||[], atvRows = results[4].data||[], comRows = results[5].data||[];
       function byModo(rows, modo){ return rows.filter(function(r){ return r.modo === modo; }); }
       function hhmm(v){ return v ? String(v).slice(0,5) : ""; }
 
       ["viajes","salida"].forEach(function(modo){
         STORE[modo].trips = byModo(tripRows, modo).map(function(r){
           return {
-            id: r.id, destino: r.destino||"", inicio: r.inicio||"", fim: r.fim||"",
+            id: r.id, nome: r.nome||"", destino: r.destino||"", inicio: r.inicio||"", fim: r.fim||"",
             concluido_orcamento: !!r.concluido_orcamento, concluido_passagens: !!r.concluido_passagens,
             concluido_hospedagem: !!r.concluido_hospedagem, concluido_atividades: !!r.concluido_atividades
           };
         });
         STORE[modo].allOrc = byModo(orcRows, modo).map(function(r){
-          return {id:r.id, trip_id:r.trip_id, categoria:r.categoria, planejado:Number(r.planejado)||0, gasto:Number(r.gasto)||0, porDia: !!r.por_dia};
+          return {id:r.id, trip_id:r.trip_id, categoria:r.categoria, subtitulo:r.subtitulo||"", planejado:Number(r.planejado)||0, gasto:Number(r.gasto)||0, porDia: !!r.por_dia};
         });
         STORE[modo].allPas = byModo(pasRows, modo).map(function(r){
           return {id:r.id, trip_id:r.trip_id, tipo:r.tipo, companhia:r.companhia||"", origem:r.origem||"", destino:r.destino||"", data:r.data||"", hora:hhmm(r.hora), pessoa:r.pessoa||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", status:r.status||"Pendente"};
@@ -782,6 +821,9 @@
         });
         STORE[modo].allAtv = byModo(atvRows, modo).map(function(r){
           return {id:r.id, trip_id:r.trip_id, titulo:r.titulo, data:r.data||"", hora:hhmm(r.hora), notas:r.notas||""};
+        });
+        STORE[modo].allCom = byModo(comRows, modo).map(function(r){
+          return {id:r.id, trip_id:r.trip_id, texto:r.texto||"", created_at:r.created_at||""};
         });
         // Se a trip ativa não existe mais (ex.: excluída em outro dispositivo), volta para o seletor.
         if (STORE[modo].activeId != null && !STORE[modo].trips.some(function(t){ return t.id === STORE[modo].activeId; })){
@@ -803,6 +845,7 @@
     renderPassagens();
     renderHospedagem();
     renderCalendario();
+    renderComentarios();
     renderStatus();
   }
 
@@ -823,8 +866,9 @@
     $("tripWorkspace").style.display = hasActive ? "" : "none";
   }
   function tripLabel(t){
+    if (t.nome) return t.nome;
     if (t.destino) return t.destino;
-    return currentMode === "salida" ? "Salida sem nome" : "Viagem sem nome";
+    return currentMode === "salida" ? "Aventura sem nome" : "Viagem sem nome";
   }
   function tripPickerDetail(t){
     if (currentMode === "salida"){
@@ -835,13 +879,13 @@
     return "Datas ainda não definidas";
   }
   function renderTripPicker(){
-    $("tripPickerTitle").textContent = currentMode === "salida" ? "Suas salidas" : "Suas viagens";
-    $("btnNewTrip").textContent = currentMode === "salida" ? "+ Nova salida" : "+ Nova viagem";
+    $("tripPickerTitle").textContent = currentMode === "salida" ? "Suas aventuras" : "Suas viagens";
+    $("btnNewTrip").textContent = currentMode === "salida" ? "+ Nova aventura" : "+ Nova viagem";
     var listEl = $("tripPickerList");
     listEl.innerHTML = "";
     var trips = STORE[currentMode].trips;
     if (!trips.length){
-      listEl.innerHTML = '<div class="empty">'+(currentMode === "salida" ? "Nenhuma salida criada ainda." : "Nenhuma viagem criada ainda.")+'</div>';
+      listEl.innerHTML = '<div class="empty">'+(currentMode === "salida" ? "Nenhuma aventura criada ainda." : "Nenhuma viagem criada ainda.")+'</div>';
       return;
     }
     trips.slice().sort(function(a,b){ return (b.inicio||"").localeCompare(a.inicio||""); }).forEach(function(t){
@@ -1191,14 +1235,16 @@
     return (b - a) + 1;
   }
   function renderTripInfo(){
+    $("tripNome").value = state.trip.nome;
     $("tripDestino").value = state.trip.destino;
     $("tripInicio").value = state.trip.inicio;
     $("tripFim").value = state.trip.fim;
     $("tripTotalDias").textContent = totalDias();
   }
-  ["tripDestino","tripInicio","tripFim"].forEach(function(id){
+  var TRIP_FIELD_KEYS = { tripNome:"nome", tripDestino:"destino", tripInicio:"inicio", tripFim:"fim" };
+  ["tripNome","tripDestino","tripInicio","tripFim"].forEach(function(id){
     $(id).addEventListener("change", function(){
-      var key = id === "tripDestino" ? "destino" : (id === "tripInicio" ? "inicio" : "fim");
+      var key = TRIP_FIELD_KEYS[id];
       state.trip[key] = this.value;
       if (currentMode === "salida" && id === "tripInicio"){ state.trip.fim = this.value; }
       var action = state.trip.id ? "update" : "insert";
@@ -1216,6 +1262,11 @@
     $("tripFimField").style.display = isSalida ? "none" : "";
     $("tripInicioLabel").textContent = isSalida ? "Data" : "Início";
     $("tripStat").style.display = isSalida ? "none" : "";
+    $("tripNomeLabel").textContent = isSalida ? "Nome da aventura" : "Nome da viagem";
+    $("tripNome").placeholder = isSalida ? "Ex.: Salto A" : "Ex.: Viagem de final do ano";
+    // Aventura é sempre 1 dia só e não tem hospedagem — some com a aba e usa "Cronograma".
+    $("tabHospedagem").style.display = isSalida ? "none" : "";
+    $("tabCalendario").textContent = isSalida ? "Cronograma" : "Calendário";
   }
   document.querySelectorAll("#modeSwitch button").forEach(function(btn){
     btn.addEventListener("click", function(){
@@ -1265,6 +1316,7 @@
       card.className = "orc-card";
       card.innerHTML =
         '<div class="orc-cat">'+escapeHtml(r.categoria)+(r.porDia?' <span class="tag">Diário</span>':'')+'</div>'+
+        (r.subtitulo ? '<div class="row-meta">'+escapeHtml(r.subtitulo)+'</div>' : '')+
         '<div class="orc-stat"><span>Planejado</span><b class="num">'+fmtBRL(r.planejado)+'</b></div>'+
         '<div class="orc-stat"><span>Gasto</span><b class="num">'+fmtBRL(r.gasto)+'</b></div>'+
         perDiaHtml+
@@ -1288,6 +1340,7 @@
     $("orcDelete").style.display = r ? "inline-flex" : "none";
     $("orcError").classList.remove("show");
     $("fOrcCategoria").value = r ? r.categoria : "";
+    $("fOrcSubtitulo").value = r ? (r.subtitulo||"") : "";
     $("fOrcPlanejado").value = r ? String(r.planejado).replace(".", ",") : "";
     $("fOrcGasto").value = r ? String(r.gasto).replace(".", ",") : "";
     $("fOrcPorDia").checked = r ? !!r.porDia : false;
@@ -1300,7 +1353,7 @@
   $("orcSave").addEventListener("click", function(){
     var categoria = $("fOrcCategoria").value.trim();
     if (!categoria){ $("orcError").textContent = "Informe a categoria."; $("orcError").classList.add("show"); return; }
-    var rec = { categoria: categoria, planejado: parseAmountInput($("fOrcPlanejado").value), gasto: parseAmountInput($("fOrcGasto").value), porDia: $("fOrcPorDia").checked };
+    var rec = { categoria: categoria, subtitulo: $("fOrcSubtitulo").value.trim(), planejado: parseAmountInput($("fOrcPlanejado").value), gasto: parseAmountInput($("fOrcGasto").value), porDia: $("fOrcPorDia").checked };
     var action = editingOrc ? "update" : "insert";
     saveTableRow("planes_orcamento", action, editingOrc ? editingOrc.id : null, rec, currentMode, activeTripId()).then(function(){
       closeOrcModal();
@@ -1753,6 +1806,70 @@
     renderCalendarioGrade();
   }
 
+  // ---------- Comentários (log) ----------
+  function formatLogTimestamp(iso){
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    var dd = pad2(d.getDate()), mm = pad2(d.getMonth()+1), yyyy = d.getFullYear();
+    var hh = pad2(d.getHours()), mi = pad2(d.getMinutes());
+    return dd+"/"+mm+"/"+yyyy+" às "+hh+":"+mi;
+  }
+  function renderComentarios(){
+    var listEl = $("comList");
+    listEl.innerHTML = "";
+    if (!state.comentarios.length){
+      listEl.innerHTML = '<div class="empty">Nenhum comentário ainda.</div>';
+      return;
+    }
+    var sorted = state.comentarios.slice().sort(function(a,b){ return (b.created_at||"").localeCompare(a.created_at||""); });
+    sorted.forEach(function(r){
+      var row = document.createElement("div");
+      row.className = "item-row";
+      row.style.gridTemplateColumns = "1fr";
+      row.innerHTML =
+        '<span><span class="row-meta">'+formatLogTimestamp(r.created_at)+'</span><br>'+
+        escapeHtml(r.texto).replace(/\n/g,"<br>")+'</span>';
+      row.addEventListener("click", function(){ openComModal(r); });
+      listEl.appendChild(row);
+    });
+  }
+  var comOverlay = $("comOverlay");
+  var editingCom = null;
+  function openComModal(r){
+    editingCom = r || null;
+    $("comModalTitle").textContent = r ? "Editar comentário" : "Novo comentário";
+    $("comDelete").style.display = r ? "inline-flex" : "none";
+    $("comError").classList.remove("show");
+    $("fComTexto").value = r ? r.texto : "";
+    comOverlay.classList.add("show");
+  }
+  function closeComModal(){ comOverlay.classList.remove("show"); }
+  $("btnAddCom").addEventListener("click", function(){ openComModal(null); });
+  $("comClose").addEventListener("click", closeComModal);
+  $("comCancel").addEventListener("click", closeComModal);
+  $("comSave").addEventListener("click", function(){
+    var texto = $("fComTexto").value.trim();
+    if (!texto){ $("comError").textContent = "Escreva o comentário."; $("comError").classList.add("show"); return; }
+    var rec = { texto: texto };
+    var action = editingCom ? "update" : "insert";
+    saveTableRow("planes_comentarios", action, editingCom ? editingCom.id : null, rec, currentMode, activeTripId()).then(function(){
+      closeComModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("comError").textContent = "Não foi possível salvar: " + err.message; $("comError").classList.add("show");
+    });
+  });
+  $("comDelete").addEventListener("click", function(){
+    if (!editingCom) return;
+    saveTableRow("planes_comentarios", "delete", editingCom.id, null, currentMode, activeTripId()).then(function(){
+      closeComModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("comError").textContent = "Não foi possível excluir: " + err.message; $("comError").classList.add("show");
+    });
+  });
+
   // ---------- Status da viagem ----------
   // "done" agora reflete só o que o usuário marcou dentro de cada página (state.trip.concluido_*),
   // não mais uma inferência automática pela quantidade de itens cadastrados.
@@ -1776,11 +1893,14 @@
         detail: state.hospedagem.length ? (state.hospedagem.length+" reserva(s) · "+fmtBRL(state.hospedagem.reduce(function(s,r){ return s+r.valor; },0))) : "Nenhuma hospedagem cadastrada"
       },
       {
-        page: "calendario", titulo: "Atividades no calendário",
+        page: "calendario", titulo: currentMode === "salida" ? "Atividades no cronograma" : "Atividades no calendário",
         done: !!state.trip.concluido_atividades,
         detail: state.atividades.length ? (state.atividades.length+" atividade(s) planejada(s)") : "Nenhuma atividade adicionada ainda"
       }
     ];
+    if (currentMode === "salida"){
+      items = items.filter(function(it){ return it.page !== "hospedagem"; });
+    }
     items.forEach(function(it){
       var row = document.createElement("div");
       row.className = "item-row";
