@@ -324,6 +324,19 @@
   .auth-hero h2{ font-size:20px; }
   .auth-hero p{ color:var(--ink-soft); font-size:13.5px; margin:0; }
   .conn-bar{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .kebab-wrap{ position:relative; }
+  #btnKebab{ font-size:18px; font-weight:700; line-height:1; padding:6px 12px; }
+  .kebab-menu{
+    display:none; position:absolute; right:0; top:calc(100% + 6px); min-width:160px; z-index:70;
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:10px; box-shadow:0 12px 30px var(--shadow);
+    overflow:hidden;
+  }
+  .kebab-menu.show{ display:block; }
+  .kebab-menu button{
+    display:block; width:100%; text-align:left; padding:10px 14px; border:none; background:none;
+    color:var(--ink); font-size:13.5px; font-family:inherit;
+  }
+  .kebab-menu button:hover{ background:var(--paper); }
   .conn-dot{ width:8px; height:8px; border-radius:999px; background:var(--ink-faint); flex:none; }
   .conn-dot.on{ background:var(--success); }
   .conn-label{ font-size:12px; color:var(--ink-soft); }
@@ -372,7 +385,13 @@
       <span class="conn-dot on" id="connDot"></span>
       <span class="conn-label" id="connLabel">Logado</span>
     </div>
-    <button class="btn btn-sm" id="btnLogout" type="button">Sair</button>
+    <div class="kebab-wrap" id="kebabWrap">
+      <button class="btn btn-sm" id="btnKebab" type="button" aria-expanded="false" aria-label="Menu">⋮</button>
+      <div class="kebab-menu" id="kebabMenu">
+        <button type="button" id="btnOpenCategorias">Categorias</button>
+        <button type="button" id="btnLogout">Sair</button>
+      </div>
+    </div>
   </div>
 
   <div class="banner danger" id="errorBanner"></div>
@@ -545,7 +564,7 @@
   <div class="modal">
     <div class="modal-head"><h3 id="orcModalTitle">Nova categoria</h3><button class="modal-close" id="orcClose" type="button">✕</button></div>
     <div class="modal-body">
-      <div class="field"><label for="fOrcCategoria">Categoria</label><input type="text" id="fOrcCategoria" placeholder="Ex.: Alimentação"></div>
+      <div class="field"><label for="fOrcCategoria">Categoria</label><select id="fOrcCategoria"></select></div>
       <div class="field"><label for="fOrcSubtitulo">Subtítulo (opcional)</label><input type="text" id="fOrcSubtitulo" placeholder="Ex.: Ida até o ponto A"></div>
       <div class="field-row">
         <div class="field"><label for="fOrcPlanejado">Planejado (R$)</label><input type="text" inputmode="decimal" id="fOrcPlanejado" placeholder="0,00"></div>
@@ -559,6 +578,23 @@
       <div style="flex:1;"></div>
       <button class="btn" id="orcCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="orcSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: categorias de orçamento (catálogo) ================= -->
+<div class="overlay" id="catOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3>Categorias de orçamento</h3><button class="modal-close" id="catClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="fCatNome">Nova categoria</label><input type="text" id="fCatNome" placeholder="Ex.: Transporte"></div>
+      <button class="btn btn-sm btn-primary" id="btnAddCat" type="button">+ Adicionar</button>
+      <div class="field-error" id="catError"></div>
+      <div id="catList" style="margin-top:6px;"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="catCloseFoot" type="button">Fechar</button>
     </div>
   </div>
 </div>
@@ -729,6 +765,9 @@
   // "state" é sempre a viagem/salida ATIVA (destrinchada de STORE[currentMode]); todo o resto do
   // código (renderOrcamento, renderCalendario etc.) lê só daqui, sem precisar saber de multi-trip.
   var state = { trip: emptyTrip(), presupuesto: [], passagens: [], hospedagem: [], atividades: [], comentarios: [] };
+  // Catálogo de categorias de orçamento — global (não é por modo/trip), pré-criado pelo usuário
+  // no menu ⋮ > Categorias, e usado como dropdown ao adicionar uma categoria no Orçamento.
+  var CATEGORY_CATALOG = [];
 
   function activeTripId(){ return STORE[currentMode].activeId; }
 
@@ -770,7 +809,7 @@
           valor: rec.valor, confirmacao: rec.confirmacao||null, endereco: rec.endereco||null, pessoas: rec.pessoas||null
         };
       case "planes_atividades":
-        return { modo: modo, trip_id: tripId, titulo: rec.titulo, data: rec.data, hora: rec.hora||null, notas: rec.notas||null };
+        return { modo: modo, trip_id: tripId, titulo: rec.titulo, data: rec.data||null, hora: rec.hora||null, notas: rec.notas||null };
       case "planes_comentarios":
         return { modo: modo, trip_id: tripId, texto: rec.texto };
     }
@@ -794,11 +833,14 @@
       supabaseClient.from("planes_passagens").select("*").order("id"),
       supabaseClient.from("planes_hospedagem").select("*").order("id"),
       supabaseClient.from("planes_atividades").select("*").order("id"),
-      supabaseClient.from("planes_comentarios").select("*").order("created_at", {ascending:false})
+      supabaseClient.from("planes_comentarios").select("*").order("created_at", {ascending:false}),
+      supabaseClient.from("planes_categorias").select("*").order("nome")
     ]).then(function(results){
       results.forEach(throwIfError);
       var tripRows = results[0].data||[], orcRows = results[1].data||[], pasRows = results[2].data||[];
       var hosRows = results[3].data||[], atvRows = results[4].data||[], comRows = results[5].data||[];
+      var catRows = results[6].data||[];
+      CATEGORY_CATALOG = catRows.map(function(r){ return {id:r.id, nome:r.nome}; });
       function byModo(rows, modo){ return rows.filter(function(r){ return r.modo === modo; }); }
       function hhmm(v){ return v ? String(v).slice(0,5) : ""; }
 
@@ -878,6 +920,16 @@
     if (t.inicio) return "Início: " + isoToBR(t.inicio);
     return "Datas ainda não definidas";
   }
+  function tripBudgetTotal(t){
+    return STORE[currentMode].allOrc.filter(function(r){ return r.trip_id === t.id; })
+      .reduce(function(s,r){ return s + r.planejado; }, 0);
+  }
+  function tripAllDone(t){
+    var flags = currentMode === "salida"
+      ? [t.concluido_orcamento, t.concluido_passagens, t.concluido_atividades]
+      : [t.concluido_orcamento, t.concluido_passagens, t.concluido_hospedagem, t.concluido_atividades];
+    return flags.every(function(f){ return !!f; });
+  }
   function renderTripPicker(){
     $("tripPickerTitle").textContent = currentMode === "salida" ? "Suas aventuras" : "Suas viagens";
     $("btnNewTrip").textContent = currentMode === "salida" ? "+ Nova aventura" : "+ Nova viagem";
@@ -891,26 +943,73 @@
     trips.slice().sort(function(a,b){ return (b.inicio||"").localeCompare(a.inicio||""); }).forEach(function(t){
       var row = document.createElement("div");
       row.className = "item-row";
-      row.style.gridTemplateColumns = "1fr auto";
-      row.innerHTML =
-        '<span><span class="row-title">'+escapeHtml(tripLabel(t))+'</span><br><span class="row-meta">'+escapeHtml(tripPickerDetail(t))+'</span></span>'+
-        '<span class="row-meta">›</span>';
+      row.style.gridTemplateColumns = "1fr auto auto";
+      var infoSpan = document.createElement("span");
+      infoSpan.innerHTML =
+        '<span class="row-title">'+escapeHtml(tripLabel(t))+(tripAllDone(t) ? ' <span class="tag tag-success">✓ Concluído</span>' : '')+'</span><br>'+
+        '<span class="row-meta">'+escapeHtml(tripPickerDetail(t))+' · '+fmtBRL(tripBudgetTotal(t))+' planejado</span>';
+      var delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "btn btn-sm btn-danger";
+      delBtn.textContent = "Excluir";
+      delBtn.addEventListener("click", function(e){ e.stopPropagation(); deleteTrip(t); });
+      var chevron = document.createElement("span");
+      chevron.className = "row-meta";
+      chevron.textContent = "›";
+      row.appendChild(infoSpan);
+      row.appendChild(delBtn);
+      row.appendChild(chevron);
       row.addEventListener("click", function(){ selectTrip(t.id); });
       listEl.appendChild(row);
     });
   }
+  function deleteTrip(t){
+    var tipo = currentMode === "salida" ? "aventura" : "viagem";
+    var ok = window.confirm('Excluir "'+tripLabel(t)+'"? Isso apaga todos os dados dessa '+tipo+' (orçamento, passagens'+(currentMode==="salida"?"":", hospedagem")+', atividades e comentários). Essa ação não pode ser desfeita.');
+    if (!ok) return;
+    supabaseClient.from("planes_trip").delete().eq("id", t.id).then(throwIfError).then(function(){
+      return loadAndRender();
+    }).catch(function(err){
+      showError("Não foi possível excluir: " + err.message);
+    });
+  }
+
+  // Faz o gesto de "voltar" do celular (e o botão Voltar do navegador), enquanto dentro de uma
+  // viagem/aventura, retornar para o seletor em vez de sair do app — usando um estado extra no
+  // histórico do navegador que é empurrado ao entrar no workspace e consumido ao sair dele.
+  var workspaceHistoryPushed = false;
+  function enterWorkspaceHistory(){
+    if (!workspaceHistoryPushed){
+      history.pushState({planesWorkspace:true}, "", "");
+      workspaceHistoryPushed = true;
+    }
+  }
+  window.addEventListener("popstate", function(){
+    workspaceHistoryPushed = false;
+    if (activeTripId() != null){
+      STORE[currentMode].activeId = null;
+      rebuildActiveState();
+      renderTripPicker();
+      updateWorkspaceVisibility();
+    }
+  });
   function selectTrip(tripId){
     STORE[currentMode].activeId = tripId;
     rebuildActiveState();
     calGradeViewY = null; calGradeViewM = null;
     renderAll();
     setActivePage("status");
+    enterWorkspaceHistory();
   }
   function backToPicker(){
     STORE[currentMode].activeId = null;
     rebuildActiveState();
     renderTripPicker();
     updateWorkspaceVisibility();
+    if (workspaceHistoryPushed){
+      workspaceHistoryPushed = false;
+      history.back();
+    }
   }
   function createTrip(){
     var payload = buildPayload("planes_trip", currentMode, emptyTrip());
@@ -919,7 +1018,7 @@
       if (row) STORE[currentMode].activeId = row.id;
       return loadAndRender();
     }).then(function(){
-      if (activeTripId() != null) setActivePage("status");
+      if (activeTripId() != null){ setActivePage("status"); enterWorkspaceHistory(); }
     }).catch(function(err){
       showError("Não foi possível criar: " + err.message);
     });
@@ -943,6 +1042,77 @@
     el.innerHTML = '<button type="button" class="'+(done?"btn-primary":"")+'">'+(done ? "✓ "+label+" concluído" : "Marcar "+label+" como concluído")+'</button>';
     el.querySelector("button").addEventListener("click", function(){ toggleConcluido(flagKey); });
   }
+
+  // ---------- Menu ⋮ (Categorias / Sair) ----------
+  $("btnKebab").addEventListener("click", function(e){
+    e.stopPropagation();
+    $("kebabMenu").classList.toggle("show");
+  });
+  document.addEventListener("click", function(e){
+    if ($("kebabMenu").classList.contains("show") && !$("kebabWrap").contains(e.target)){
+      $("kebabMenu").classList.remove("show");
+    }
+  });
+
+  // ---------- Catálogo de categorias de orçamento (menu ⋮ > Categorias) ----------
+  var catOverlay = $("catOverlay");
+  function renderCatList(){
+    var listEl = $("catList");
+    listEl.innerHTML = "";
+    if (!CATEGORY_CATALOG.length){
+      listEl.innerHTML = '<div class="empty">Nenhuma categoria criada ainda.</div>';
+      return;
+    }
+    CATEGORY_CATALOG.slice().sort(function(a,b){ return a.nome.localeCompare(b.nome); }).forEach(function(c){
+      var row = document.createElement("div");
+      row.className = "item-row";
+      row.style.gridTemplateColumns = "1fr auto";
+      var nameSpan = document.createElement("span");
+      nameSpan.className = "row-title";
+      nameSpan.textContent = c.nome;
+      var delBtn = document.createElement("button");
+      delBtn.type = "button"; delBtn.className = "btn btn-sm btn-danger"; delBtn.textContent = "Excluir";
+      delBtn.addEventListener("click", function(){ deleteCategoria(c); });
+      row.appendChild(nameSpan);
+      row.appendChild(delBtn);
+      listEl.appendChild(row);
+    });
+  }
+  function openCategoriasModal(){
+    $("catError").classList.remove("show");
+    $("fCatNome").value = "";
+    renderCatList();
+    catOverlay.classList.add("show");
+  }
+  function closeCategoriasModal(){ catOverlay.classList.remove("show"); }
+  function deleteCategoria(c){
+    supabaseClient.from("planes_categorias").delete().eq("id", c.id).then(throwIfError).then(function(){
+      return loadEverything();
+    }).then(function(){
+      renderCatList();
+    }).catch(function(err){
+      $("catError").textContent = "Não foi possível excluir: " + err.message; $("catError").classList.add("show");
+    });
+  }
+  $("btnOpenCategorias").addEventListener("click", function(){
+    $("kebabMenu").classList.remove("show");
+    openCategoriasModal();
+  });
+  $("catClose").addEventListener("click", closeCategoriasModal);
+  $("catCloseFoot").addEventListener("click", closeCategoriasModal);
+  $("btnAddCat").addEventListener("click", function(){
+    var nome = $("fCatNome").value.trim();
+    if (!nome){ $("catError").textContent = "Informe o nome da categoria."; $("catError").classList.add("show"); return; }
+    $("catError").classList.remove("show");
+    supabaseClient.from("planes_categorias").insert({nome: nome}).select().then(throwIfError).then(function(){
+      $("fCatNome").value = "";
+      return loadEverything();
+    }).then(function(){
+      renderCatList();
+    }).catch(function(err){
+      $("catError").textContent = "Não foi possível salvar: " + err.message; $("catError").classList.add("show");
+    });
+  });
 
   var MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
   var WEEKDAY_ABBR_PT = ["dom","seg","ter","qua","qui","sex","sáb"];
@@ -1267,6 +1437,13 @@
     // Aventura é sempre 1 dia só e não tem hospedagem — some com a aba e usa "Cronograma".
     $("tabHospedagem").style.display = isSalida ? "none" : "";
     $("tabCalendario").textContent = isSalida ? "Cronograma" : "Calendário";
+    // No Cronograma da aventura não existe visão de calendário (mês) — é só a lista, e ela
+    // funciona mesmo sem data definida ainda.
+    $("calToggle").style.display = isSalida ? "none" : "";
+    if (isSalida){
+      $("calListPanel").style.display = "";
+      $("calGradePanel").style.display = "none";
+    }
   }
   document.querySelectorAll("#modeSwitch button").forEach(function(btn){
     btn.addEventListener("click", function(){
@@ -1281,6 +1458,10 @@
       rebuildActiveState();
       calGradeViewY = null; calGradeViewM = null;
       renderAll();
+      if (workspaceHistoryPushed){
+        workspaceHistoryPushed = false;
+        history.back();
+      }
     });
   });
 
@@ -1332,6 +1513,24 @@
     saldoEl.className = "v num " + (saldo < 0 ? "negative" : "positive");
   }
 
+  // Categoria agora vem de um catálogo pré-criado (dropdown) — veja "Catálogo de categorias" mais
+  // abaixo (menu ⋮ > Categorias) para criar/excluir os nomes que aparecem aqui.
+  function populateOrcCategoriaSelect(selected){
+    var sel = $("fOrcCategoria");
+    sel.innerHTML = "";
+    if (!CATEGORY_CATALOG.length){
+      var opt = document.createElement("option");
+      opt.value = ""; opt.textContent = "Nenhuma categoria criada — use o menu ⋮ > Categorias";
+      sel.appendChild(opt);
+      return;
+    }
+    CATEGORY_CATALOG.slice().sort(function(a,b){ return a.nome.localeCompare(b.nome); }).forEach(function(c){
+      var opt = document.createElement("option");
+      opt.value = c.nome; opt.textContent = c.nome;
+      sel.appendChild(opt);
+    });
+    sel.value = (selected && CATEGORY_CATALOG.some(function(c){ return c.nome === selected; })) ? selected : sel.options[0].value;
+  }
   var orcOverlay = $("orcOverlay");
   var editingOrc = null;
   function openOrcModal(r){
@@ -1339,7 +1538,7 @@
     $("orcModalTitle").textContent = r ? "Editar categoria" : "Nova categoria";
     $("orcDelete").style.display = r ? "inline-flex" : "none";
     $("orcError").classList.remove("show");
-    $("fOrcCategoria").value = r ? r.categoria : "";
+    populateOrcCategoriaSelect(r ? r.categoria : null);
     $("fOrcSubtitulo").value = r ? (r.subtitulo||"") : "";
     $("fOrcPlanejado").value = r ? String(r.planejado).replace(".", ",") : "";
     $("fOrcGasto").value = r ? String(r.gasto).replace(".", ",") : "";
@@ -1351,8 +1550,8 @@
   $("orcClose").addEventListener("click", closeOrcModal);
   $("orcCancel").addEventListener("click", closeOrcModal);
   $("orcSave").addEventListener("click", function(){
-    var categoria = $("fOrcCategoria").value.trim();
-    if (!categoria){ $("orcError").textContent = "Informe a categoria."; $("orcError").classList.add("show"); return; }
+    var categoria = $("fOrcCategoria").value;
+    if (!categoria){ $("orcError").textContent = "Crie uma categoria primeiro (menu ⋮ > Categorias)."; $("orcError").classList.add("show"); return; }
     var rec = { categoria: categoria, subtitulo: $("fOrcSubtitulo").value.trim(), planejado: parseAmountInput($("fOrcPlanejado").value), gasto: parseAmountInput($("fOrcGasto").value), porDia: $("fOrcPorDia").checked };
     var action = editingOrc ? "update" : "insert";
     saveTableRow("planes_orcamento", action, editingOrc ? editingOrc.id : null, rec, currentMode, activeTripId()).then(function(){
@@ -1579,10 +1778,66 @@
     else openAtvModal(ev.rec);
   }
 
+  // Cronograma da aventura: uma lista única de atividades ordenadas por horário, sem depender
+  // de uma data — diferente do calendário dia-a-dia das viagens (que precisa de início/fim).
+  function renderCronograma(listEl){
+    var sorted = state.atividades.slice().sort(function(a,b){ return (a.hora||"99:99").localeCompare(b.hora||"99:99"); });
+    var dayEl = document.createElement("div");
+    dayEl.className = "cal-day";
+    var dEl = document.createElement("div");
+    dEl.className = "d";
+    if (state.trip.inicio){
+      var d = serialToDate(dateInputToSerial(state.trip.inicio));
+      dEl.innerHTML = '<div class="num-day">'+d.getUTCDate()+'</div><div class="wk">'+WEEKDAY_ABBR_PT[d.getUTCDay()]+'</div>';
+    } else {
+      dEl.innerHTML = '<div class="wk">—</div>';
+    }
+    var evWrap = document.createElement("div");
+    evWrap.className = "events";
+    var labelRow = document.createElement("div");
+    labelRow.style.display = "flex"; labelRow.style.alignItems = "center";
+    labelRow.style.justifyContent = "space-between"; labelRow.style.gap = "8px";
+    var labelDiv = document.createElement("div");
+    labelDiv.className = "cal-day-label";
+    labelDiv.textContent = "Cronograma";
+    var addBtn = document.createElement("button");
+    addBtn.type = "button"; addBtn.className = "btn btn-sm"; addBtn.textContent = "+ Atividade";
+    addBtn.addEventListener("click", function(){ openAtvModal(null, state.trip.inicio || ""); });
+    labelRow.appendChild(labelDiv); labelRow.appendChild(addBtn);
+    evWrap.appendChild(labelRow);
+    if (!sorted.length){
+      var emptyDiv = document.createElement("div");
+      emptyDiv.className = "cal-event empty";
+      emptyDiv.textContent = "Sem atividades marcadas ainda.";
+      evWrap.appendChild(emptyDiv);
+    } else {
+      sorted.forEach(function(r){
+        var evDiv = document.createElement("div");
+        evDiv.className = "cal-event cal-event-click";
+        evDiv.innerHTML = ACTIVITY_ICON+'<span>'+escapeHtml(r.titulo)+(r.hora?(" · "+escapeHtml(r.hora)):"")+'</span>';
+        evDiv.addEventListener("click", function(){ openAtvModal(r); });
+        evWrap.appendChild(evDiv);
+      });
+    }
+    var budgetLabel = porDiaBudgetLabel();
+    if (budgetLabel){
+      var budgetDiv = document.createElement("div");
+      budgetDiv.className = "cal-day-budget";
+      budgetDiv.textContent = "Orçamento — " + budgetLabel;
+      evWrap.appendChild(budgetDiv);
+    }
+    dayEl.appendChild(dEl);
+    dayEl.appendChild(evWrap);
+    listEl.appendChild(dayEl);
+  }
   function renderCalendarioLista(){
     var listEl = $("calList");
-    var total = totalDias();
     listEl.innerHTML = "";
+    if (currentMode === "salida"){
+      renderCronograma(listEl);
+      return;
+    }
+    var total = totalDias();
     if (total <= 0 || !state.trip.inicio){
       listEl.innerHTML = '<div class="empty">Defina a data de início e fim da viagem para ver o calendário.</div>';
       return;
@@ -1780,7 +2035,8 @@
   $("atvSave").addEventListener("click", function(){
     var titulo = $("fAtvTitulo").value.trim();
     var data = $("fAtvData").value;
-    if (!titulo || !data){ $("atvError").textContent = "Informe o título e a data."; $("atvError").classList.add("show"); return; }
+    // No Cronograma da aventura a data é opcional — pode montar o roteiro antes de definir o dia.
+    if (!titulo || (!data && currentMode !== "salida")){ $("atvError").textContent = "Informe o título"+(currentMode==="salida"?".":" e a data."); $("atvError").classList.add("show"); return; }
     var rec = { titulo: titulo, data: data, hora: $("fAtvHora").value, notas: $("fAtvNotas").value.trim() };
     var action = editingAtv ? "update" : "insert";
     saveTableRow("planes_atividades", action, editingAtv ? editingAtv.id : null, rec, currentMode, activeTripId()).then(function(){
