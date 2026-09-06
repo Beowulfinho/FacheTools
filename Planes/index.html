@@ -364,7 +364,7 @@
 <div class="wrap">
   <div class="topbar">
     <div>
-      <div class="eyebrow">Planejamento &middot; protótipo</div>
+      <div class="eyebrow">Planejamento</div>
       <h1><span class="app-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-6-2V4l6 2 6-2 6 2v14l-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span> Planes</h1>
     </div>
   </div>
@@ -459,6 +459,7 @@
     <button data-page="hospedagem" id="tabHospedagem">Hospedagem</button>
     <button data-page="calendario" id="tabCalendario">Calendário</button>
     <button data-page="comentarios">Comentários</button>
+    <button data-page="pendencias">Pendências</button>
   </div>
 
   <!-- ================= STATUS ================= -->
@@ -538,7 +539,7 @@
       <button data-view="grade" type="button">Calendário (mês)</button>
     </div>
     <div class="panel" id="calListPanel">
-      <div class="panel-head"><h2>Dia a dia da viagem</h2></div>
+      <div class="panel-head"><h2>Dia a dia da viagem</h2><button class="btn btn-sm" id="btnVincularAventura" type="button" style="display:none;">Vincular aventura</button></div>
       <div class="cal-list" id="calList"></div>
     </div>
     <div class="panel" id="calGradePanel" style="display:none;">
@@ -561,6 +562,17 @@
         <button class="btn btn-sm btn-primary" id="btnAddCom" type="button">+ Comentário</button>
       </div>
       <div id="comList"></div>
+    </div>
+  </div>
+
+  <!-- ================= PENDÊNCIAS (to-do) ================= -->
+  <div class="page-section" id="pagePendencias">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Pendências</h2>
+        <button class="btn btn-sm btn-primary" id="btnAddPen" type="button">+ Pendência</button>
+      </div>
+      <div id="penList"></div>
     </div>
   </div>
 
@@ -638,6 +650,24 @@
       <div style="flex:1;"></div>
       <button class="btn" id="comCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="comSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: pendência (to-do) ================= -->
+<div class="overlay" id="penOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3 id="penModalTitle">Nova pendência</h3><button class="modal-close" id="penClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="fPenTexto">Pendência</label><textarea id="fPenTexto" rows="4" placeholder="Ex.: Falta comprar a passagem — esperando confirmar as datas com a Fachera"></textarea></div>
+      <label class="check-field"><input type="checkbox" id="fPenFeito"> Resolvida</label>
+      <div class="field-error" id="penError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="penDelete" type="button" style="display:none;">Excluir</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="penCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="penSave" type="button">Salvar</button>
     </div>
   </div>
 </div>
@@ -724,6 +754,14 @@
         <div class="field"><label for="fAtvHora">Hora</label><input type="time" id="fAtvHora"></div>
       </div>
       <div class="field"><label for="fAtvNotas">Notas</label><input type="text" id="fAtvNotas" placeholder="Opcional"></div>
+      <div class="field">
+        <label>Itens a levar</label>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="fAtvItemTexto" placeholder="Ex.: Protetor solar" style="flex:1;">
+          <button class="btn btn-sm" id="btnAddAtvItem" type="button">+ Item</button>
+        </div>
+        <div id="atvItensList" style="margin-top:6px;"></div>
+      </div>
       <div class="field-error" id="atvError"></div>
     </div>
     <div class="modal-foot">
@@ -731,6 +769,21 @@
       <div style="flex:1;"></div>
       <button class="btn" id="atvCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="atvSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: vincular aventura à viagem ================= -->
+<div class="overlay" id="vincOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3>Vincular aventura</h3><button class="modal-close" id="vincClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field-error" id="vincError"></div>
+      <div id="vincList"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="vincCloseFoot" type="button">Fechar</button>
     </div>
   </div>
 </div>
@@ -775,25 +828,28 @@
   // e todo o resto do código (calendário, orçamento por dia etc.) funcionam sem alterações.
   function emptyTrip(){
     return {
-      id:null, nome:"", destino:"", inicio:"", fim:"",
+      id:null, nome:"", destino:"", inicio:"", fim:"", parent_trip_id:null,
       concluido_orcamento:false, concluido_passagens:false, concluido_hospedagem:false, concluido_atividades:false
     };
   }
   // Cada modo agora guarda uma LISTA de viagens/salidas (trips) + qual delas está ativa (activeId).
-  // As tabelas filhas (orçamento/passagens/hospedagem/atividades/comentários) pertencem a uma trip
-  // específica (trip_id), não apenas a um modo — por isso guardamos todas as linhas do modo (all*)
-  // e filtramos pela trip ativa em rebuildActiveState().
+  // As tabelas filhas (orçamento/passagens/hospedagem/atividades/comentários/pendências) pertencem a
+  // uma trip específica (trip_id), não apenas a um modo — por isso guardamos todas as linhas do modo
+  // (all*) e filtramos pela trip ativa em rebuildActiveState().
   var STORE = {
-    viajes: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [], allCom: [] },
-    salida: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [], allCom: [] }
+    viajes: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [], allCom: [], allPen: [] },
+    salida: { trips: [], activeId: null, allOrc: [], allPas: [], allHos: [], allAtv: [], allCom: [], allPen: [] }
   };
   var currentMode = "viajes";
   // "state" é sempre a viagem/salida ATIVA (destrinchada de STORE[currentMode]); todo o resto do
   // código (renderOrcamento, renderCalendario etc.) lê só daqui, sem precisar saber de multi-trip.
-  var state = { trip: emptyTrip(), presupuesto: [], passagens: [], hospedagem: [], atividades: [], comentarios: [] };
+  var state = { trip: emptyTrip(), presupuesto: [], passagens: [], hospedagem: [], atividades: [], comentarios: [], pendencias: [] };
   // Catálogo de categorias de orçamento — global (não é por modo/trip), pré-criado pelo usuário
   // no menu ⋮ > Categorias, e usado como dropdown ao adicionar uma categoria no Orçamento.
   var CATEGORY_CATALOG = [];
+  // Itens/checklist de cada atividade (ex.: "levar bloqueador solar"), indexados pelo id da
+  // atividade — não depende de modo/trip, só da atividade a que pertence.
+  var ATV_ITENS_BY_ATIVIDADE = {};
 
   function activeTripId(){ return STORE[currentMode].activeId; }
 
@@ -808,6 +864,7 @@
     state.hospedagem = bucket.allHos.filter(function(r){ return r.trip_id === tid; });
     state.atividades = bucket.allAtv.filter(function(r){ return r.trip_id === tid; });
     state.comentarios = bucket.allCom.filter(function(r){ return r.trip_id === tid; });
+    state.pendencias = bucket.allPen.filter(function(r){ return r.trip_id === tid; });
   }
 
   // ---------- Data layer (Supabase: auth + tables, mesmo padrão do Finanças) ----------
@@ -818,6 +875,7 @@
       case "planes_trip":
         return {
           modo: modo, nome: rec.nome || null, destino: rec.destino || null, inicio: rec.inicio || null, fim: rec.fim || null,
+          parent_trip_id: rec.parent_trip_id || null,
           concluido_orcamento: !!rec.concluido_orcamento, concluido_passagens: !!rec.concluido_passagens,
           concluido_hospedagem: !!rec.concluido_hospedagem, concluido_atividades: !!rec.concluido_atividades
         };
@@ -836,8 +894,12 @@
         };
       case "planes_atividades":
         return { modo: modo, trip_id: tripId, titulo: rec.titulo, data: rec.data||null, hora: rec.hora||null, notas: rec.notas||null };
+      case "planes_atividade_itens":
+        return { atividade_id: rec.atividade_id, texto: rec.texto, feito: !!rec.feito };
       case "planes_comentarios":
         return { modo: modo, trip_id: tripId, texto: rec.texto };
+      case "planes_pendencias":
+        return { modo: modo, trip_id: tripId, texto: rec.texto, feito: !!rec.feito };
     }
   }
 
@@ -860,13 +922,21 @@
       supabaseClient.from("planes_hospedagem").select("*").order("id"),
       supabaseClient.from("planes_atividades").select("*").order("id"),
       supabaseClient.from("planes_comentarios").select("*").order("created_at", {ascending:false}),
-      supabaseClient.from("planes_categorias").select("*").order("nome")
+      supabaseClient.from("planes_categorias").select("*").order("nome"),
+      supabaseClient.from("planes_atividade_itens").select("*").order("id"),
+      supabaseClient.from("planes_pendencias").select("*").order("created_at", {ascending:false})
     ]).then(function(results){
       results.forEach(throwIfError);
       var tripRows = results[0].data||[], orcRows = results[1].data||[], pasRows = results[2].data||[];
       var hosRows = results[3].data||[], atvRows = results[4].data||[], comRows = results[5].data||[];
-      var catRows = results[6].data||[];
+      var catRows = results[6].data||[], atvItenRows = results[7].data||[], penRows = results[8].data||[];
       CATEGORY_CATALOG = catRows.map(function(r){ return {id:r.id, nome:r.nome}; });
+      ATV_ITENS_BY_ATIVIDADE = {};
+      atvItenRows.forEach(function(r){
+        var list = ATV_ITENS_BY_ATIVIDADE[r.atividade_id];
+        if (!list){ list = []; ATV_ITENS_BY_ATIVIDADE[r.atividade_id] = list; }
+        list.push({id:r.id, atividade_id:r.atividade_id, texto:r.texto||"", feito: !!r.feito});
+      });
       function byModo(rows, modo){ return rows.filter(function(r){ return r.modo === modo; }); }
       function hhmm(v){ return v ? String(v).slice(0,5) : ""; }
 
@@ -874,6 +944,7 @@
         STORE[modo].trips = byModo(tripRows, modo).map(function(r){
           return {
             id: r.id, nome: r.nome||"", destino: r.destino||"", inicio: r.inicio||"", fim: r.fim||"",
+            parent_trip_id: r.parent_trip_id||null,
             concluido_orcamento: !!r.concluido_orcamento, concluido_passagens: !!r.concluido_passagens,
             concluido_hospedagem: !!r.concluido_hospedagem, concluido_atividades: !!r.concluido_atividades
           };
@@ -892,6 +963,9 @@
         });
         STORE[modo].allCom = byModo(comRows, modo).map(function(r){
           return {id:r.id, trip_id:r.trip_id, texto:r.texto||"", created_at:r.created_at||""};
+        });
+        STORE[modo].allPen = byModo(penRows, modo).map(function(r){
+          return {id:r.id, trip_id:r.trip_id, texto:r.texto||"", feito: !!r.feito, created_at:r.created_at||""};
         });
         // Se a trip ativa não existe mais (ex.: excluída em outro dispositivo), volta para o seletor.
         if (STORE[modo].activeId != null && !STORE[modo].trips.some(function(t){ return t.id === STORE[modo].activeId; })){
@@ -914,6 +988,7 @@
     renderHospedagem();
     renderCalendario();
     renderComentarios();
+    renderPendencias();
     renderStatus();
   }
 
@@ -939,12 +1014,30 @@
     return currentMode === "salida" ? "Aventura sem nome" : "Viagem sem nome";
   }
   function tripPickerDetail(t){
+    var base;
     if (currentMode === "salida"){
-      return t.inicio ? isoToBR(t.inicio) : "Sem data definida";
+      base = t.inicio ? isoToBR(t.inicio) : "Sem data definida";
+    } else if (t.inicio && t.fim) {
+      base = isoToBR(t.inicio) + " – " + isoToBR(t.fim);
+    } else if (t.inicio) {
+      base = "Início: " + isoToBR(t.inicio);
+    } else {
+      base = "Datas ainda não definidas";
     }
-    if (t.inicio && t.fim) return isoToBR(t.inicio) + " – " + isoToBR(t.fim);
-    if (t.inicio) return "Início: " + isoToBR(t.inicio);
-    return "Datas ainda não definidas";
+    var countdown = tripCountdownLabel(t);
+    return countdown ? (base + " · " + countdown) : base;
+  }
+  // Contador regressivo de dias até o início da viagem/aventura (só quando há data definida).
+  function tripCountdownLabel(t){
+    if (!t.inicio) return "";
+    var todaySerial = Math.round(new Date(new Date().toDateString()).getTime() / 86400000);
+    var startSerial = dateInputToSerial(t.inicio);
+    if (startSerial === null) return "";
+    var diff = startSerial - todaySerial;
+    if (diff > 1) return "faltam " + diff + " dias";
+    if (diff === 1) return "falta 1 dia";
+    if (diff === 0) return "é hoje!";
+    return "";
   }
   function tripBudgetTotal(t){
     return STORE[currentMode].allOrc.filter(function(r){ return r.trip_id === t.id; })
@@ -1207,6 +1300,7 @@
   var FLIGHT_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16l20-7-7 20-3-8-8-3z"/></svg>';
   var BED_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-7a2 2 0 012-2h14a2 2 0 012 2v7"/><path d="M3 13v-3a2 2 0 012-2h4a2 2 0 012 2v3"/><path d="M3 18h18"/></svg>';
   var ACTIVITY_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h11l-3 4 3 4H5"/></svg>';
+  var ADVENTURE_ICON = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>';
 
   function pad2(n){ return n<10 ? "0"+n : ""+n; }
   function ymdToIso(y,m,d){ return y+"-"+pad2(m+1)+"-"+pad2(d); }
@@ -1529,6 +1623,8 @@
       $("calListPanel").style.display = "";
       $("calGradePanel").style.display = "none";
     }
+    // Vincular uma aventura só faz sentido dentro de uma viagem (uma viagem pode ter várias aventuras).
+    $("btnVincularAventura").style.display = isSalida ? "none" : "";
   }
   document.querySelectorAll("#modeSwitch button").forEach(function(btn){
     btn.addEventListener("click", function(){
@@ -1843,10 +1939,20 @@
   }
   function collectEventsForDay(iso){
     var events = [];
+    // Duas passagens idênticas (mesmo tipo/rota/horário) são a mesma ida, só para pessoas
+    // diferentes — mostra um único evento combinando os nomes, em vez de duplicar.
+    var pasGroups = {}, pasOrder = [];
     state.passagens.forEach(function(r){
-      if (r.data === iso){
-        events.push({kind:"pas", rec:r, html: FLIGHT_ICON+'<span>'+escapeHtml(r.tipo)+': '+escapeHtml(r.origem)+' → '+escapeHtml(r.destino)+(r.hora?(" · "+escapeHtml(r.hora)):"")+'</span>'});
-      }
+      if (r.data !== iso) return;
+      var key = r.tipo+"|"+r.origem+"|"+r.destino+"|"+r.hora;
+      if (!pasGroups[key]){ pasGroups[key] = []; pasOrder.push(key); }
+      pasGroups[key].push(r);
+    });
+    pasOrder.forEach(function(key){
+      var group = pasGroups[key];
+      var r = group[0];
+      var pessoas = group.map(function(g){ return g.pessoa; }).filter(function(p){ return p; }).join(", ");
+      events.push({kind:"pas", rec:r, html: FLIGHT_ICON+'<span>'+escapeHtml(r.tipo)+': '+escapeHtml(r.origem)+' → '+escapeHtml(r.destino)+(r.hora?(" · "+escapeHtml(r.hora)):"")+(pessoas?(" · "+escapeHtml(pessoas)):"")+'</span>'});
     });
     state.hospedagem.forEach(function(r){
       if (r.checkin === iso) events.push({kind:"hos", rec:r, html: BED_ICON+'<span>Check-in: '+escapeHtml(r.nome)+'</span>'});
@@ -1856,12 +1962,33 @@
     state.atividades.forEach(function(r){
       if (r.data === iso) events.push({kind:"atv", rec:r, html: ACTIVITY_ICON+'<span>'+escapeHtml(r.titulo)+(r.hora?(" · "+escapeHtml(r.hora)):"")+'</span>'});
     });
+    // Aventuras vinculadas a esta viagem aparecem no dia em que começam.
+    if (currentMode === "viajes"){
+      STORE.salida.trips.forEach(function(a){
+        if (a.parent_trip_id === state.trip.id && a.inicio === iso){
+          events.push({kind:"aventura", rec:a, html: ADVENTURE_ICON+'<span>Aventura: '+escapeHtml(tripLabel(a))+'</span>'});
+        }
+      });
+    }
     return events;
   }
   function openEventFromCollected(ev){
     if (ev.kind === "pas") openPasModal(ev.rec);
     else if (ev.kind === "hos") openHosModal(ev.rec);
+    else if (ev.kind === "aventura") openAventuraFromCalendar(ev.rec);
     else openAtvModal(ev.rec);
+  }
+  // Abre diretamente a aventura vinculada, trocando de modo, a partir do calendário da viagem.
+  function openAventuraFromCalendar(a){
+    document.querySelectorAll("#modeSwitch button").forEach(function(b){ b.classList.toggle("active", b.dataset.mode === "salida"); });
+    currentMode = "salida";
+    STORE.salida.activeId = a.id;
+    pendingDeleteId = null;
+    rebuildActiveState();
+    calGradeViewY = null; calGradeViewM = null;
+    renderAll();
+    setActivePage("status");
+    enterWorkspaceHistory();
   }
 
   // Cronograma da aventura: uma lista única de atividades ordenadas por horário, sem depender
@@ -2035,7 +2162,7 @@
         events.forEach(function(ev){
           var iconSpan = document.createElement("span");
           iconSpan.className = "cal-grid-icon icon-"+ev.kind;
-          iconSpan.innerHTML = ev.kind==="pas" ? FLIGHT_ICON : (ev.kind==="hos" ? BED_ICON : ACTIVITY_ICON);
+          iconSpan.innerHTML = ev.kind==="pas" ? FLIGHT_ICON : (ev.kind==="hos" ? BED_ICON : (ev.kind==="aventura" ? ADVENTURE_ICON : ACTIVITY_ICON));
           iconsWrap.appendChild(iconSpan);
         });
         cell.appendChild(iconsWrap);
@@ -2104,8 +2231,87 @@
   // ---------- Atividades ----------
   var atvOverlay = $("atvOverlay");
   var editingAtv = null;
+  // Itens/checklist de uma atividade ainda não salva (nova) ficam aqui até a atividade ser
+  // criada; depois disso os itens já existem em ATV_ITENS_BY_ATIVIDADE e o CRUD é imediato.
+  var editingAtvPendingItens = [];
+  function renderAtvItensList(){
+    var listEl = $("atvItensList");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    var items = editingAtv ? (ATV_ITENS_BY_ATIVIDADE[editingAtv.id] || []) : editingAtvPendingItens;
+    if (!items.length){
+      listEl.innerHTML = '<div class="empty">Nenhum item adicionado.</div>';
+      return;
+    }
+    items.forEach(function(it, idx){
+      var row = document.createElement("div");
+      row.className = "item-row";
+      row.style.gridTemplateColumns = "auto 1fr auto";
+      var checkSpan = document.createElement("span");
+      var check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = !!it.feito;
+      check.addEventListener("change", function(){ toggleAtvItemFeito(it); });
+      checkSpan.appendChild(check);
+      var textSpan = document.createElement("span");
+      textSpan.style.cssText = it.feito ? "text-decoration:line-through;opacity:.6;" : "";
+      textSpan.textContent = it.texto;
+      var delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "btn-icon-danger";
+      delBtn.setAttribute("aria-label", "Excluir item");
+      delBtn.innerHTML = TRASH_ICON;
+      delBtn.addEventListener("click", function(){ deleteAtvItem(it, idx); });
+      row.appendChild(checkSpan);
+      row.appendChild(textSpan);
+      row.appendChild(delBtn);
+      listEl.appendChild(row);
+    });
+  }
+  function toggleAtvItemFeito(it){
+    if (editingAtv){
+      saveTableRow("planes_atividade_itens", "update", it.id, {atividade_id: it.atividade_id, texto: it.texto, feito: !it.feito}, currentMode, activeTripId()).then(function(){
+        return loadEverything();
+      }).then(function(){ renderAtvItensList(); }).catch(function(err){
+        $("atvError").textContent = "Não foi possível atualizar o item: " + err.message; $("atvError").classList.add("show");
+      });
+    } else {
+      it.feito = !it.feito;
+      renderAtvItensList();
+    }
+  }
+  function deleteAtvItem(it, idx){
+    if (editingAtv){
+      saveTableRow("planes_atividade_itens", "delete", it.id, null, currentMode, activeTripId()).then(function(){
+        return loadEverything();
+      }).then(function(){ renderAtvItensList(); }).catch(function(err){
+        $("atvError").textContent = "Não foi possível excluir o item: " + err.message; $("atvError").classList.add("show");
+      });
+    } else {
+      editingAtvPendingItens.splice(idx, 1);
+      renderAtvItensList();
+    }
+  }
+  function addAtvItem(){
+    var texto = $("fAtvItemTexto").value.trim();
+    if (!texto) return;
+    $("fAtvItemTexto").value = "";
+    if (editingAtv){
+      saveTableRow("planes_atividade_itens", "insert", null, {atividade_id: editingAtv.id, texto: texto, feito:false}, currentMode, activeTripId()).then(function(){
+        return loadEverything();
+      }).then(function(){ renderAtvItensList(); }).catch(function(err){
+        $("atvError").textContent = "Não foi possível adicionar o item: " + err.message; $("atvError").classList.add("show");
+      });
+    } else {
+      editingAtvPendingItens.push({texto: texto, feito:false});
+      renderAtvItensList();
+    }
+  }
+  $("btnAddAtvItem").addEventListener("click", addAtvItem);
+  $("fAtvItemTexto").addEventListener("keydown", function(e){ if (e.key === "Enter"){ e.preventDefault(); addAtvItem(); } });
   function openAtvModal(r, seedIso){
     editingAtv = r || null;
+    editingAtvPendingItens = [];
     $("atvModalTitle").textContent = r ? "Editar atividade" : "Nova atividade";
     $("atvDelete").style.display = r ? "inline-flex" : "none";
     $("atvError").classList.remove("show");
@@ -2113,6 +2319,8 @@
     $("fAtvData").value = r ? r.data : (seedIso || state.trip.inicio || "");
     $("fAtvHora").value = r ? (r.hora||"") : "";
     $("fAtvNotas").value = r ? (r.notas||"") : "";
+    $("fAtvItemTexto").value = "";
+    renderAtvItensList();
     atvOverlay.classList.add("show");
   }
   function closeAtvModal(){ atvOverlay.classList.remove("show"); }
@@ -2125,7 +2333,14 @@
     if (!titulo || (!data && currentMode !== "salida")){ $("atvError").textContent = "Informe o título"+(currentMode==="salida"?".":" e a data."); $("atvError").classList.add("show"); return; }
     var rec = { titulo: titulo, data: data, hora: $("fAtvHora").value, notas: $("fAtvNotas").value.trim() };
     var action = editingAtv ? "update" : "insert";
-    saveTableRow("planes_atividades", action, editingAtv ? editingAtv.id : null, rec, currentMode, activeTripId()).then(function(){
+    saveTableRow("planes_atividades", action, editingAtv ? editingAtv.id : null, rec, currentMode, activeTripId()).then(function(res){
+      var newId = editingAtv ? editingAtv.id : (res && res.data && res.data[0] && res.data[0].id);
+      if (!editingAtv && newId && editingAtvPendingItens.length){
+        return Promise.all(editingAtvPendingItens.map(function(it){
+          return saveTableRow("planes_atividade_itens", "insert", null, {atividade_id: newId, texto: it.texto, feito: it.feito}, currentMode, activeTripId());
+        }));
+      }
+    }).then(function(){
       closeAtvModal();
       return loadAndRender();
     }).catch(function(err){
@@ -2147,6 +2362,57 @@
     renderCalendarioLista();
     renderCalendarioGrade();
   }
+
+  // ---------- Vincular aventura à viagem (uma viagem pode ter várias aventuras) ----------
+  var vincOverlay = $("vincOverlay");
+  function renderVincList(){
+    var listEl = $("vincList");
+    listEl.innerHTML = "";
+    var aventuras = STORE.salida.trips;
+    if (!aventuras.length){
+      listEl.innerHTML = '<div class="empty">Nenhuma aventura criada ainda.</div>';
+      return;
+    }
+    aventuras.slice().sort(function(a,b){ return (b.inicio||"").localeCompare(a.inicio||""); }).forEach(function(a){
+      var row = document.createElement("div");
+      row.className = "item-row";
+      row.style.gridTemplateColumns = "auto 1fr";
+      var checkSpan = document.createElement("span");
+      var check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = a.parent_trip_id === state.trip.id;
+      check.addEventListener("change", function(){ toggleVincAventura(a, check.checked); });
+      checkSpan.appendChild(check);
+      var textSpan = document.createElement("span");
+      textSpan.innerHTML = '<span class="row-title">'+escapeHtml(tripLabel(a))+'</span><br><span class="row-meta">'+(a.inicio ? isoToBR(a.inicio) : "Sem data definida")+'</span>';
+      row.appendChild(checkSpan);
+      row.appendChild(textSpan);
+      listEl.appendChild(row);
+    });
+  }
+  function toggleVincAventura(a, checked){
+    var rec = {
+      nome: a.nome, destino: a.destino, inicio: a.inicio, fim: a.fim,
+      parent_trip_id: checked ? state.trip.id : null,
+      concluido_orcamento: a.concluido_orcamento, concluido_passagens: a.concluido_passagens,
+      concluido_hospedagem: a.concluido_hospedagem, concluido_atividades: a.concluido_atividades
+    };
+    saveTableRow("planes_trip", "update", a.id, rec, "salida").then(function(){
+      return loadEverything();
+    }).then(function(){
+      renderVincList();
+      renderCalendario();
+    }).catch(function(err){
+      $("vincError").textContent = "Não foi possível vincular: " + err.message; $("vincError").classList.add("show");
+    });
+  }
+  $("btnVincularAventura").addEventListener("click", function(){
+    $("vincError").classList.remove("show");
+    renderVincList();
+    vincOverlay.classList.add("show");
+  });
+  $("vincClose").addEventListener("click", function(){ vincOverlay.classList.remove("show"); });
+  $("vincCloseFoot").addEventListener("click", function(){ vincOverlay.classList.remove("show"); });
 
   // ---------- Comentários (log) ----------
   function formatLogTimestamp(iso){
@@ -2209,6 +2475,85 @@
       return loadAndRender();
     }).catch(function(err){
       $("comError").textContent = "Não foi possível excluir: " + err.message; $("comError").classList.add("show");
+    });
+  });
+
+  // ---------- Pendências (to-do da viagem/aventura) ----------
+  function renderPendencias(){
+    var listEl = $("penList");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    if (!state.pendencias.length){
+      listEl.innerHTML = '<div class="empty">Nenhuma pendência ainda.</div>';
+      return;
+    }
+    // Pendências em aberto primeiro, depois as já resolvidas; dentro de cada grupo, mais recentes primeiro.
+    var sorted = state.pendencias.slice().sort(function(a,b){
+      if (!!a.feito !== !!b.feito) return a.feito ? 1 : -1;
+      return (b.created_at||"").localeCompare(a.created_at||"");
+    });
+    sorted.forEach(function(r){
+      var row = document.createElement("div");
+      row.className = "item-row";
+      row.style.gridTemplateColumns = "auto 1fr";
+      var checkSpan = document.createElement("span");
+      var check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = !!r.feito;
+      check.addEventListener("click", function(e){ e.stopPropagation(); togglePendenciaFeito(r); });
+      checkSpan.appendChild(check);
+      var textSpan = document.createElement("span");
+      textSpan.innerHTML =
+        '<span style="'+(r.feito?"text-decoration:line-through;opacity:.6;":"")+'">'+escapeHtml(r.texto).replace(/\n/g,"<br>")+'</span><br>'+
+        '<span class="row-meta">'+formatLogTimestamp(r.created_at)+'</span>';
+      row.appendChild(checkSpan);
+      row.appendChild(textSpan);
+      row.addEventListener("click", function(){ openPenModal(r); });
+      listEl.appendChild(row);
+    });
+  }
+  function togglePendenciaFeito(r){
+    var rec = { texto: r.texto, feito: !r.feito };
+    saveTableRow("planes_pendencias", "update", r.id, rec, currentMode, activeTripId()).then(function(){
+      return loadAndRender();
+    }).catch(function(err){
+      showError("Não foi possível atualizar: " + err.message);
+    });
+  }
+  var penOverlay = $("penOverlay");
+  var editingPen = null;
+  function openPenModal(r){
+    editingPen = r || null;
+    $("penModalTitle").textContent = r ? "Editar pendência" : "Nova pendência";
+    $("penDelete").style.display = r ? "inline-flex" : "none";
+    $("penError").classList.remove("show");
+    $("fPenTexto").value = r ? r.texto : "";
+    $("fPenFeito").checked = r ? !!r.feito : false;
+    penOverlay.classList.add("show");
+  }
+  function closePenModal(){ penOverlay.classList.remove("show"); }
+  $("btnAddPen").addEventListener("click", function(){ openPenModal(null); });
+  $("penClose").addEventListener("click", closePenModal);
+  $("penCancel").addEventListener("click", closePenModal);
+  $("penSave").addEventListener("click", function(){
+    var texto = $("fPenTexto").value.trim();
+    if (!texto){ $("penError").textContent = "Escreva a pendência."; $("penError").classList.add("show"); return; }
+    var rec = { texto: texto, feito: $("fPenFeito").checked };
+    var action = editingPen ? "update" : "insert";
+    saveTableRow("planes_pendencias", action, editingPen ? editingPen.id : null, rec, currentMode, activeTripId()).then(function(){
+      closePenModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("penError").textContent = "Não foi possível salvar: " + err.message; $("penError").classList.add("show");
+    });
+  });
+  $("penDelete").addEventListener("click", function(){
+    if (!editingPen) return;
+    saveTableRow("planes_pendencias", "delete", editingPen.id, null, currentMode, activeTripId()).then(function(){
+      closePenModal();
+      return loadAndRender();
+    }).catch(function(err){
+      $("penError").textContent = "Não foi possível excluir: " + err.message; $("penError").classList.add("show");
     });
   });
 
