@@ -321,6 +321,15 @@
   }
   .filters input[type="text"]{ flex:1; min-width:180px; }
   .filters .csel{ flex:none; }
+  .filters .search-wrap{ position:relative; flex:1; min-width:180px; }
+  .filters .search-wrap input[type="text"]{ width:100%; padding-right:30px; }
+  .search-clear{
+    position:absolute; right:4px; top:50%; transform:translateY(-50%);
+    width:22px; height:22px; border:none; background:none; border-radius:50%; padding:0;
+    display:flex; align-items:center; justify-content:center; color:var(--ink-faint); cursor:pointer;
+    font-size:13px; line-height:1;
+  }
+  .search-clear:hover{ background:var(--paper); color:var(--ink); }
 
   /* ---------- Custom select ---------- */
   .csel{ position:relative; display:flex; flex-direction:column; }
@@ -795,7 +804,7 @@
           <ellipse cx="12.2" cy="9" rx="5.6" ry="3" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
         </svg>
         <h1>Control de Cuentas</h1>
-        <span class="app-version" id="appVersion">v1.2</span>
+        <span class="app-version" id="appVersion">v1.3</span>
       </div>
     </div>
     <div class="conn-block">
@@ -1025,7 +1034,10 @@
       </div>
 
       <div class="filters">
-        <input type="text" id="fSearch" placeholder="Buscar por descrição, pessoa, cartão, tipo ou valor…">
+        <div class="search-wrap">
+          <input type="text" id="fSearch" placeholder="Buscar por descrição, pessoa, cartão, tipo ou valor…">
+          <button type="button" class="search-clear" id="fSearchClear" aria-label="Limpar busca" title="Limpar" style="display:none;">✕</button>
+        </div>
         <select id="fPersona" class="msel-source"><option value="">Todas as pessoas</option></select>
         <select id="fCartao" class="msel-source"><option value="">Todos os cartões</option></select>
         <select id="fTipo" class="msel-source"><option value="">Todos os tipos</option></select>
@@ -1053,7 +1065,10 @@
 
     <div class="page-section" id="pageCalendario">
       <div class="filters">
-        <input type="text" id="calSearch" placeholder="Buscar por descrição, pessoa, cartão ou valor…">
+        <div class="search-wrap">
+          <input type="text" id="calSearch" placeholder="Buscar por descrição, pessoa, cartão ou valor…">
+          <button type="button" class="search-clear" id="calSearchClear" aria-label="Limpar busca" title="Limpar" style="display:none;">✕</button>
+        </div>
         <select id="calPersona" class="msel-source"><option value="">Todas as pessoas</option></select>
         <select id="calCartao" class="msel-source"><option value="">Todos os cartões</option></select>
       </div>
@@ -3337,7 +3352,7 @@
     });
   });
 
-  function loadAndRender(){
+  function loadAndRender(_isRetryAfterRefresh){
     clearError();
     return loadEverything().then(function(result){
       state.compras = result.compras;
@@ -3360,7 +3375,19 @@
       markLastUpdated();
       if (cfgOverlay.classList.contains("show")) renderCfgLists();
     }).catch(function(err){
-      showError("Não foi possível ler o arquivo: " + err.message);
+      var msg = String((err && err.message) || "");
+      // A stale/expired access token — typically hit right after reopening the app once it
+      // sat closed long enough for the cached token to expire — is worth one silent retry
+      // after forcing a fresh token, instead of immediately surfacing an error the user can't
+      // do anything about.
+      if (!_isRetryAfterRefresh && /jwt|token/i.test(msg)){
+        return supabaseClient.auth.refreshSession().then(function(){
+          return loadAndRender(true);
+        }).catch(function(){
+          showError("Não foi possível ler o arquivo: " + msg);
+        });
+      }
+      showError("Não foi possível ler o arquivo: " + msg);
     });
   }
 
@@ -3476,6 +3503,24 @@
   });
   $("subsPersona").addEventListener("change", renderAssinaturasPage);
   $("calSearch").addEventListener("input", renderCalendarioPage);
+
+  // Small "×" button at the end of a search field, to clear its whole content at once —
+  // shown only while there's something to clear.
+  function wireSearchClear(inputId, clearId){
+    var input = $(inputId), clearBtn = $(clearId);
+    if (!input || !clearBtn) return;
+    function sync(){ clearBtn.style.display = input.value ? "flex" : "none"; }
+    input.addEventListener("input", sync);
+    clearBtn.addEventListener("click", function(){
+      input.value = "";
+      input.focus();
+      input.dispatchEvent(new Event("input", {bubbles:true}));
+      sync();
+    });
+    sync();
+  }
+  wireSearchClear("fSearch", "fSearchClear");
+  wireSearchClear("calSearch", "calSearchClear");
   $("fMonthPrev").addEventListener("click", function(){ shiftMonth(-1); });
   $("fMonthNext").addEventListener("click", function(){ shiftMonth(1); });
   $("fMonthClear").addEventListener("click", clearMonthFilter);
@@ -3507,57 +3552,6 @@
       setActivePage(btn.getAttribute("data-page"));
     });
   });
-
-  // ---------- Swipe navigation between pages ----------
-  // Left↔right drag switches pages, following the same left-to-right order as the tabs/bottom
-  // nav: dragging right moves to the page to the right (next), dragging left moves to the page
-  // to the left (previous) — this is a plain left-to-right cycle through the 6 pages, not tied
-  // to PAGE_IDS's own (differently ordered) key order. Ignored while a modal is open, mid-drag
-  // over a horizontally-scrollable area (the Compras/Ingresos tables, the calendar — so it never
-  // fights with scrolling those sideways), or over the nav/filters themselves.
-  (function(){
-    var PAGE_ORDER = ["dashboard", "tabela", "calendario", "limite", "debito", "investimentos"];
-    var SWIPE_IGNORE_SELECTOR =
-      ".tx-scroll, .calendar-wrap, .csel, .dsel, .page-tabs, .bottom-nav, .month-filter, input, textarea, select, button";
-    function visiblePageOrder(){
-      // mãe-mode hides some tabs entirely — only cycle through pages actually reachable.
-      return PAGE_ORDER.filter(function(p){
-        var btn = document.querySelector('#bottomNav button[data-page="'+p+'"]');
-        return !!btn && getComputedStyle(btn).display !== "none";
-      });
-    }
-    function currentPage(){
-      var active = document.querySelector('#bottomNav button[data-page].active') ||
-        document.querySelector('#pageTabs button[data-page].active');
-      return active ? active.getAttribute("data-page") : PAGE_ORDER[0];
-    }
-    var container = $("connectedView");
-    if (!container) return;
-    var startX = 0, startY = 0, tracking = false;
-    var SWIPE_THRESHOLD = 60; // px — short taps/scrolls never trigger a page change
-    container.addEventListener("touchstart", function(e){
-      tracking = false;
-      if (e.touches.length !== 1) return;
-      if (document.querySelector(".overlay.show")) return; // a modal is open
-      if (e.target.closest(SWIPE_IGNORE_SELECTOR)) return;
-      tracking = true;
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-    }, {passive: true});
-    container.addEventListener("touchend", function(e){
-      if (!tracking) return;
-      tracking = false;
-      var t = e.changedTouches[0];
-      var dx = t.clientX - startX, dy = t.clientY - startY;
-      if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.5) return; // too short, or more vertical than horizontal
-      var order = visiblePageOrder();
-      var idx = order.indexOf(currentPage());
-      if (idx === -1) return;
-      if (dx > 0){ if (idx < order.length - 1) setActivePage(order[idx + 1]); } // dragged right → page to the right
-      else { if (idx > 0) setActivePage(order[idx - 1]); } // dragged left → page to the left
-    }, {passive: true});
-    container.addEventListener("touchcancel", function(){ tracking = false; }, {passive: true});
-  })();
 
   // ---------- Add/Edit compra modal ----------
   var txOverlay = $("txOverlay");
@@ -4831,7 +4825,14 @@
     var session = res.data && res.data.session;
     if (session && session.user){
       currentUserEmail = session.user.email;
-      loadAndRender();
+      // Force a fresh access token on every app open, instead of trusting whatever was cached
+      // from before — the PWA can sit closed for hours and come back with an expired token,
+      // which used to surface as "JWT expired" on the very first read. If the refresh itself
+      // fails (e.g. offline), still try to load with what we have — loadAndRender() has its
+      // own retry-after-refresh fallback for that case.
+      supabaseClient.auth.refreshSession().catch(function(){}).then(function(){
+        loadAndRender();
+      });
     }
   });
 })();
