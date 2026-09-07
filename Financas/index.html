@@ -353,7 +353,7 @@
   .csel-item.selected{ background:var(--accent-soft); color:var(--accent); font-weight:600; }
   .csel-item.disabled{ color:var(--ink-faint); cursor:not-allowed; }
   .msel-item{ display:flex; align-items:center; gap:9px; }
-  .msel-item input[type="checkbox"]{ pointer-events:none; flex:none; }
+  .msel-item input[type="checkbox"]{ width:auto; pointer-events:none; flex:none; accent-color:var(--accent); }
   .msel-clear{ font-style:italic; color:var(--ink-soft); border-bottom:1px solid var(--line); margin-bottom:2px; }
 
   /* ---------- Restricted "mãe" view ---------- */
@@ -658,7 +658,7 @@
   .cfg-section h4{ font-family:"Fraunces", serif; font-size:14.5px; font-weight:600; margin:0; }
   .cfg-hint{ font-size:12px; color:var(--ink-faint); margin:0 0 2px; }
   .cfg-row{ display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
-  .cfg-row.cards{ grid-template-columns:1.1fr 0.65fr 0.65fr 0.8fr auto; }
+  .cfg-row.cards{ grid-template-columns:1.1fr 0.65fr 0.65fr 0.8fr auto; align-items:end; }
   .cfg-row.pessoas{ grid-template-columns:1fr auto auto; }
   .cfg-row.pessoas .cfg-check{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); white-space:nowrap; }
   .cfg-row.pessoas .cfg-check input{ width:auto; padding:0; accent-color:var(--accent); }
@@ -673,12 +673,19 @@
     background:none; border:none; color:var(--ink-faint); font-size:16px; padding:4px 6px; border-radius:6px; line-height:1;
   }
   .cfg-del:hover{ background:var(--danger-soft); color:var(--danger); }
-  .cfg-add-row{ display:flex; gap:8px; margin-top:2px; }
+  /* Labeled field wrapper — used where a row has several unlabeled-looking inputs side by
+     side (e.g. Cartões: nome/vencimento/fechamento/limite) so it's always clear which is
+     which, even once a placeholder is replaced by a real value. */
+  .cfg-field{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .cfg-field-label{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-faint); padding-left:1px; }
+  .cfg-add-row{ display:flex; gap:8px; margin-top:2px; align-items:end; }
   .cfg-add-row input{
     flex:1; padding:7px 10px; border-radius:7px; border:1px solid var(--line-strong);
     background:var(--paper); color:var(--ink); font-size:13px;
   }
   .cfg-add-row input::placeholder{ color:var(--ink-faint); }
+  .cfg-add-row .cfg-field{ flex:1; }
+  .cfg-add-row .cfg-field input{ width:100%; }
   .cfg-tabs{ display:flex; gap:4px; background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:3px; margin-bottom:4px; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
   .cfg-tabs::-webkit-scrollbar{ display:none; }
   .cfg-tabs button{ border:none; background:transparent; padding:6px 13px; border-radius:6px; font-size:12.5px; font-weight:600; color:var(--ink-soft); flex:0 0 auto; white-space:nowrap; }
@@ -701,9 +708,9 @@
     .cfg-add-row{ flex-wrap:wrap; }
     .cfg-add-row input{ min-width:0; }
     .cfg-add-row button{ flex:1 1 100%; }
-    /* Cartões' add-row has 4 inputs (nome/venc/fech/limite) — too many to fit one line even
+    /* Cartões' add-row has 4 fields (nome/venc/fech/limite) — too many to fit one line even
        wrapped naturally, so lay them out as a 2x2 grid instead. */
-    #cfgPaneCartoes .cfg-add-row input{ flex:1 1 calc(50% - 4px) !important; }
+    #cfgPaneCartoes .cfg-add-row .cfg-field{ flex:1 1 calc(50% - 4px) !important; }
 
     /* Page navigation moves to a fixed, icon-only bottom bar (like a native app's tab bar);
        the top tab strip is redundant on phones, so it's hidden here. */
@@ -788,7 +795,7 @@
           <ellipse cx="12.2" cy="9" rx="5.6" ry="3" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
         </svg>
         <h1>Control de Cuentas</h1>
-        <span class="app-version" id="appVersion">v1.0</span>
+        <span class="app-version" id="appVersion">v1.2</span>
       </div>
     </div>
     <div class="conn-block">
@@ -957,9 +964,6 @@
       </div>
       <div class="panel" style="margin-top:16px;">
         <div class="panel-head"><h2>Investimento por mês</h2></div>
-        <p class="cfg-hint" style="padding:0 18px 14px;">
-          Valor de investimento previsto em cada mês, considerando o valor base e eventuais variações pontuais.
-        </p>
         <div class="calendar-wrap">
           <table class="calendar" id="investCalendarTable">
             <thead><tr id="investCalendarHeadRow"></tr></thead>
@@ -1048,10 +1052,6 @@
     </div>
 
     <div class="page-section" id="pageCalendario">
-      <p class="cfg-hint" style="margin-bottom:14px;">
-        Compras ainda ativas (não totalmente pagas), a partir de um mês antes do mês filtrado. Texto apagado = mês já
-        passado. Coluna destacada = mês filtrado. Traço abaixo do valor = última parcela.
-      </p>
       <div class="filters">
         <input type="text" id="calSearch" placeholder="Buscar por descrição, pessoa, cartão ou valor…">
         <select id="calPersona" class="msel-source"><option value="">Todas as pessoas</option></select>
@@ -1066,11 +1066,6 @@
     </div>
 
     <div class="page-section" id="pageLimite">
-      <p class="cfg-hint" style="margin-bottom:14px;">
-        Quanto de cada cartão já está comprometido com parcelas futuras de compras ativas ("Inside") — compras
-        marcadas como "Out" não contam. O valor considera todas as parcelas ainda não pagas a partir do mês
-        filtrado (ou do mês atual, se "Todos os meses" estiver selecionado).
-      </p>
       <div class="summary summary-2col">
         <div class="sum-card">
           <span class="k">Limite total usado (todos os cartões)</span>
@@ -1087,10 +1082,6 @@
       </div>
       <div class="panel" style="margin-top:18px;">
         <div class="panel-head"><h2>Calendário de limite</h2></div>
-        <p class="cfg-hint" style="padding:0 18px 14px;">
-          Cada linha é um cartão; cada célula é o limite que estará disponível naquele mês, considerando as
-          parcelas ainda não pagas até então.
-        </p>
         <div class="calendar-wrap">
           <table class="calendar" id="limiteCalendarTable">
             <thead><tr id="limiteCalendarHeadRow"></tr></thead>
@@ -1376,7 +1367,6 @@
       </div>
 
       <div class="cfg-pane active" id="cfgPanePessoas">
-        <p class="cfg-hint">Editar um nome não atualiza compras já registradas com o nome antigo. "Gera ingresso" cria automaticamente, na página Ingresos/Salidas, uma linha somando as compras dessa pessoa no mês — útil para pessoas que reembolsam o que compram no cartão.</p>
         <div id="cfgPessoasList"></div>
         <div class="cfg-add-row">
           <input type="text" id="cfgPessoaNew" placeholder="Novo nome…">
@@ -1385,19 +1375,29 @@
       </div>
 
       <div class="cfg-pane" id="cfgPaneCartoes">
-        <p class="cfg-hint">Vencimento = dia do mês (1–31) em que a fatura vence (pagamento). Fechamento = dia do mês em que a fatura fecha — define em qual fatura mensal cada compra entra (compras a partir do dia do fechamento contam para a fatura do mês seguinte). Limite = limite de crédito do cartão.</p>
         <div id="cfgCartoesList"></div>
         <div class="cfg-add-row">
-          <input type="text" id="cfgCartaoNewNome" placeholder="Nome do cartão…" style="flex:2;">
-          <input type="number" id="cfgCartaoNewVenc" placeholder="Venc." min="1" max="31" style="flex:1;">
-          <input type="number" id="cfgCartaoNewFechamento" placeholder="Fech." min="1" max="31" style="flex:1;">
-          <input type="text" inputmode="decimal" id="cfgCartaoNewLimite" placeholder="Limite R$" style="flex:1;">
+          <div class="cfg-field" style="flex:2;">
+            <span class="cfg-field-label">Cartão</span>
+            <input type="text" id="cfgCartaoNewNome" placeholder="Nome do cartão…">
+          </div>
+          <div class="cfg-field">
+            <span class="cfg-field-label">Vencimento</span>
+            <input type="number" id="cfgCartaoNewVenc" placeholder="Dia" min="1" max="31">
+          </div>
+          <div class="cfg-field">
+            <span class="cfg-field-label">Fechamento</span>
+            <input type="number" id="cfgCartaoNewFechamento" placeholder="Dia" min="1" max="31">
+          </div>
+          <div class="cfg-field">
+            <span class="cfg-field-label">Limite</span>
+            <input type="text" inputmode="decimal" id="cfgCartaoNewLimite" placeholder="R$">
+          </div>
           <button class="btn btn-sm" id="cfgCartaoAdd" type="button">Adicionar</button>
         </div>
       </div>
 
       <div class="cfg-pane" id="cfgPaneTipos">
-        <p class="cfg-hint">Um tipo cujo nome contenha "Assinatura" mostra o campo de cancelamento ao registrar a compra.</p>
         <div id="cfgTiposList"></div>
         <div class="cfg-add-row">
           <input type="text" id="cfgTipoNew" placeholder="Novo tipo…">
@@ -1406,12 +1406,6 @@
       </div>
 
       <div class="cfg-pane" id="cfgPaneDiario">
-        <p class="cfg-hint">
-          O "diário" é o dinheiro separado para uso livre no mês, descontado do Balance final e das Balance
-          Fachero/Fachera na página Dashboard. Defina um valor padrão para todos os meses abaixo — ele vale para
-          qualquer mês que não tenha um valor próprio. Ao selecionar um mês específico no filtro (fora deste modal),
-          você também pode definir um valor só para aquele mês.
-        </p>
         <div class="panel" style="box-shadow:none; border:1px solid var(--line);">
           <div class="panel-head"><h2>Diário (todos os meses)</h2></div>
           <div class="field" style="padding:0 18px 18px;">
@@ -2008,7 +2002,7 @@
     if (sel._mselRebuildList) sel._mselRebuildList();
   }
   function getMselValues(sel){
-    return sel && sel._mselSet ? Array.prototype.slice.call(sel._mselSet) : [];
+    return sel && sel._mselSet ? Array.from(sel._mselSet) : [];
   }
   function setMselValues(sel, arr){
     sel._mselSet = new Set(arr || []);
@@ -2084,6 +2078,23 @@
     return day >= fechamento ? addMonths(ym, 1) : ym;
   }
 
+  // How many full monthly "anniversaries" of a subscription's own signup day have already
+  // happened by a given date — an age-in-months calculation that compares day-of-month, the
+  // same way "how many months old" works for a birthdate. Used to find the last cycle an
+  // assinatura should still be billed for once it's cancelled: a card's fechamento decides
+  // which statement a NEW purchase lands in, but it has nothing to do with whether THIS
+  // month's recurring charge had already gone through by the cancellation date — that depends
+  // only on comparing the cancellation date against the subscription's own original day of the
+  // month (e.g. signed on the 10th: cancelling on the 7th means this month's charge hadn't
+  // happened yet, so it's the last one billed; cancelling on the 12th means it had, so next
+  // month's is also already committed).
+  function monthsElapsedByDay(fromSerial, toSerial){
+    var a = serialToDate(fromSerial), b = serialToDate(toSerial);
+    var months = (b.getUTCFullYear()-a.getUTCFullYear())*12 + (b.getUTCMonth()-a.getUTCMonth());
+    if (b.getUTCDate() < a.getUTCDate()) months -= 1;
+    return months;
+  }
+
   // ---------- Antecipação de parcelas ----------
   // A purchase with installments left can have some of its still-unbilled future installments
   // "anticipated": paid off now, as one lump sum, instead of waiting for their normal months. The
@@ -2137,7 +2148,7 @@
     if (isAssinaturaTipo(r.tipo)){
       if (monthsBetween(startYM, ym) < 0) return [];
       if (r.cancelSerial !== null && r.cancelSerial !== undefined){
-        var cancelYM = getFaturaStartYM(r.cancelSerial, r.cartao);
+        var cancelYM = addMonths(startYM, monthsElapsedByDay(r.dataSerial, r.cancelSerial));
         if (monthsBetween(cancelYM, ym) > 0) return [];
       }
       return [{effectiveValor: r.valorTotal||0, parcelaAtual: null, parcelaTotal: 1, antecipacao: null}];
@@ -2340,7 +2351,7 @@
         // Open-ended unless cancelled: don't let it stretch the visible month range (that's
         // driven by the real installment purchases) — just keep it "active" through refYM.
         endYM = (r.cancelSerial !== null && r.cancelSerial !== undefined)
-          ? getFaturaStartYM(r.cancelSerial, r.cartao)
+          ? addMonths(startYM, monthsElapsedByDay(r.dataSerial, r.cancelSerial))
           : refYM;
       } else {
         endYM = addMonths(startYM, total-1);
@@ -2700,12 +2711,13 @@
       if (!isAssinaturaTipo(r.tipo)) return false;
       if (fp && r.pessoa !== fp) return false;
       if (fm){
-        var mk = monthKey(fm);
-        var startYM = serialToYearMonth(r.dataSerial);
-        if (startYM && startYM > mk) return false; // hadn't started yet in that month
+        // Same fatura-month math as the calendar/dashboard (getCompraScheduleForMonth /
+        // decorateComprasForCalendar), so this summary always agrees with them.
+        var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+        if (monthsBetween(startYM, fm) < 0) return false; // hadn't started yet in that month
         if (r.cancelSerial !== null && r.cancelSerial !== undefined){
-          var cancelYM = serialToYearMonth(r.cancelSerial);
-          if (cancelYM && cancelYM < mk) return false; // already cancelled before that month
+          var cancelYM = addMonths(startYM, monthsElapsedByDay(r.dataSerial, r.cancelSerial));
+          if (monthsBetween(cancelYM, fm) > 0) return false; // already cancelled before that month
         }
         return true;
       }
@@ -3496,6 +3508,57 @@
     });
   });
 
+  // ---------- Swipe navigation between pages ----------
+  // Left↔right drag switches pages, following the same left-to-right order as the tabs/bottom
+  // nav: dragging right moves to the page to the right (next), dragging left moves to the page
+  // to the left (previous) — this is a plain left-to-right cycle through the 6 pages, not tied
+  // to PAGE_IDS's own (differently ordered) key order. Ignored while a modal is open, mid-drag
+  // over a horizontally-scrollable area (the Compras/Ingresos tables, the calendar — so it never
+  // fights with scrolling those sideways), or over the nav/filters themselves.
+  (function(){
+    var PAGE_ORDER = ["dashboard", "tabela", "calendario", "limite", "debito", "investimentos"];
+    var SWIPE_IGNORE_SELECTOR =
+      ".tx-scroll, .calendar-wrap, .csel, .dsel, .page-tabs, .bottom-nav, .month-filter, input, textarea, select, button";
+    function visiblePageOrder(){
+      // mãe-mode hides some tabs entirely — only cycle through pages actually reachable.
+      return PAGE_ORDER.filter(function(p){
+        var btn = document.querySelector('#bottomNav button[data-page="'+p+'"]');
+        return !!btn && getComputedStyle(btn).display !== "none";
+      });
+    }
+    function currentPage(){
+      var active = document.querySelector('#bottomNav button[data-page].active') ||
+        document.querySelector('#pageTabs button[data-page].active');
+      return active ? active.getAttribute("data-page") : PAGE_ORDER[0];
+    }
+    var container = $("connectedView");
+    if (!container) return;
+    var startX = 0, startY = 0, tracking = false;
+    var SWIPE_THRESHOLD = 60; // px — short taps/scrolls never trigger a page change
+    container.addEventListener("touchstart", function(e){
+      tracking = false;
+      if (e.touches.length !== 1) return;
+      if (document.querySelector(".overlay.show")) return; // a modal is open
+      if (e.target.closest(SWIPE_IGNORE_SELECTOR)) return;
+      tracking = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, {passive: true});
+    container.addEventListener("touchend", function(e){
+      if (!tracking) return;
+      tracking = false;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - startX, dy = t.clientY - startY;
+      if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.5) return; // too short, or more vertical than horizontal
+      var order = visiblePageOrder();
+      var idx = order.indexOf(currentPage());
+      if (idx === -1) return;
+      if (dx > 0){ if (idx < order.length - 1) setActivePage(order[idx + 1]); } // dragged right → page to the right
+      else { if (idx > 0) setActivePage(order[idx - 1]); } // dragged left → page to the left
+    }, {passive: true});
+    container.addEventListener("touchcancel", function(){ tracking = false; }, {passive: true});
+  })();
+
   // ---------- Add/Edit compra modal ----------
   var txOverlay = $("txOverlay");
   var editingRow = null;
@@ -3527,7 +3590,10 @@
     $("fParcelas").value = "1";
     var today = new Date();
     $("fData").value = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
-    $("fTipoSel").selectedIndex = 0;
+    // Default to "Parcelado" for a new compra (the common case) rather than whatever happens to
+    // be first in the Tipos list; falls back to that first option if "Parcelado" isn't configured.
+    if (nomes("tipos").indexOf("Parcelado") !== -1) $("fTipoSel").value = "Parcelado";
+    else $("fTipoSel").selectedIndex = 0;
     $("fCancelacao").value = "";
     updateCancelacaoVisibility();
     txOverlay.classList.add("show");
@@ -4267,10 +4333,10 @@
       var row = document.createElement("div");
       row.className = "cfg-row cards";
       row.innerHTML =
-        '<input type="text" value="'+escapeHtml(rec.nome)+'" data-f="nome">'+
-        '<input type="number" min="1" max="31" value="'+(rec.vencimento===null?"":rec.vencimento)+'" data-f="vencimento" placeholder="Venc.">'+
-        '<input type="number" min="1" max="31" value="'+(rec.fechamento===null?"":rec.fechamento)+'" data-f="fechamento" placeholder="Fech.">'+
-        '<span class="amt"><span class="cur">R$</span><input type="text" inputmode="decimal" value="'+(rec.limite===null?"":String(rec.limite).replace(".", ","))+'" data-f="limite" placeholder="Limite"></span>'+
+        '<div class="cfg-field"><span class="cfg-field-label">Cartão</span><input type="text" value="'+escapeHtml(rec.nome)+'" data-f="nome"></div>'+
+        '<div class="cfg-field"><span class="cfg-field-label">Vencimento</span><input type="number" min="1" max="31" value="'+(rec.vencimento===null?"":rec.vencimento)+'" data-f="vencimento"></div>'+
+        '<div class="cfg-field"><span class="cfg-field-label">Fechamento</span><input type="number" min="1" max="31" value="'+(rec.fechamento===null?"":rec.fechamento)+'" data-f="fechamento"></div>'+
+        '<div class="cfg-field"><span class="cfg-field-label">Limite</span><span class="amt"><span class="cur">R$</span><input type="text" inputmode="decimal" value="'+(rec.limite===null?"":String(rec.limite).replace(".", ","))+'" data-f="limite"></span></div>'+
         '<button class="cfg-del" type="button" title="Excluir" aria-label="Excluir">✕</button>';
       function commit(){
         var nome = row.querySelector('[data-f="nome"]').value.trim();
