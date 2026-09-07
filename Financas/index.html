@@ -804,7 +804,7 @@
           <ellipse cx="12.2" cy="9" rx="5.6" ry="3" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
         </svg>
         <h1>Control de Cuentas</h1>
-        <span class="app-version" id="appVersion">v1.3</span>
+        <span class="app-version" id="appVersion">v1.4</span>
       </div>
     </div>
     <div class="conn-block">
@@ -1041,6 +1041,15 @@
         <select id="fPersona" class="msel-source"><option value="">Todas as pessoas</option></select>
         <select id="fCartao" class="msel-source"><option value="">Todos os cartões</option></select>
         <select id="fTipo" class="msel-source"><option value="">Todos os tipos</option></select>
+        <select id="fSort">
+          <option value="">Ordenar: Data (padrão)</option>
+          <option value="valor-desc">Valor da fatura: maior primeiro</option>
+          <option value="valor-asc">Valor da fatura: menor primeiro</option>
+          <option value="desc-az">Descrição: A-Z</option>
+          <option value="parcelas-desc">Parcelas: maior primeiro</option>
+          <option value="parcelas-asc">Parcelas: menor primeiro</option>
+          <option value="termina-mes">Terminam este mês primeiro</option>
+        </select>
       </div>
 
       <div class="panel">
@@ -1071,6 +1080,16 @@
         </div>
         <select id="calPersona" class="msel-source"><option value="">Todas as pessoas</option></select>
         <select id="calCartao" class="msel-source"><option value="">Todos os cartões</option></select>
+        <select id="calTipo" class="msel-source"><option value="">Todos os tipos</option></select>
+        <select id="calSort">
+          <option value="">Ordenar: Data (padrão)</option>
+          <option value="valor-desc">Valor da fatura: maior primeiro</option>
+          <option value="valor-asc">Valor da fatura: menor primeiro</option>
+          <option value="desc-az">Descrição: A-Z</option>
+          <option value="parcelas-desc">Parcelas: maior primeiro</option>
+          <option value="parcelas-asc">Parcelas: menor primeiro</option>
+          <option value="termina-mes">Terminam este mês primeiro</option>
+        </select>
       </div>
       <div class="calendar-wrap">
         <table class="calendar" id="calendarTable">
@@ -1544,6 +1563,18 @@
   function isAssinaturaTipo(tipo){
     return String(tipo||"").indexOf("Assinatura") !== -1;
   }
+  // A single-installment purchase (parcelas===1) is semantically "Á vista", not "Parcelado" —
+  // used to pick a sensible default tipo for a new/CSV-imported compra based on its number of
+  // parcelas, without forcing "Parcelado" on everything the way the app used to. Falls back to
+  // "Parcelado" (then "") when the wanted tipo isn't configured yet, so behavior degrades
+  // gracefully for accounts that haven't added "Á vista" as a tipo.
+  function pickDefaultTipoForParcelas(n){
+    var tipos = nomes("tipos");
+    var wanted = (n === 1) ? "Á vista" : "Parcelado";
+    if (tipos.indexOf(wanted) !== -1) return wanted;
+    if (tipos.indexOf("Parcelado") !== -1) return "Parcelado";
+    return "";
+  }
 
   // ---------- CSV import (fatura Nubank) ----------
   function normalizeMerchantKey(str){
@@ -1639,7 +1670,6 @@
     var candidates = [];
     var pendingNew = [];
     var defaultPessoa = nomes("pessoas").indexOf("Facheros") !== -1 ? "Facheros" : "";
-    var defaultTipo = nomes("tipos").indexOf("Parcelado") !== -1 ? "Parcelado" : "";
 
     csvRows.forEach(function(row, idx){
       var base = {idx: idx, dateStr: row.dateStr, title: row.title, amountStr: row.amountStr};
@@ -1688,7 +1718,7 @@
             suggested: {
               descricao: parcelaBase,
               pessoa: defaultPessoa,
-              tipo: defaultTipo,
+              tipo: pickDefaultTipoForParcelas(n),
               valorTotal: estValorTotal,
               parcelas: n,
               dataSerial: estStartSerial,
@@ -1712,7 +1742,7 @@
           status: "skip-duplicate",
           includable: true,
           message: "Já existe uma compra igual (mesmo comerciante, data e valor).",
-          suggested: {descricao:parcelaBase, pessoa:defaultPessoa, tipo:defaultTipo, valorTotal:valorTotal, parcelas:n, dataSerial:row.dateSerial, comerciante:comerciante}
+          suggested: {descricao:parcelaBase, pessoa:defaultPessoa, tipo:pickDefaultTipoForParcelas(n), valorTotal:valorTotal, parcelas:n, dataSerial:row.dateSerial, comerciante:comerciante}
         }));
         return;
       }
@@ -1726,7 +1756,7 @@
         suggested: {
           descricao: parcelaBase,
           pessoa: defaultPessoa,
-          tipo: defaultTipo,
+          tipo: pickDefaultTipoForParcelas(n),
           valorTotal: valorTotal,
           parcelas: n,
           dataSerial: row.dateSerial,
@@ -1768,6 +1798,28 @@
       valorParts.join(" ")
     ).toLowerCase();
     return hay.indexOf(q) !== -1;
+  }
+
+  // Shared comparator for the "Ordenar" dropdowns on Compras and Calendário. Each item passed
+  // in is a plain object with: valor (the amount that counts toward that month's fatura),
+  // desc (descrição), parcelas (total number of installments), endsThisMonth (true if this
+  // item's last installment falls in the currently selected/reference month), dataSerial and
+  // row (used for the default, and as a tiebreaker/fallback for every other key).
+  function sortCompare(sortKey, a, b){
+    switch (sortKey){
+      case "valor-desc": return (b.valor||0) - (a.valor||0);
+      case "valor-asc": return (a.valor||0) - (b.valor||0);
+      case "desc-az": return String(a.desc||"").localeCompare(String(b.desc||""), "pt-BR", {sensitivity:"base"});
+      case "parcelas-desc": return (b.parcelas||0) - (a.parcelas||0);
+      case "parcelas-asc": return (a.parcelas||0) - (b.parcelas||0);
+      case "termina-mes":
+        if (!!a.endsThisMonth !== !!b.endsThisMonth) return a.endsThisMonth ? -1 : 1;
+        return (b.dataSerial||0) - (a.dataSerial||0);
+      default:
+        var da = a.dataSerial||0, db_ = b.dataSerial||0;
+        if (da !== db_) return db_ - da;
+        return (b.row||0) - (a.row||0);
+    }
   }
 
   // ---------- Shared month filter (custom stepper, not the native <input type="month">) ----------
@@ -1855,7 +1907,7 @@
       case "diario":
         return { mes: rec.mes, valor: rec.valor };
       case "antecipacoes":
-        return { compra_id: rec.compraRow, mes: rec.mes, indices: rec.indices, valor: rec.valor };
+        return { compra_id: rec.compraRow, mes: rec.mes, indices: rec.indices, valor: rec.valor, out: !!rec.out };
     }
   }
 
@@ -1930,7 +1982,7 @@
       var diario = diarioRows.map(function(r){ return {row:r.id, mes:r.mes, valor: r.valor===null?0:Number(r.valor)}; });
 
       var antecipacoes = antecipacoesRows.map(function(r){
-        return {row:r.id, compraRow:r.compra_id, mes:r.mes, indices: (r.indices||[]).slice().sort(function(a,b){ return a-b; }), valor: r.valor===null?0:Number(r.valor)};
+        return {row:r.id, compraRow:r.compra_id, mes:r.mes, indices: (r.indices||[]).slice().sort(function(a,b){ return a-b; }), valor: r.valor===null?0:Number(r.valor), out: r.out ? 1 : 0};
       });
 
       return {
@@ -2034,6 +2086,7 @@
     populateSelect($("dPessoaSel"), nomes("pessoas"), null, true);
     populateMultiSelect($("calPersona"), nomes("pessoas"), "Todas as pessoas");
     populateMultiSelect($("calCartao"), nomes("cartoes"), "Todos os cartões");
+    populateMultiSelect($("calTipo"), nomes("tipos"), "Todos os tipos");
     populateSelect($("subsPersona"), nomes("pessoas"), "Todas as pessoas", true);
     var comerciantes = uniqueValues(state.compras.records.map(function(r){ return r.comerciante; })).sort();
     $("comercianteList").innerHTML = comerciantes.map(function(c){ return '<option value="'+escapeHtml(c)+'">'; }).join("");
@@ -2050,6 +2103,7 @@
       populateMultiSelect($("fCartao"), maeCartoes, "Todos os cartões");
       populateMultiSelect($("fTipo"), maeTipos, "Todos os tipos");
       populateMultiSelect($("calCartao"), maeCartoes, "Todos os cartões");
+      populateMultiSelect($("calTipo"), maeTipos, "Todos os tipos");
     }
   }
 
@@ -2182,7 +2236,8 @@
         var indices = (a.indices||[]).slice();
         entries.push({
           effectiveValor: a.valor||0, parcelaAtual: null, parcelaTotal: total,
-          antecipacao: {indices: indices, count: indices.length, row: a.row}
+          antecipacao: {indices: indices, count: indices.length, row: a.row},
+          outOverride: !!a.out
         });
       }
     });
@@ -2217,6 +2272,9 @@
         rec.parcelaAtual = e.parcelaAtual;
         rec.parcelaTotal = e.parcelaTotal;
         rec.antecipacao = e.antecipacao;
+        // An antecipação lump sum has its own Inside/Out flag, independent from the purchase
+        // it belongs to — don't let it inherit the purchase's own r.out here.
+        if (e.antecipacao) rec.out = e.outOverride ? 1 : 0;
         out.push(rec);
       });
     });
@@ -2249,6 +2307,7 @@
     var fPersona = getMselValues($("fPersona"));
     var fCartao = getMselValues($("fCartao"));
     var fTipo = getMselValues($("fTipo"));
+    var fSort = $("fSort") ? $("fSort").value : "";
     var recs = getMonthFilteredRecords();
 
     var filtered = recs.filter(function(r){
@@ -2259,9 +2318,15 @@
       return true;
     });
     filtered.sort(function(a,b){
-      var da = a.dataSerial||0, db_ = b.dataSerial||0;
-      if (da !== db_) return db_ - da;
-      return b.row - a.row;
+      return sortCompare(fSort, {
+        valor: a.effectiveValor, desc: a.descricao, parcelas: a.parcelaTotal,
+        endsThisMonth: a.parcelaAtual !== null && a.parcelaAtual === a.parcelaTotal,
+        dataSerial: a.dataSerial, row: a.row
+      }, {
+        valor: b.effectiveValor, desc: b.descricao, parcelas: b.parcelaTotal,
+        endsThisMonth: b.parcelaAtual !== null && b.parcelaAtual === b.parcelaTotal,
+        dataSerial: b.dataSerial, row: b.row
+      });
     });
 
     var visibleRows = filtered.map(function(r){ return r.row; });
@@ -2309,6 +2374,19 @@
       checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
       checkbox.addEventListener("change", function(e){
         e.stopPropagation();
+        if (r.antecipacao){
+          // This row is an antecipação lump sum, not the purchase itself — Inside/Out here
+          // toggles the antecipação's own flag, kept independent from the purchase it belongs
+          // to (so anticipating installments "Out" doesn't force the whole purchase Out too).
+          var aRec = state.antecipacoes.records.filter(function(x){ return x.row === r.antecipacao.row; })[0];
+          if (!aRec) return;
+          var updatedA = {}; for (var k in aRec) updatedA[k] = aRec[k];
+          updatedA.out = checkbox.checked ? 0 : 1;
+          saveTableRow("antecipacoes", "update", aRec.row, updatedA).then(loadAndRender).catch(function(err){
+            showError("Não foi possível salvar: " + err.message);
+          });
+          return;
+        }
         var rec = {}; for (var k in r) rec[k] = r[k];
         rec.out = checkbox.checked ? 0 : 1;
         saveTableRow("compras", "update", r.row, rec).then(loadAndRender).catch(function(err){
@@ -2384,7 +2462,9 @@
     var refYM = getRefMonth(); // the filtered month, or today if "Todos os meses"
     var calPersona = getMselValues($("calPersona"));
     var calCartao = getMselValues($("calCartao"));
+    var calTipo = getMselValues($("calTipo"));
     var calSearch = $("calSearch").value.trim().toLowerCase();
+    var calSort = $("calSort") ? $("calSort").value : "";
 
     // The month range (columns) is always computed from ALL active purchases,
     // regardless of the pessoa/cartão filter, so the visualization's shape never
@@ -2415,6 +2495,7 @@
     var decorated = decoratedAll.filter(function(d){
       if (calPersona.length && calPersona.indexOf(d.rec.pessoa) === -1) return false;
       if (calCartao.length && calCartao.indexOf(d.rec.cartao) === -1) return false;
+      if (calTipo.length && calTipo.indexOf(d.rec.tipo) === -1) return false;
       if (!matchesSearch(d.rec, calSearch)) return false;
       return true;
     });
@@ -2429,7 +2510,12 @@
     var colTotals = columns.map(function(){ return 0; });
     decorated.forEach(function(d){
       columns.forEach(function(ym, idx){
-        getCompraScheduleForMonth(d.rec, ym).forEach(function(e){ colTotals[idx] += e.effectiveValor; });
+        getCompraScheduleForMonth(d.rec, ym).forEach(function(e){
+          // An antecipação lump sum can be marked "Out" on its own, independent from the
+          // purchase it belongs to — skip it here just like it's skipped in the tables.
+          if (e.antecipacao && e.outOverride) return;
+          colTotals[idx] += e.effectiveValor;
+        });
       });
     });
 
@@ -2440,7 +2526,31 @@
     });
     bodyHtml += '</tr>';
 
-    var sorted = decorated.slice().sort(function(a,b){ return (b.rec.dataSerial||0) - (a.rec.dataSerial||0); });
+    // Same sort keys as the Compras table, computed against the reference month: "valor"
+    // is what this row contributes to the reference month's fatura (antecipações marked
+    // "Out" on their own don't count, matching the cell totals above); "endsThisMonth" is
+    // true when the purchase's last installment falls exactly in the reference month.
+    function calRowValor(d){
+      var v = 0;
+      getCompraScheduleForMonth(d.rec, refYM).forEach(function(e){
+        if (e.antecipacao && e.outOverride) return;
+        v += e.effectiveValor;
+      });
+      return v;
+    }
+    function calRowEndsThisMonth(d){
+      if (d.isAssinatura) return false;
+      return monthsBetween(d.startYM, refYM) === d.total-1;
+    }
+    var sorted = decorated.slice().sort(function(a,b){
+      return sortCompare(calSort, {
+        valor: calRowValor(a), desc: a.rec.descricao, parcelas: a.total,
+        endsThisMonth: calRowEndsThisMonth(a), dataSerial: a.rec.dataSerial, row: a.rec.row
+      }, {
+        valor: calRowValor(b), desc: b.rec.descricao, parcelas: b.total,
+        endsThisMonth: calRowEndsThisMonth(b), dataSerial: b.rec.dataSerial, row: b.rec.row
+      });
+    });
     if (!sorted.length){
       bodyHtml += '<tr><td colspan="'+(columns.length+1)+'" class="empty-cell">Nenhuma compra ativa para este filtro.</td></tr>';
     }
@@ -2477,7 +2587,11 @@
         }
         if (!d.isAssinatura && offset === d.total-1) classes.push("last-installment");
         var cellValue = 0, hasAntecipacao = false;
-        entries.forEach(function(e){ cellValue += e.effectiveValor; if (e.antecipacao) hasAntecipacao = true; });
+        entries.forEach(function(e){
+          if (e.antecipacao && e.outOverride) return; // antecipação set "Out" on its own
+          cellValue += e.effectiveValor;
+          if (e.antecipacao) hasAntecipacao = true;
+        });
         if (hasAntecipacao) classes.push("cell-antecipacao");
         var title = hasAntecipacao ? ' title="Inclui antecipação de parcelas"' : "";
         bodyHtml += '<td class="'+classes.join(" ")+'"'+title+'>'+fmtBRL(cellValue)+'</td>';
@@ -3494,11 +3608,11 @@
       return loadAndRender().then(function(){ return !$("errorBanner").classList.contains("show"); });
     });
   });
-  [$("fSearch"), $("fPersona"), $("fCartao"), $("fTipo")].forEach(function(el){
+  [$("fSearch"), $("fPersona"), $("fCartao"), $("fTipo"), $("fSort")].forEach(function(el){
     el.addEventListener("input", renderList);
     el.addEventListener("change", renderList);
   });
-  [$("calPersona"), $("calCartao")].forEach(function(el){
+  [$("calPersona"), $("calCartao"), $("calTipo"), $("calSort")].forEach(function(el){
     el.addEventListener("change", renderCalendarioPage);
   });
   $("subsPersona").addEventListener("change", renderAssinaturasPage);
@@ -3565,6 +3679,16 @@
     if (!show) $("fCancelacao").value = "";
   }
   $("fTipoSel").addEventListener("change", updateCancelacaoVisibility);
+  // Keep the tipo in sync with the parcelas count while the user hasn't deliberately picked
+  // something else (Assinatura, Estorno, a custom tipo...) — only auto-switches between the two
+  // "quantity" defaults, "Á vista" (1 parcela) and "Parcelado" (2+).
+  $("fParcelas").addEventListener("input", function(){
+    var cur = $("fTipoSel").value;
+    if (cur !== "Á vista" && cur !== "Parcelado") return;
+    var n = parseInt($("fParcelas").value, 10) || 1;
+    var wanted = pickDefaultTipoForParcelas(n);
+    if (wanted && wanted !== cur) $("fTipoSel").value = wanted;
+  });
 
   function openAddModal(){
     editingRow = null;
@@ -3584,9 +3708,11 @@
     $("fParcelas").value = "1";
     var today = new Date();
     $("fData").value = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
-    // Default to "Parcelado" for a new compra (the common case) rather than whatever happens to
-    // be first in the Tipos list; falls back to that first option if "Parcelado" isn't configured.
-    if (nomes("tipos").indexOf("Parcelado") !== -1) $("fTipoSel").value = "Parcelado";
+    // Starts at 1 parcela, so the semantically correct default is "Á vista" (a single-payment
+    // expense), not "Parcelado" — falls back to "Parcelado", then to the first tipo in the list,
+    // if "Á vista" isn't configured.
+    var defTipo = pickDefaultTipoForParcelas(1);
+    if (defTipo) $("fTipoSel").value = defTipo;
     else $("fTipoSel").selectedIndex = 0;
     $("fCancelacao").value = "";
     updateCancelacaoVisibility();
@@ -4801,7 +4927,7 @@
 
   enhanceAllSelects(document);
   enhanceAllDateInputs(document);
-  ["fPersona","fCartao","fTipo","calPersona","calCartao"].forEach(function(id){
+  ["fPersona","fCartao","fTipo","calPersona","calCartao","calTipo"].forEach(function(id){
     var sel = $(id);
     if (sel) enhanceMultiSelect(sel);
   });
