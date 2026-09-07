@@ -128,6 +128,11 @@
   .brand-title{ display:flex; align-items:center; gap:10px; }
   .brand-icon{ width:30px; height:30px; flex:none; }
   .brand h1{ font-size:28px; }
+  .app-version{
+    font-size:11px; font-weight:700; color:var(--ink-faint); background:var(--paper-raised);
+    border:1px solid var(--line); border-radius:20px; padding:2px 8px; letter-spacing:0.02em;
+    align-self:center;
+  }
 
   /* conn-block sits at the top-right corner of the header: status text, then a single
      "more options" icon (opening Recarregar / Configurações / Sair as a dropdown). */
@@ -347,6 +352,9 @@
   .csel-item:hover{ background:var(--paper); }
   .csel-item.selected{ background:var(--accent-soft); color:var(--accent); font-weight:600; }
   .csel-item.disabled{ color:var(--ink-faint); cursor:not-allowed; }
+  .msel-item{ display:flex; align-items:center; gap:9px; }
+  .msel-item input[type="checkbox"]{ pointer-events:none; flex:none; }
+  .msel-clear{ font-style:italic; color:var(--ink-soft); border-bottom:1px solid var(--line); margin-bottom:2px; }
 
   /* ---------- Restricted "mãe" view ---------- */
   /* Read-only: no add/edit buttons, no per-person breakdown, no bulk/out controls. */
@@ -780,6 +788,7 @@
           <ellipse cx="12.2" cy="9" rx="5.6" ry="3" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
         </svg>
         <h1>Control de Cuentas</h1>
+        <span class="app-version" id="appVersion">v1.0</span>
       </div>
     </div>
     <div class="conn-block">
@@ -1013,9 +1022,9 @@
 
       <div class="filters">
         <input type="text" id="fSearch" placeholder="Buscar por descrição, pessoa, cartão, tipo ou valor…">
-        <select id="fPersona"><option value="">Todas as pessoas</option></select>
-        <select id="fCartao"><option value="">Todos os cartões</option></select>
-        <select id="fTipo"><option value="">Todos os tipos</option></select>
+        <select id="fPersona" class="msel-source"><option value="">Todas as pessoas</option></select>
+        <select id="fCartao" class="msel-source"><option value="">Todos os cartões</option></select>
+        <select id="fTipo" class="msel-source"><option value="">Todos os tipos</option></select>
       </div>
 
       <div class="panel">
@@ -1045,8 +1054,8 @@
       </p>
       <div class="filters">
         <input type="text" id="calSearch" placeholder="Buscar por descrição, pessoa, cartão ou valor…">
-        <select id="calPersona"><option value="">Todas as pessoas</option></select>
-        <select id="calCartao"><option value="">Todos os cartões</option></select>
+        <select id="calPersona" class="msel-source"><option value="">Todas as pessoas</option></select>
+        <select id="calCartao" class="msel-source"><option value="">Todos os cartões</option></select>
       </div>
       <div class="calendar-wrap">
         <table class="calendar" id="calendarTable">
@@ -1983,32 +1992,55 @@
     if (prev && list.indexOf(prev) !== -1) sel.value = prev;
   }
 
+  // Multi-value counterpart of populateSelect(), used by the filter dropdowns that allow
+  // picking more than one value at once (e.g. two pessoas). Selection state lives on the
+  // element itself (sel._mselSet), not on the native <select>.value, since the underlying
+  // <select> is never actually multiple — it only supplies the list of options. Previously
+  // selected values are kept across a repopulate as long as they still exist in the new list.
+  function populateMultiSelect(sel, list, allLabel){
+    var prevSet = sel._mselSet || new Set();
+    var html = '<option value="">'+allLabel+'</option>';
+    for (var i=0;i<list.length;i++) html += '<option value="'+escapeHtml(list[i])+'">'+escapeHtml(list[i])+'</option>';
+    sel.innerHTML = html;
+    var kept = new Set();
+    prevSet.forEach(function(v){ if (list.indexOf(v) !== -1) kept.add(v); });
+    sel._mselSet = kept;
+    if (sel._mselRebuildList) sel._mselRebuildList();
+  }
+  function getMselValues(sel){
+    return sel && sel._mselSet ? Array.prototype.slice.call(sel._mselSet) : [];
+  }
+  function setMselValues(sel, arr){
+    sel._mselSet = new Set(arr || []);
+    if (sel._mselRebuildList) sel._mselRebuildList();
+  }
+
   function refreshDropdowns(){
-    populateSelect($("fPersona"), nomes("pessoas"), "Todas as pessoas", true);
-    populateSelect($("fCartao"), nomes("cartoes"), "Todos os cartões", true);
-    populateSelect($("fTipo"), nomes("tipos"), "Todos os tipos", true);
+    populateMultiSelect($("fPersona"), nomes("pessoas"), "Todas as pessoas");
+    populateMultiSelect($("fCartao"), nomes("cartoes"), "Todos os cartões");
+    populateMultiSelect($("fTipo"), nomes("tipos"), "Todos os tipos");
     populateSelect($("fPessoaSel"), nomes("pessoas"), null, true);
     populateSelect($("fCartaoSel"), nomes("cartoes"), null, true);
     populateSelect($("fTipoSel"), nomes("tipos"), null, true);
     populateSelect($("dPessoaSel"), nomes("pessoas"), null, true);
-    populateSelect($("calPersona"), nomes("pessoas"), "Todas as pessoas", true);
-    populateSelect($("calCartao"), nomes("cartoes"), "Todos os cartões", true);
+    populateMultiSelect($("calPersona"), nomes("pessoas"), "Todas as pessoas");
+    populateMultiSelect($("calCartao"), nomes("cartoes"), "Todos os cartões");
     populateSelect($("subsPersona"), nomes("pessoas"), "Todas as pessoas", true);
     var comerciantes = uniqueValues(state.compras.records.map(function(r){ return r.comerciante; })).sort();
     $("comercianteList").innerHTML = comerciantes.map(function(c){ return '<option value="'+escapeHtml(c)+'">'; }).join("");
     if (READONLY_MAE){
       // Restricted view: always locked to her own person, regardless of what reloads.
-      $("fPersona").value = MAE_PESSOA_NAME;
-      $("calPersona").value = MAE_PESSOA_NAME;
+      setMselValues($("fPersona"), [MAE_PESSOA_NAME]);
+      setMselValues($("calPersona"), [MAE_PESSOA_NAME]);
       $("subsPersona").value = MAE_PESSOA_NAME;
       // And the cartão/tipo filters should only offer values she actually has purchases in —
       // not every card or type that exists for the whole household.
       var maeRecs = state.compras.records.filter(function(r){ return r.pessoa === MAE_PESSOA_NAME; });
       var maeCartoes = uniqueValues(maeRecs.map(function(r){ return r.cartao; }));
       var maeTipos = uniqueValues(maeRecs.map(function(r){ return r.tipo; }));
-      populateSelect($("fCartao"), maeCartoes, "Todos os cartões", true);
-      populateSelect($("fTipo"), maeTipos, "Todos os tipos", true);
-      populateSelect($("calCartao"), maeCartoes, "Todos os cartões", true);
+      populateMultiSelect($("fCartao"), maeCartoes, "Todos os cartões");
+      populateMultiSelect($("fTipo"), maeTipos, "Todos os tipos");
+      populateMultiSelect($("calCartao"), maeCartoes, "Todos os cartões");
     }
   }
 
@@ -2188,15 +2220,15 @@
 
   function renderList(){
     var search = $("fSearch").value.trim().toLowerCase();
-    var fPersona = $("fPersona").value;
-    var fCartao = $("fCartao").value;
-    var fTipo = $("fTipo").value;
+    var fPersona = getMselValues($("fPersona"));
+    var fCartao = getMselValues($("fCartao"));
+    var fTipo = getMselValues($("fTipo"));
     var recs = getMonthFilteredRecords();
 
     var filtered = recs.filter(function(r){
-      if (fPersona && r.pessoa !== fPersona) return false;
-      if (fCartao && r.cartao !== fCartao) return false;
-      if (fTipo && r.tipo !== fTipo) return false;
+      if (fPersona.length && fPersona.indexOf(r.pessoa) === -1) return false;
+      if (fCartao.length && fCartao.indexOf(r.cartao) === -1) return false;
+      if (fTipo.length && fTipo.indexOf(r.tipo) === -1) return false;
       if (!matchesSearch(r, search)) return false;
       return true;
     });
@@ -2324,8 +2356,8 @@
   function renderCalendarioPage(){
     if (!$("calendarBody")) return;
     var refYM = getRefMonth(); // the filtered month, or today if "Todos os meses"
-    var calPersona = $("calPersona").value;
-    var calCartao = $("calCartao").value;
+    var calPersona = getMselValues($("calPersona"));
+    var calCartao = getMselValues($("calCartao"));
     var calSearch = $("calSearch").value.trim().toLowerCase();
 
     // The month range (columns) is always computed from ALL active purchases,
@@ -2355,8 +2387,8 @@
     // Rows/totals reflect only the pessoa/cartão/search-filtered subset — the column
     // range above never changes because of these filters, only which rows appear.
     var decorated = decoratedAll.filter(function(d){
-      if (calPersona && d.rec.pessoa !== calPersona) return false;
-      if (calCartao && d.rec.cartao !== calCartao) return false;
+      if (calPersona.length && calPersona.indexOf(d.rec.pessoa) === -1) return false;
+      if (calCartao.length && calCartao.indexOf(d.rec.cartao) === -1) return false;
       if (!matchesSearch(d.rec, calSearch)) return false;
       return true;
     });
@@ -2698,7 +2730,10 @@
     }
     subs.forEach(function(r){
       var row = document.createElement("div");
-      row.className = "tx-row tx-row-static";
+      // Clickable like the Compras list rows — opens the same edit modal so an assinatura
+      // can be updated (valor, cartão, cancelamento, etc.) right from this list.
+      row.className = "tx-row";
+      row.tabIndex = 0;
       row.style.gridTemplateColumns = "1.6fr 0.9fr 1fr 0.9fr 1fr";
       row.innerHTML =
         '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'</span>'+
@@ -2707,6 +2742,12 @@
         '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
         '<span class="num f-data" data-label="Cancelamento">'+(r.cancelSerial ? serialToDisplay(r.cancelSerial) : "—")+'</span>'+
         '<span class="f-linebreak" aria-hidden="true"></span>';
+      row.addEventListener("click", function(){
+        // The Assinaturas list lives inside the Configurações overlay; close it first so the
+        // edit modal (same overlay layer/z-index) isn't hidden behind it.
+        closeCfgModal();
+        openEditModal(r);
+      });
       listEl.appendChild(row);
     });
   }
@@ -4410,8 +4451,118 @@
     buildList();
   }
 
+  // ---------- Custom multi-selects (filter dropdowns that allow picking more than one value) ----------
+  // Same trigger+popover shell as enhanceSelect() (reuses its CSS via the shared "csel" class,
+  // including the existing "hide the whole widget in mãe-mode" and outside-click-closes logic),
+  // but items toggle on/off instead of replacing each other, the popover stays open across picks,
+  // and the underlying <select> is never actually driven by .value/.selectedIndex — selection
+  // state lives in sel._mselSet (see getMselValues/setMselValues/populateMultiSelect above).
+  function enhanceMultiSelect(sel){
+    if (sel.dataset.mselDone) return;
+    sel.dataset.mselDone = "1";
+    sel._mselSet = sel._mselSet || new Set();
+
+    var wrap = document.createElement("div");
+    wrap.className = "csel msel";
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+    sel.classList.add("csel-native");
+    sel.setAttribute("tabindex", "-1");
+    sel.setAttribute("aria-hidden", "true");
+
+    var trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "csel-trigger";
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.innerHTML = '<span class="csel-label"></span>' +
+      '<svg class="csel-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">' +
+      '<path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    wrap.appendChild(trigger);
+    var labelEl = trigger.querySelector(".csel-label");
+
+    var list = document.createElement("div");
+    list.className = "csel-list";
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-multiselectable", "true");
+    wrap.appendChild(list);
+
+    function allLabelText(){
+      var opt = sel.options[0];
+      return opt ? opt.textContent : "";
+    }
+
+    function syncLabel(){
+      var vals = getMselValues(sel);
+      if (!vals.length) labelEl.textContent = allLabelText();
+      else if (vals.length === 1) labelEl.textContent = vals[0];
+      else labelEl.textContent = vals.length + " selecionadas";
+      Array.prototype.forEach.call(list.querySelectorAll(".msel-item"), function(item){
+        var on = sel._mselSet.has(item.dataset.val);
+        item.classList.toggle("selected", on);
+        var cb = item.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = on;
+      });
+    }
+
+    function buildList(){
+      var html = '<div class="csel-item msel-clear" data-clear="1">' + allLabelText() + '</div>';
+      for (var i=1;i<sel.options.length;i++){
+        var opt = sel.options[i];
+        html += '<div class="csel-item msel-item" role="option" data-val="'+escapeHtml(opt.value)+'">' +
+          '<input type="checkbox" tabindex="-1" aria-hidden="true">' +
+          '<span class="csel-label">'+escapeHtml(opt.textContent)+'</span></div>';
+      }
+      list.innerHTML = html;
+      syncLabel();
+    }
+
+    function closeList(){
+      list.classList.remove("show");
+      trigger.setAttribute("aria-expanded", "false");
+    }
+    function openList(){
+      document.querySelectorAll(".csel-list.show").forEach(function(l){ if (l !== list) l.classList.remove("show"); });
+      list.classList.add("show");
+      trigger.setAttribute("aria-expanded", "true");
+    }
+
+    trigger.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (sel.disabled) return;
+      list.classList.contains("show") ? closeList() : openList();
+    });
+    list.addEventListener("click", function(e){
+      if (e.target.closest(".msel-clear")){
+        sel._mselSet = new Set();
+        syncLabel();
+        sel.dispatchEvent(new Event("input", {bubbles:true}));
+        sel.dispatchEvent(new Event("change", {bubbles:true}));
+        return;
+      }
+      var item = e.target.closest(".msel-item");
+      if (!item) return;
+      var v = item.dataset.val;
+      if (sel._mselSet.has(v)) sel._mselSet.delete(v); else sel._mselSet.add(v);
+      syncLabel();
+      sel.dispatchEvent(new Event("input", {bubbles:true}));
+      sel.dispatchEvent(new Event("change", {bubbles:true}));
+    });
+
+    new MutationObserver(buildList).observe(sel, {childList:true});
+    new MutationObserver(function(){
+      trigger.classList.toggle("disabled", sel.disabled);
+    }).observe(sel, {attributes:true, attributeFilter:["disabled"]});
+
+    sel._mselRebuildList = buildList;
+    buildList();
+  }
+
   function enhanceAllSelects(root){
-    Array.prototype.forEach.call((root || document).querySelectorAll("select"), enhanceSelect);
+    Array.prototype.forEach.call((root || document).querySelectorAll("select"), function(sel){
+      if (sel.classList.contains("msel-source")) return; // enhanced separately as multi-selects
+      enhanceSelect(sel);
+    });
   }
 
   // ---------- Custom date fields ----------
@@ -4590,6 +4741,10 @@
 
   enhanceAllSelects(document);
   enhanceAllDateInputs(document);
+  ["fPersona","fCartao","fTipo","calPersona","calCartao"].forEach(function(id){
+    var sel = $(id);
+    if (sel) enhanceMultiSelect(sel);
+  });
 
   // ---------- Restricted "mãe" view ----------
   if (READONLY_MAE){
