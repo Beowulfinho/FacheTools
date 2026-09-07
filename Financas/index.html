@@ -375,6 +375,7 @@
   html.mae-mode #btnMenuDiario,
   html.mae-mode #btnMenuAssinaturas,
   html.mae-mode #btnImportCsv,
+  html.mae-mode #btnAddAdiantamento,
   html.mae-mode #pageTabs button[data-page="dashboard"],
   html.mae-mode #pageTabs button[data-page="debito"],
   html.mae-mode #pageTabs button[data-page="investimentos"],
@@ -804,7 +805,7 @@
           <ellipse cx="12.2" cy="9" rx="5.6" ry="3" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
         </svg>
         <h1>Control de Cuentas</h1>
-        <span class="app-version" id="appVersion">v1.4</span>
+        <span class="app-version" id="appVersion">v1.5</span>
       </div>
     </div>
     <div class="conn-block">
@@ -920,6 +921,12 @@
         </div>
       </div>
       <div class="summary summary-1col">
+        <div class="sum-card">
+          <span class="k">Reservas / adiantamentos (líquido no mês)</span>
+          <div class="v num" id="dashReservas">R$ 0,00</div>
+        </div>
+      </div>
+      <div class="summary summary-1col">
         <div class="sum-card sum-card-big">
           <span class="k">Balance final</span>
           <div class="v num" id="dashBalanceFinal">R$ 0,00</div>
@@ -935,6 +942,17 @@
           <span class="k">Balance Fachera</span>
           <div class="v num" id="dashBalanceFachera">R$ 0,00</div>
         </div>
+      </div>
+
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head">
+          <h2>Reservas entre meses</h2>
+          <button class="btn btn-sm" id="btnAddReserva" type="button">Nova reserva</button>
+        </div>
+        <div class="list-head-row" style="grid-template-columns:0.5fr 1.2fr 1fr 0.9fr;">
+          <span></span><span>Descrição</span><span>Mês origem → destino</span><span>Valor</span>
+        </div>
+        <div class="tx-list" id="reservasList"></div>
       </div>
     </div>
 
@@ -1031,6 +1049,17 @@
           <div class="panel-head"><h2>Fatura por cartão</h2></div>
           <div class="bar-list" id="compFaturaPorCartao"></div>
         </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:18px;">
+        <div class="panel-head">
+          <h2>Adiantamentos de fatura</h2>
+          <button class="btn btn-sm" id="btnAddAdiantamento" type="button">Novo adiantamento</button>
+        </div>
+        <div class="list-head-row" style="grid-template-columns:0.5fr 1fr 0.9fr 1fr 0.9fr;">
+          <span></span><span>Cartão</span><span>Descrição</span><span>Mês origem → destino</span><span>Valor</span>
+        </div>
+        <div class="tx-list" id="adiantamentosList"></div>
       </div>
 
       <div class="filters">
@@ -1337,6 +1366,90 @@
       <div style="flex:1;"></div>
       <button class="btn" id="debCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="debSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / edit reserva (transferência genérica entre meses) -->
+<div class="overlay" id="reservaOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="reservaModalTitle">Nova reserva</h3>
+      <button class="modal-close" id="reservaClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="rDescricao">Descrição <span class="opt">(opcional)</span></label>
+        <input type="text" id="rDescricao" autocomplete="off" placeholder="Ex.: Sobrou este mês, guardar pro mês que vem">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="rMesOrigem">Mês origem <span class="opt">(perde o valor)</span></label>
+          <input type="month" id="rMesOrigem">
+        </div>
+        <div class="field">
+          <label for="rMesDestino">Mês destino <span class="opt">(recebe o valor)</span></label>
+          <input type="month" id="rMesDestino">
+        </div>
+      </div>
+      <div class="field">
+        <label for="rValor">Valor</label>
+        <div class="amount-wrap">
+          <span class="cur">R$</span>
+          <input type="text" inputmode="decimal" id="rValor" placeholder="0,00">
+        </div>
+      </div>
+      <div class="field-error" id="reservaError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="reservaDelete" type="button" style="display:none;">Excluir</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="reservaCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="reservaSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / edit adiantamento (adelanto contra uma fatura aberta de um cartão) -->
+<div class="overlay" id="adiantamentoOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="adiantamentoModalTitle">Novo adiantamento</h3>
+      <button class="modal-close" id="adiantamentoClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="aCartaoSel">Cartão</label>
+        <select id="aCartaoSel"></select>
+      </div>
+      <div class="field">
+        <label for="aDescricao">Descrição <span class="opt">(opcional)</span></label>
+        <input type="text" id="aDescricao" autocomplete="off" placeholder="Ex.: Adiantamento antes do fechamento">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="aMesOrigem">Mês origem <span class="opt">(paga agora)</span></label>
+          <input type="month" id="aMesOrigem">
+        </div>
+        <div class="field">
+          <label for="aMesDestino">Fatura/mês que abate</label>
+          <input type="month" id="aMesDestino">
+        </div>
+      </div>
+      <div class="field">
+        <label for="aValor">Valor</label>
+        <div class="amount-wrap">
+          <span class="cur">R$</span>
+          <input type="text" inputmode="decimal" id="aValor" placeholder="0,00">
+        </div>
+      </div>
+      <div class="field-error" id="adiantamentoError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="adiantamentoDelete" type="button" style="display:none;">Excluir</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="adiantamentoCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="adiantamentoSave" type="button">Salvar</button>
     </div>
   </div>
 </div>
@@ -1908,6 +2021,10 @@
         return { mes: rec.mes, valor: rec.valor };
       case "antecipacoes":
         return { compra_id: rec.compraRow, mes: rec.mes, indices: rec.indices, valor: rec.valor, out: !!rec.out };
+      case "reservas":
+        return { descricao: rec.descricao || null, valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out };
+      case "adiantamentos":
+        return { descricao: rec.descricao || null, cartao_id: idByName("cartoes", rec.cartao), valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out };
     }
   }
 
@@ -1935,12 +2052,15 @@
       supabaseClient.from("compras").select("*"),
       supabaseClient.from("debito").select("*"),
       supabaseClient.from("diario").select("*"),
-      supabaseClient.from("antecipacoes").select("*")
+      supabaseClient.from("antecipacoes").select("*"),
+      supabaseClient.from("reservas").select("*"),
+      supabaseClient.from("adiantamentos").select("*")
     ]).then(function(results){
       results.forEach(throwIfError);
       var pessoasRows = results[0].data||[], cartoesRows = results[1].data||[], tiposRows = results[2].data||[];
       var comprasRows = results[3].data||[], debitoRows = results[4].data||[], diarioRows = results[5].data||[];
       var antecipacoesRows = results[6].data||[];
+      var reservasRows = results[7].data||[], adiantamentosRows = results[8].data||[];
 
       var pessoaNameById = {}; pessoasRows.forEach(function(r){ pessoaNameById[r.id] = r.nome; });
       var cartaoNameById = {}; cartoesRows.forEach(function(r){ cartaoNameById[r.id] = r.nome; });
@@ -1985,17 +2105,24 @@
         return {row:r.id, compraRow:r.compra_id, mes:r.mes, indices: (r.indices||[]).slice().sort(function(a,b){ return a-b; }), valor: r.valor===null?0:Number(r.valor), out: r.out ? 1 : 0};
       });
 
+      var reservas = reservasRows.map(function(r){
+        return {row:r.id, descricao: r.descricao||"", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0};
+      });
+      var adiantamentos = adiantamentosRows.map(function(r){
+        return {row:r.id, descricao: r.descricao||"", cartao: cartaoNameById[r.cartao_id] || "", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0};
+      });
+
       return {
         fileName: currentUserEmail || "",
         pessoas:{records:pessoas}, cartoes:{records:cartoes}, tipos:{records:tipos},
         compras:{records:compras}, debito:{records:debito}, diario:{records:diario},
-        antecipacoes:{records:antecipacoes}
+        antecipacoes:{records:antecipacoes}, reservas:{records:reservas}, adiantamentos:{records:adiantamentos}
       };
     });
   }
 
   // ---------- App state ----------
-  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]} };
+  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]} };
 
   function showError(msg){
     var b = $("errorBanner");
@@ -2084,6 +2211,7 @@
     populateSelect($("fCartaoSel"), nomes("cartoes"), null, true);
     populateSelect($("fTipoSel"), nomes("tipos"), null, true);
     populateSelect($("dPessoaSel"), nomes("pessoas"), null, true);
+    populateSelect($("aCartaoSel"), nomes("cartoes"), null, true);
     populateMultiSelect($("calPersona"), nomes("pessoas"), "Todas as pessoas");
     populateMultiSelect($("calCartao"), nomes("cartoes"), "Todos os cartões");
     populateMultiSelect($("calTipo"), nomes("tipos"), "Todos os tipos");
@@ -2189,14 +2317,30 @@
     });
     return map;
   }
-  // Which specific installment numbers are still available to anticipate as of the reference
-  // month (today, or the filtered month) — every not-yet-anticipated FUTURE installment (this
-  // month's own installment is already due normally, so it's excluded — anticipating it wouldn't
-  // mean anything). Any subset of these future ones can be picked, not just a contiguous run.
+  // Today's real calendar date as a serial, independent of whatever month is selected in the
+  // month filter — used wherever "is this fatura open right now" must reflect reality, not the
+  // page the user happens to be looking at.
+  function todaySerial(){
+    var d = new Date();
+    return dateInputToSerial(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"));
+  }
+  // The {year,month} of the fatura that's actually open (still accumulating, not yet closed)
+  // for a card RIGHT NOW — same day-vs-fechamento rule as getFaturaStartYM, just applied to
+  // today's date instead of a purchase date.
+  function getCurrentOpenFaturaYM(cartaoNome){
+    return getFaturaStartYM(todaySerial(), cartaoNome);
+  }
+  // Which specific installment numbers are still available to anticipate, as of the fatura
+  // that's actually open right now (never the filtered/viewed month — a real Nubank-style
+  // "anticipar parcela" can only ever apply to a fatura that has already closed) — every
+  // not-yet-anticipated FUTURE installment (the one on the currently open fatura is already
+  // "due" there, not anticipatable; anticipating it wouldn't mean anything). Any subset of
+  // these future ones can be picked, not just a contiguous run.
   function getAntecipacaoAvailability(r, excludeRow){
     var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
     var total = r.parcelas || 1;
-    var idx = monthsBetween(startYM, getRefMonth()) + 1;
+    var openYM = getCurrentOpenFaturaYM(r.cartao);
+    var idx = monthsBetween(startYM, openYM) + 1;
     var currentIdx = Math.max(idx, 1);
     var firstFutureIdx = currentIdx + 1;
     var skippedMap = getAntecipatedIndexMap(r, excludeRow);
@@ -2416,6 +2560,274 @@
       .sort(function(a,b){ return b.total - a.total; });
   }
 
+  // ---------- Reservas (transferência genérica entre meses) e Adiantamentos (adelanto contra a
+  // fatura aberta de um cartão) ----------
+  // A "reserva" simply moves money from one month to another: it's subtracted from mesOrigem's
+  // balance and added back as if it were income in mesDestino — the same net-zero-across-time
+  // shape as Investimento/Retirada de Investimento, but resolved between two fixed months
+  // instead of "whenever withdrawn". Not tied to any card or fatura.
+  function getReservasNetForMonth(monthStr){
+    if (!monthStr) return 0;
+    var net = 0;
+    state.reservas.records.forEach(function(r){
+      if (r.out) return;
+      if (r.mesOrigem === monthStr) net -= (r.valor||0);
+      if (r.mesDestino === monthStr) net += (r.valor||0);
+    });
+    return net;
+  }
+  // An "adiantamento" is money paid early (before a card's fechamento) against a fatura that
+  // hasn't closed yet — real invoices can't have specific parcelas anticipated while still open
+  // (that's what getAntecipacaoAvailability/getCurrentOpenFaturaYM already enforce), but a plain
+  // advance payment against the open total is possible, so it's modeled separately: mesOrigem
+  // loses the value (same as a reserva) and mesDestino's fatura total for that cartão is reduced
+  // by it directly — that already raises "restante" for mesDestino on its own, so it's never
+  // also added as income there (that would double count it).
+  function getAdiantamentosSaidaForMonth(monthStr){
+    if (!monthStr) return 0;
+    var total = 0;
+    state.adiantamentos.records.forEach(function(r){
+      if (r.out) return;
+      if (r.mesOrigem === monthStr) total += (r.valor||0);
+    });
+    return total;
+  }
+  function getAdiantamentosAbatimentoForMonthCartao(monthStr, cartaoNome){
+    if (!monthStr) return 0;
+    var total = 0;
+    state.adiantamentos.records.forEach(function(r){
+      if (r.out) return;
+      if (r.mesDestino !== monthStr) return;
+      if (cartaoNome && r.cartao !== cartaoNome) return;
+      total += (r.valor||0);
+    });
+    return total;
+  }
+  // Subtracts each cartão's own adiantamentos (targeting monthStr) from its bar in the "Fatura
+  // por cartão" breakdown — a cartão with an adiantamento but no purchases that month won't have
+  // a bar to reduce, which is fine: the grand total (renderCompFatura) still reflects it.
+  function applyAdiantamentosToCartaoGroups(groups, monthStr){
+    if (!monthStr) return groups;
+    return groups.map(function(g){
+      var reduced = g.total - getAdiantamentosAbatimentoForMonthCartao(monthStr, g.name);
+      return {name: g.name, total: reduced < 0 ? 0 : reduced};
+    });
+  }
+
+  function formatMesShort(monthStr){
+    if (!monthStr) return "—";
+    var parts = monthStr.split("-");
+    var mi = parseInt(parts[1], 10);
+    return (MONTH_ABBR_PT[mi-1] || "") + "/" + parts[0].slice(2);
+  }
+
+  function renderReservasList(){
+    var listEl = $("reservasList");
+    if (!listEl) return;
+    var sorted = state.reservas.records.slice().sort(function(a,b){ return (b.mesOrigem||"").localeCompare(a.mesOrigem||""); });
+    listEl.innerHTML = "";
+    if (!sorted.length){
+      listEl.innerHTML = '<div class="empty"><span class="big">Nenhuma reserva registrada</span>Use "Nova reserva" para separar dinheiro de um mês para outro.</div>';
+      return;
+    }
+    sorted.forEach(function(r){
+      var row = document.createElement("div");
+      row.className = "tx-row";
+      row.tabIndex = 0;
+      row.style.gridTemplateColumns = "0.5fr 1.2fr 1fr 0.9fr";
+      row.innerHTML =
+        '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao || "Reserva")+'</span>'+
+        '<span data-label="Mês">'+formatMesShort(r.mesOrigem)+' → '+formatMesShort(r.mesDestino)+'</span>'+
+        '<span class="num f-valor">'+fmtBRL(r.valor)+'</span>';
+      var checkbox = row.querySelector(".out-toggle");
+      checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
+      checkbox.addEventListener("change", function(e){
+        e.stopPropagation();
+        var rec = {}; for (var k in r) rec[k] = r[k];
+        rec.out = checkbox.checked ? 0 : 1;
+        saveTableRow("reservas", "update", r.row, rec).then(loadAndRender).catch(function(err){
+          showError("Não foi possível salvar: " + err.message);
+        });
+      });
+      row.addEventListener("click", function(){ openReservaEditModal(r); });
+      listEl.appendChild(row);
+    });
+  }
+
+  function renderAdiantamentosList(){
+    var listEl = $("adiantamentosList");
+    if (!listEl) return;
+    var sorted = state.adiantamentos.records.slice().sort(function(a,b){ return (b.mesOrigem||"").localeCompare(a.mesOrigem||""); });
+    listEl.innerHTML = "";
+    if (!sorted.length){
+      listEl.innerHTML = '<div class="empty"><span class="big">Nenhum adiantamento registrado</span>Use "Novo adiantamento" para pagar parte de uma fatura ainda aberta.</div>';
+      return;
+    }
+    sorted.forEach(function(r){
+      var row = document.createElement("div");
+      row.className = "tx-row";
+      row.tabIndex = 0;
+      row.style.gridTemplateColumns = "0.5fr 1fr 0.9fr 1fr 0.9fr";
+      row.innerHTML =
+        '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
+        '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartao)+'</span>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao || "Adiantamento")+'</span>'+
+        '<span data-label="Mês">'+formatMesShort(r.mesOrigem)+' → '+formatMesShort(r.mesDestino)+'</span>'+
+        '<span class="num f-valor">'+fmtBRL(r.valor)+'</span>';
+      var checkbox = row.querySelector(".out-toggle");
+      checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
+      checkbox.addEventListener("change", function(e){
+        e.stopPropagation();
+        var rec = {}; for (var k in r) rec[k] = r[k];
+        rec.out = checkbox.checked ? 0 : 1;
+        saveTableRow("adiantamentos", "update", r.row, rec).then(loadAndRender).catch(function(err){
+          showError("Não foi possível salvar: " + err.message);
+        });
+      });
+      row.addEventListener("click", function(){ openAdiantamentoEditModal(r); });
+      listEl.appendChild(row);
+    });
+  }
+
+  // ---------- Reserva modal ----------
+  var reservaOverlay = $("reservaOverlay");
+  var editingReservaRow = null;
+  function defaultNextMonthStr(monthStr){
+    var parts = monthStr.split("-");
+    var ym = addMonths({year: parseInt(parts[0],10), month: parseInt(parts[1],10)}, 1);
+    return monthKey(ym);
+  }
+  function openReservaAddModal(){
+    editingReservaRow = null;
+    $("reservaModalTitle").textContent = "Nova reserva";
+    $("reservaDelete").style.display = "none";
+    $("reservaError").style.display = "none";
+    $("rDescricao").value = "";
+    $("rValor").value = "";
+    var curKey = monthKey(getRefMonth());
+    $("rMesOrigem").value = curKey;
+    $("rMesDestino").value = defaultNextMonthStr(curKey);
+    reservaOverlay.classList.add("show");
+  }
+  function openReservaEditModal(r){
+    if (READONLY_MAE) return;
+    editingReservaRow = r.row;
+    $("reservaModalTitle").textContent = "Editar reserva";
+    $("reservaDelete").style.display = "inline-flex";
+    $("reservaError").style.display = "none";
+    $("rDescricao").value = r.descricao || "";
+    $("rValor").value = String(r.valor).replace(".", ",");
+    $("rMesOrigem").value = r.mesOrigem || "";
+    $("rMesDestino").value = r.mesDestino || "";
+    reservaOverlay.classList.add("show");
+  }
+  function closeReservaModal(){ reservaOverlay.classList.remove("show"); }
+  $("btnAddReserva").addEventListener("click", openReservaAddModal);
+  $("reservaClose").addEventListener("click", closeReservaModal);
+  $("reservaCancel").addEventListener("click", closeReservaModal);
+  reservaOverlay.addEventListener("click", function(e){ if (e.target===reservaOverlay) closeReservaModal(); });
+  $("reservaSave").addEventListener("click", function(){
+    var errEl = $("reservaError");
+    var valor = parseAmountInput($("rValor").value);
+    var mesOrigem = $("rMesOrigem").value;
+    var mesDestino = $("rMesDestino").value;
+    if (!isFinite(valor) || valor<=0){ errEl.textContent = "Informe um valor válido maior que zero."; errEl.style.display="block"; return; }
+    if (!mesOrigem || !mesDestino){ errEl.textContent = "Informe o mês origem e o mês destino."; errEl.style.display="block"; return; }
+    errEl.style.display = "none";
+    var rec = {
+      descricao: $("rDescricao").value.trim(),
+      valor: Math.round(valor*100)/100,
+      mesOrigem: mesOrigem,
+      mesDestino: mesDestino,
+      out: editingReservaRow ? (state.reservas.records.filter(function(x){ return x.row===editingReservaRow; })[0]||{}).out||0 : 0
+    };
+    var action = editingReservaRow ? "update" : "insert";
+    saveTableRow("reservas", action, editingReservaRow, rec).then(function(){
+      closeReservaModal();
+      return loadAndRender();
+    }).catch(function(err){
+      errEl.textContent = "Não foi possível salvar: " + err.message;
+      errEl.style.display = "block";
+    });
+  });
+  $("reservaDelete").addEventListener("click", function(){
+    if (!editingReservaRow) return;
+    pendingDelete = {tableKey:"reservas", rowNum: editingReservaRow};
+    closeReservaModal();
+    $("confirmTitle").textContent = "Excluir reserva";
+    $("confirmOverlay").classList.add("show");
+  });
+
+  // ---------- Adiantamento modal ----------
+  var adiantamentoOverlay = $("adiantamentoOverlay");
+  var editingAdiantamentoRow = null;
+  function openAdiantamentoAddModal(){
+    editingAdiantamentoRow = null;
+    $("adiantamentoModalTitle").textContent = "Novo adiantamento";
+    $("adiantamentoDelete").style.display = "none";
+    $("adiantamentoError").style.display = "none";
+    $("aCartaoSel").selectedIndex = 0;
+    $("aDescricao").value = "";
+    $("aValor").value = "";
+    var curKey = monthKey(getRefMonth());
+    $("aMesOrigem").value = curKey;
+    $("aMesDestino").value = curKey;
+    adiantamentoOverlay.classList.add("show");
+  }
+  function openAdiantamentoEditModal(r){
+    if (READONLY_MAE) return;
+    editingAdiantamentoRow = r.row;
+    $("adiantamentoModalTitle").textContent = "Editar adiantamento";
+    $("adiantamentoDelete").style.display = "inline-flex";
+    $("adiantamentoError").style.display = "none";
+    $("aCartaoSel").value = r.cartao;
+    $("aDescricao").value = r.descricao || "";
+    $("aValor").value = String(r.valor).replace(".", ",");
+    $("aMesOrigem").value = r.mesOrigem || "";
+    $("aMesDestino").value = r.mesDestino || "";
+    adiantamentoOverlay.classList.add("show");
+  }
+  function closeAdiantamentoModal(){ adiantamentoOverlay.classList.remove("show"); }
+  $("btnAddAdiantamento").addEventListener("click", openAdiantamentoAddModal);
+  $("adiantamentoClose").addEventListener("click", closeAdiantamentoModal);
+  $("adiantamentoCancel").addEventListener("click", closeAdiantamentoModal);
+  adiantamentoOverlay.addEventListener("click", function(e){ if (e.target===adiantamentoOverlay) closeAdiantamentoModal(); });
+  $("adiantamentoSave").addEventListener("click", function(){
+    var errEl = $("adiantamentoError");
+    var cartao = $("aCartaoSel").value;
+    var valor = parseAmountInput($("aValor").value);
+    var mesOrigem = $("aMesOrigem").value;
+    var mesDestino = $("aMesDestino").value;
+    if (!cartao){ errEl.textContent = "Selecione o cartão."; errEl.style.display="block"; return; }
+    if (!isFinite(valor) || valor<=0){ errEl.textContent = "Informe um valor válido maior que zero."; errEl.style.display="block"; return; }
+    if (!mesOrigem || !mesDestino){ errEl.textContent = "Informe o mês origem e o mês/fatura que abate."; errEl.style.display="block"; return; }
+    errEl.style.display = "none";
+    var rec = {
+      cartao: cartao,
+      descricao: $("aDescricao").value.trim(),
+      valor: Math.round(valor*100)/100,
+      mesOrigem: mesOrigem,
+      mesDestino: mesDestino,
+      out: editingAdiantamentoRow ? (state.adiantamentos.records.filter(function(x){ return x.row===editingAdiantamentoRow; })[0]||{}).out||0 : 0
+    };
+    var action = editingAdiantamentoRow ? "update" : "insert";
+    saveTableRow("adiantamentos", action, editingAdiantamentoRow, rec).then(function(){
+      closeAdiantamentoModal();
+      return loadAndRender();
+    }).catch(function(err){
+      errEl.textContent = "Não foi possível salvar: " + err.message;
+      errEl.style.display = "block";
+    });
+  });
+  $("adiantamentoDelete").addEventListener("click", function(){
+    if (!editingAdiantamentoRow) return;
+    pendingDelete = {tableKey:"adiantamentos", rowNum: editingAdiantamentoRow};
+    closeAdiantamentoModal();
+    $("confirmTitle").textContent = "Excluir adiantamento";
+    $("confirmOverlay").classList.add("show");
+  });
+
   // Compras page KPI: current invoice total (this/filtered month) + breakdown by card.
   // Uses the month-filtered set (not the further search/persona/cartao/tipo-narrowed list),
   // so it always reflects the real invoice, independent of what's being searched for.
@@ -2423,9 +2835,12 @@
     if (!$("compFaturaTotal")) return;
     var total = 0;
     for (var i=0;i<monthRecs.length;i++) total += (monthRecs[i].effectiveValor||0);
+    var refKey = monthKey(filterMonth);
+    var abatimento = getAdiantamentosAbatimentoForMonthCartao(refKey, null);
+    total = Math.max(0, total - abatimento);
     $("compFaturaTotal").textContent = fmtBRL(total);
     renderBarList("compFaturaPorPessoa", groupSum(monthRecs, "pessoa"));
-    renderBarList("compFaturaPorCartao", groupSum(monthRecs, "cartao"));
+    renderBarList("compFaturaPorCartao", applyAdiantamentosToCartaoGroups(groupSum(monthRecs, "cartao"), refKey));
   }
 
   // ---------- Calendário de parcelas: every purchase, month by month, independent of any filter ----------
@@ -2519,10 +2934,16 @@
       });
     });
 
+    // Adiantamentos targeting a given column's month reduce its total directly (they already
+    // paid down part of whatever that month's fatura would otherwise show as due).
+    var colAbatimentos = columns.map(function(ym){ return getAdiantamentosAbatimentoForMonthCartao(monthKey(ym), null); });
+    colTotals = colTotals.map(function(t, idx){ return Math.max(0, t - colAbatimentos[idx]); });
+
     var bodyHtml = '<tr class="totals-row"><td>Total do mês</td>';
     colTotals.forEach(function(t, idx){
       var isRef = (columns[idx].year===refYM.year && columns[idx].month===refYM.month);
-      bodyHtml += '<td class="'+(isRef?"current-month":"")+'">'+(t>0?fmtBRL(t):"—")+'</td>';
+      var title = colAbatimentos[idx] > 0 ? ' title="Já inclui adiantamento(s) de '+fmtBRL(colAbatimentos[idx])+'"' : "";
+      bodyHtml += '<td class="'+(isRef?"current-month":"")+'"'+title+'>'+(t>0?fmtBRL(t):"—")+'</td>';
     });
     bodyHtml += '</tr>';
 
@@ -2794,6 +3215,10 @@
     var recs = getMonthFilteredRecords().filter(function(r){ return !r.out; });
     var total = 0;
     for (var i=0;i<recs.length;i++) total += (recs[i].effectiveValor||0);
+    var refKey = monthKey(filterMonth); // "" for "Todos os meses" — reservas/adiantamentos are
+    // tied to specific real months, so their effect is skipped in that lifetime-aggregate view.
+    var adiantamentosAbatimento = getAdiantamentosAbatimentoForMonthCartao(refKey, null);
+    total = Math.max(0, total - adiantamentosAbatimento);
     $("dashTotal").textContent = fmtBRL(total);
 
     var debRecs = getDebitoMonthFiltered().filter(function(r){ return !r.out; });
@@ -2810,7 +3235,12 @@
     $("dashDiario").textContent = fmtBRL(diario);
     var investimento = getInvestimentoAmount();
     $("dashInvestimento").textContent = fmtBRL(investimento);
-    var restante = balance - total - diario - investimento;
+    // Reservas move money between two months directly; adiantamentos' "saída" side does the
+    // same (their "abatimento" side already raised restante above, via the reduced total, so it
+    // isn't added again here).
+    var reservasNet = getReservasNetForMonth(refKey) - getAdiantamentosSaidaForMonth(refKey);
+    if ($("dashReservas")) $("dashReservas").textContent = fmtBRL(reservasNet);
+    var restante = balance - total - diario - investimento + reservasNet;
 
     var individualAj = 0, individualGab = 0;
     recs.forEach(function(r){
@@ -3476,6 +3906,8 @@
       state.debito = result.debito;
       state.diario = result.diario;
       state.antecipacoes = result.antecipacoes;
+      state.reservas = result.reservas;
+      state.adiantamentos = result.adiantamentos;
       setConnectedUI(true, result.fileName);
       refreshDropdowns();
       renderList();
@@ -3486,6 +3918,8 @@
       renderDebitoPage();
       renderDiarioPage();
       renderInvestimentoPage();
+      renderReservasList();
+      renderAdiantamentosList();
       markLastUpdated();
       if (cfgOverlay.classList.contains("show")) renderCfgLists();
     }).catch(function(err){
@@ -3944,6 +4378,8 @@
       editingDebRow = null;
       antecipEditingRow = null;
       antecipCompraRow = null;
+      editingReservaRow = null;
+      editingAdiantamentoRow = null;
       if (pd.tableKey === "compras") selectedCompras.clear();
       if (pd.tableKey === "debito") selectedDebito.clear();
       return loadAndRender();
