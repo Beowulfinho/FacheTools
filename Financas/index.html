@@ -447,6 +447,17 @@
   }
   .dsel-panel-foot button:hover{ text-decoration:underline; }
 
+  /* Month grid (opened by a .dsel-trigger on an input[type="month"] — same shell as the date
+     popover above, just a 3x4 grid of months instead of a day grid). */
+  .dsel-months{ display:grid; grid-template-columns:repeat(3,1fr); gap:4px; }
+  .dsel-month{
+    display:flex; align-items:center; justify-content:center; height:34px; border-radius:7px;
+    background:none; border:none; font-size:12.5px; color:var(--ink); text-transform:capitalize;
+  }
+  .dsel-month:hover{ background:var(--paper); }
+  .dsel-month.today{ box-shadow:inset 0 0 0 1px var(--line-strong); font-weight:600; }
+  .dsel-month.selected{ background:var(--accent); color:#F4FBF8; font-weight:600; }
+
   /* ---------- Summary ---------- */
   .summary{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px; }
   .sum-card{
@@ -805,7 +816,7 @@
           <ellipse cx="12.2" cy="9" rx="5.6" ry="3" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6"/>
         </svg>
         <h1>Control de Cuentas</h1>
-        <span class="app-version" id="appVersion">v1.5</span>
+        <span class="app-version" id="appVersion">v1.6</span>
       </div>
     </div>
     <div class="conn-block">
@@ -1974,6 +1985,8 @@
     renderDebitoPage();
     renderDiarioPage();
     renderInvestimentoPage();
+    renderReservasList();
+    renderAdiantamentosList();
   }
 
   // ---------- Data layer (Supabase: auth + tables) ----------
@@ -2624,10 +2637,18 @@
   function renderReservasList(){
     var listEl = $("reservasList");
     if (!listEl) return;
-    var sorted = state.reservas.records.slice().sort(function(a,b){ return (b.mesOrigem||"").localeCompare(a.mesOrigem||""); });
+    // Only reservas whose origem or destino is the month currently being viewed make sense to
+    // show here — a reserva from setembro para outubro is irrelevant while looking at novembro.
+    // "Todos os meses" has no single month to match against, so nothing is hidden there.
+    var refKey = monthKey(filterMonth);
+    var all = state.reservas.records;
+    var visible = refKey ? all.filter(function(r){ return r.mesOrigem===refKey || r.mesDestino===refKey; }) : all;
+    var sorted = visible.slice().sort(function(a,b){ return (b.mesOrigem||"").localeCompare(a.mesOrigem||""); });
     listEl.innerHTML = "";
     if (!sorted.length){
-      listEl.innerHTML = '<div class="empty"><span class="big">Nenhuma reserva registrada</span>Use "Nova reserva" para separar dinheiro de um mês para outro.</div>';
+      listEl.innerHTML = all.length
+        ? '<div class="empty"><span class="big">Nenhuma reserva para este mês</span>Mude o mês filtrado ou crie uma nova reserva.</div>'
+        : '<div class="empty"><span class="big">Nenhuma reserva registrada</span>Use "Nova reserva" para separar dinheiro de um mês para outro.</div>';
       return;
     }
     sorted.forEach(function(r){
@@ -2658,10 +2679,17 @@
   function renderAdiantamentosList(){
     var listEl = $("adiantamentosList");
     if (!listEl) return;
-    var sorted = state.adiantamentos.records.slice().sort(function(a,b){ return (b.mesOrigem||"").localeCompare(a.mesOrigem||""); });
+    // Same idea as renderReservasList: only show an adiantamento while the filtered month is
+    // its origem or destino.
+    var refKey = monthKey(filterMonth);
+    var all = state.adiantamentos.records;
+    var visible = refKey ? all.filter(function(r){ return r.mesOrigem===refKey || r.mesDestino===refKey; }) : all;
+    var sorted = visible.slice().sort(function(a,b){ return (b.mesOrigem||"").localeCompare(a.mesOrigem||""); });
     listEl.innerHTML = "";
     if (!sorted.length){
-      listEl.innerHTML = '<div class="empty"><span class="big">Nenhum adiantamento registrado</span>Use "Novo adiantamento" para pagar parte de uma fatura ainda aberta.</div>';
+      listEl.innerHTML = all.length
+        ? '<div class="empty"><span class="big">Nenhum adiantamento para este mês</span>Mude o mês filtrado ou crie um novo adiantamento.</div>'
+        : '<div class="empty"><span class="big">Nenhum adiantamento registrado</span>Use "Novo adiantamento" para pagar parte de uma fatura ainda aberta.</div>';
       return;
     }
     sorted.forEach(function(r){
@@ -5342,6 +5370,135 @@
     Array.prototype.forEach.call((root || document).querySelectorAll('input[type="date"]'), enhanceDateInput);
   }
 
+  // Same shell/pattern as enhanceDateInput, for input[type="month"] fields (reservas/
+  // adiantamentos): trigger shows "Set/2026" (formatMesShort), the popover steps by YEAR and
+  // picks a month from a 12-cell grid instead of a full day calendar.
+  function enhanceMonthInput(input){
+    if (input.dataset.moselDone) return;
+    input.dataset.moselDone = "1";
+
+    var wrap = document.createElement("div");
+    wrap.className = "dsel";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.classList.add("dsel-native");
+    input.setAttribute("tabindex", "-1");
+    input.setAttribute("aria-hidden", "true");
+
+    var trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "dsel-trigger";
+    trigger.setAttribute("aria-haspopup", "dialog");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.innerHTML = '<span class="dsel-value"></span>' +
+      '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">' +
+      '<rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
+      '<path d="M3 9h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    wrap.appendChild(trigger);
+    var valueEl = trigger.querySelector(".dsel-value");
+
+    var panel = document.createElement("div");
+    panel.className = "dsel-panel";
+    panel.innerHTML =
+      '<div class="dsel-panel-head">' +
+        '<button type="button" class="dsel-prev" aria-label="Ano anterior">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>' +
+        '</button>' +
+        '<span class="dsel-panel-label"></span>' +
+        '<button type="button" class="dsel-next" aria-label="Próximo ano">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>' +
+        '</button>' +
+      '</div>' +
+      '<div class="dsel-months"></div>' +
+      '<div class="dsel-panel-foot">' +
+        '<button type="button" class="dsel-today">Este mês</button>' +
+        '<button type="button" class="dsel-clear">Limpar</button>' +
+      '</div>';
+    wrap.appendChild(panel);
+    var labelEl = panel.querySelector(".dsel-panel-label");
+    var monthsEl = panel.querySelector(".dsel-months");
+
+    var today = new Date();
+    var viewYear = today.getFullYear();
+
+    function syncLabel(){
+      var v = input.value;
+      if (v){ valueEl.textContent = formatMesShort(v); valueEl.classList.remove("placeholder"); }
+      else { valueEl.textContent = "mês/aaaa"; valueEl.classList.add("placeholder"); }
+    }
+
+    function renderPanel(){
+      labelEl.textContent = String(viewYear);
+      var selVal = input.value;
+      var todayVal = today.getFullYear() + "-" + String(today.getMonth()+1).padStart(2,"0");
+      var html = "";
+      for (var m=1; m<=12; m++){
+        var val = viewYear + "-" + String(m).padStart(2,"0");
+        var cls = "dsel-month";
+        if (val === todayVal) cls += " today";
+        if (val === selVal) cls += " selected";
+        html += '<button type="button" class="'+cls+'" data-val="'+val+'">'+MONTH_ABBR_PT[m-1]+'</button>';
+      }
+      monthsEl.innerHTML = html;
+    }
+
+    function closePanel(){
+      panel.classList.remove("show");
+      trigger.setAttribute("aria-expanded", "false");
+    }
+    function openPanel(){
+      document.querySelectorAll(".dsel-panel.show").forEach(function(p){ if (p !== panel) p.classList.remove("show"); });
+      document.querySelectorAll(".csel-list.show").forEach(function(l){ l.classList.remove("show"); });
+      var parts = input.value ? input.value.split("-") : null;
+      viewYear = parts ? parseInt(parts[0],10) : today.getFullYear();
+      renderPanel();
+      panel.classList.add("show");
+      trigger.setAttribute("aria-expanded", "true");
+    }
+
+    trigger.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (input.disabled) return;
+      panel.classList.contains("show") ? closePanel() : openPanel();
+    });
+    panel.addEventListener("click", function(e){ e.stopPropagation(); });
+    panel.querySelector(".dsel-prev").addEventListener("click", function(){ viewYear--; renderPanel(); });
+    panel.querySelector(".dsel-next").addEventListener("click", function(){ viewYear++; renderPanel(); });
+    panel.querySelector(".dsel-today").addEventListener("click", function(){
+      input.value = today.getFullYear() + "-" + String(today.getMonth()+1).padStart(2,"0");
+      closePanel();
+    });
+    panel.querySelector(".dsel-clear").addEventListener("click", function(){
+      input.value = "";
+      closePanel();
+    });
+    monthsEl.addEventListener("click", function(e){
+      var btn = e.target.closest(".dsel-month");
+      if (!btn || !btn.dataset.val) return;
+      input.value = btn.dataset.val;
+      closePanel();
+    });
+
+    Object.defineProperty(input, "value", {
+      configurable: true,
+      get: function(){ return DATE_VALUE_DESC.get.call(input); },
+      set: function(v){
+        DATE_VALUE_DESC.set.call(input, v);
+        syncLabel();
+        if (panel.classList.contains("show")) renderPanel();
+      }
+    });
+
+    new MutationObserver(function(){
+      trigger.classList.toggle("disabled", input.disabled);
+    }).observe(input, {attributes:true, attributeFilter:["disabled"]});
+
+    syncLabel();
+  }
+  function enhanceAllMonthInputs(root){
+    Array.prototype.forEach.call((root || document).querySelectorAll('input[type="month"]'), enhanceMonthInput);
+  }
+
   document.addEventListener("click", function(e){
     if (!e.target.closest(".csel")) {
       document.querySelectorAll(".csel-list.show").forEach(function(l){ l.classList.remove("show"); });
@@ -5363,6 +5520,7 @@
 
   enhanceAllSelects(document);
   enhanceAllDateInputs(document);
+  enhanceAllMonthInputs(document);
   ["fPersona","fCartao","fTipo","calPersona","calCartao","calTipo"].forEach(function(id){
     var sel = $(id);
     if (sel) enhanceMultiSelect(sel);
