@@ -1,0 +1,9 @@
+{
+  "appId": "com.fachetools.planes",
+  "appName": "Planes",
+  "webDir": "../Planes",
+  "server": {
+    "url": "https://beowulfinho.github.io/FacheTools/Planes/",
+    "cleartext": false
+  }
+}
