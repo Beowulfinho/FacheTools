@@ -5820,6 +5820,24 @@
         .catch(function(err){ console.warn("Não foi possível registrar o token de notificações:", err.message); });
     });
     PushNotifications.addListener("registrationError", function(err){ console.warn("Push registration error:", err); });
+    // Android only auto-shows a push in the system tray when the app is backgrounded/closed —
+    // while it's open, FCM hands the payload to this listener instead and shows nothing on its
+    // own. Without this, a push sent while the recipient happens to have the app open (e.g.
+    // testing "mandar para mim" from within Configurações) would silently vanish. Re-displaying
+    // it as a local notification makes delivery consistent regardless of app state.
+    PushNotifications.addListener("pushNotificationReceived", function(notification){
+      var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+      if (!LocalNotifications) return;
+      var n = notification.notification || notification;
+      LocalNotifications.schedule({
+        notifications: [{
+          id: Math.floor(Math.random() * 1000000) + 100000,
+          title: (n.title || "Financas"),
+          body: (n.body || ""),
+          schedule: { at: new Date(Date.now() + 500) }
+        }]
+      }).catch(function(){});
+    });
   })();
   function registerPushToken(){
     if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;

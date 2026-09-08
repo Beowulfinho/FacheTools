@@ -114,7 +114,9 @@ Deno.serve(async (req: Request) => {
             body: JSON.stringify({ message: { token: row.token, notification: { title: finalTitle, body } } }),
           },
         );
-        return { token: row.token, ok: res.ok, status: res.status };
+        const responseBody = await res.text();
+        if (!res.ok) console.error("FCM send failed", res.status, responseBody);
+        return { token: row.token, ok: res.ok, status: res.status, fcmResponse: responseBody };
       }),
     );
 
