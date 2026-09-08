@@ -108,7 +108,7 @@
   .wrap{
     max-width:1180px;
     margin:0 auto;
-    padding:28px 24px 80px;
+    padding:calc(28px + env(safe-area-inset-top)) 24px 80px;
   }
 
   /* ---------- Header ---------- */
@@ -679,7 +679,7 @@
   .cfg-section h4{ font-family:"Fraunces", serif; font-size:14.5px; font-weight:600; margin:0; }
   .cfg-hint{ font-size:12px; color:var(--ink-faint); margin:0 0 2px; }
   .cfg-row{ display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
-  .cfg-row.cards{ grid-template-columns:1.1fr 0.65fr 0.65fr 0.8fr auto auto; align-items:end; }
+  .cfg-row.cards{ grid-template-columns:1.1fr 0.65fr 0.65fr 0.8fr auto; align-items:end; }
   .cfg-row.pessoas{ grid-template-columns:1fr auto auto; }
   .cfg-row.pessoas .cfg-check{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); white-space:nowrap; }
   .cfg-row.pessoas .cfg-check input{ width:auto; padding:0; accent-color:var(--accent); }
@@ -694,11 +694,35 @@
     background:none; border:none; color:var(--ink-faint); font-size:16px; padding:4px 6px; border-radius:6px; line-height:1;
   }
   .cfg-del:hover{ background:var(--danger-soft); color:var(--danger); }
-  .cfg-notif{
-    background:none; border:1px solid var(--line-strong); color:var(--ink-soft); font-size:11px;
-    padding:5px 9px; border-radius:7px; white-space:nowrap;
+  /* Cartões accordion — collapsed by default so the list of cards reads as a scannable index of
+     names; expanding one reveals its fields plus its notification settings inline (no separate
+     popup), so editing everything about a card happens in one place. */
+  .cfg-card-block{
+    border:1px solid var(--line); border-radius:10px; margin-bottom:8px; overflow:hidden;
+    background:var(--paper-raised);
   }
-  .cfg-notif:hover{ background:var(--accent-soft); color:var(--accent-ink); border-color:var(--accent); }
+  .cfg-card-header{
+    width:100%; display:flex; align-items:center; justify-content:space-between; gap:8px;
+    background:none; border:none; padding:11px 14px; font-size:14px; font-weight:600;
+    color:var(--ink); text-align:left; cursor:pointer;
+  }
+  .cfg-card-name{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .cfg-card-badge{
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+    color:var(--ink-faint); background:var(--paper); border:1px solid var(--line-strong);
+    border-radius:5px; padding:2px 6px;
+  }
+  .cfg-card-chevron{ color:var(--ink-faint); transition:transform 0.15s ease; flex:0 0 auto; }
+  .cfg-card-block.open .cfg-card-chevron{ transform:rotate(180deg); }
+  .cfg-card-body{ display:none; padding:0 14px 14px; }
+  .cfg-card-block.open .cfg-card-body{ display:block; }
+  .cfg-notif-section{
+    margin-top:12px; padding-top:12px; border-top:1px solid var(--line);
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .cfg-notif-title{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-faint); }
+  .cfg-notif-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .cfg-notif-actions .field-error{ display:inline; }
   /* Labeled field wrapper — used where a row has several unlabeled-looking inputs side by
      side (e.g. Cartões: nome/vencimento/fechamento/limite) so it's always clear which is
      which, even once a placeholder is replaced by a real value. */
@@ -722,7 +746,7 @@
   /* ---------- Responsive (phones) ---------- */
   .tx-scroll{ overflow-x:auto; }
   @media (max-width: 880px){
-    .wrap{ padding:16px 12px calc(76px + env(safe-area-inset-bottom)); }
+    .wrap{ padding:calc(16px + env(safe-area-inset-top)) 12px calc(76px + env(safe-area-inset-bottom)); }
     .brand h1{ font-size:22px; }
     .topbar{ gap:12px; }
     .conn-block{ width:100%; justify-content:flex-end; }
@@ -1422,41 +1446,6 @@
       <div style="flex:1;"></div>
       <button class="btn" id="reservaCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="reservaSave" type="button">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Configure per-card local notification (vencimento reminder) -->
-<div class="overlay" id="cartaoNotifOverlay" style="z-index:60;">
-  <div class="modal">
-    <div class="modal-head">
-      <h3 id="cartaoNotifModalTitle">Notificação</h3>
-      <button class="modal-close" id="cartaoNotifClose" type="button" aria-label="Fechar">✕</button>
-    </div>
-    <div class="modal-body">
-      <label class="cfg-check">
-        <input type="checkbox" id="cnEnabled" checked> Ativar notificação de vencimento
-      </label>
-      <div class="field">
-        <label for="cnDiasAntes">Avisar com quantos dias de antecedência <span class="opt">(além do dia do vencimento, que sempre avisa)</span></label>
-        <input type="number" id="cnDiasAntes" min="0" max="15" value="1">
-      </div>
-      <div class="field">
-        <label for="cnTitulo">Título <span class="opt">(opcional — use {cartão} para o nome do cartão)</span></label>
-        <input type="text" id="cnTitulo" autocomplete="off" placeholder="Fatura vence em breve">
-      </div>
-      <div class="field">
-        <label for="cnMensagem">Mensagem <span class="opt">(opcional — use {cartão} para o nome do cartão)</span></label>
-        <input type="text" id="cnMensagem" autocomplete="off" placeholder="A fatura do cartão {cartão} vence em breve.">
-      </div>
-      <div class="field-error" id="cartaoNotifError"></div>
-      <div class="field-error" id="cartaoNotifSimResult" style="color:var(--accent);"></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="cnSimular" type="button">Simular agora</button>
-      <div style="flex:1;"></div>
-      <button class="btn" id="cartaoNotifCancel" type="button">Cancelar</button>
-      <button class="btn btn-primary" id="cartaoNotifSave" type="button">Salvar</button>
     </div>
   </div>
 </div>
@@ -4182,6 +4171,7 @@
     if (session && session.user){
       currentUserEmail = session.user.email;
       loadAndRender();
+      registerPushToken();
     } else {
       currentUserEmail = null;
       setConnectedUI(false, "");
@@ -5034,6 +5024,10 @@
     return row;
   }
 
+  // Which cartão rows are currently expanded in Configurações — kept outside renderCfgLists so
+  // it survives the loadAndRender() re-render that follows every save (otherwise every edit
+  // would collapse the card the user is actively working in).
+  var expandedCartaoRows = {};
   function renderCfgLists(){
     var pList = $("cfgPessoasList"); pList.innerHTML = "";
     state.pessoas.records.forEach(function(rec){
@@ -5062,36 +5056,76 @@
 
     var cList = $("cfgCartoesList"); cList.innerHTML = "";
     state.cartoes.records.forEach(function(rec){
-      var row = document.createElement("div");
-      row.className = "cfg-row cards";
-      row.innerHTML =
-        '<div class="cfg-field"><span class="cfg-field-label">Cartão</span><input type="text" value="'+escapeHtml(rec.nome)+'" data-f="nome"></div>'+
-        '<div class="cfg-field"><span class="cfg-field-label">Vencimento</span><input type="number" min="1" max="31" value="'+(rec.vencimento===null?"":rec.vencimento)+'" data-f="vencimento"></div>'+
-        '<div class="cfg-field"><span class="cfg-field-label">Fechamento</span><input type="number" min="1" max="31" value="'+(rec.fechamento===null?"":rec.fechamento)+'" data-f="fechamento"></div>'+
-        '<div class="cfg-field"><span class="cfg-field-label">Limite</span><span class="amt"><span class="cur">R$</span><input type="text" inputmode="decimal" value="'+(rec.limite===null?"":String(rec.limite).replace(".", ","))+'" data-f="limite"></span></div>'+
-        '<button class="cfg-notif" type="button" title="Notificação">🔔 Notificação'+(rec.notifEnabled===false?" (off)":"")+'</button>'+
-        '<button class="cfg-del" type="button" title="Excluir" aria-label="Excluir">✕</button>';
+      var isOpen = !!expandedCartaoRows[rec.row];
+      var block = document.createElement("div");
+      block.className = "cfg-card-block" + (isOpen ? " open" : "");
+      block.innerHTML =
+        '<button type="button" class="cfg-card-header">' +
+          '<span class="cfg-card-name">'+escapeHtml(rec.nome)+(rec.notifEnabled===false?' <span class="cfg-card-badge">notificação off</span>':'')+'</span>' +
+          '<span class="cfg-card-chevron">▾</span>' +
+        '</button>' +
+        '<div class="cfg-card-body">' +
+          '<div class="cfg-row cards">' +
+            '<div class="cfg-field"><span class="cfg-field-label">Cartão</span><input type="text" value="'+escapeHtml(rec.nome)+'" data-f="nome"></div>'+
+            '<div class="cfg-field"><span class="cfg-field-label">Vencimento</span><input type="number" min="1" max="31" value="'+(rec.vencimento===null?"":rec.vencimento)+'" data-f="vencimento"></div>'+
+            '<div class="cfg-field"><span class="cfg-field-label">Fechamento</span><input type="number" min="1" max="31" value="'+(rec.fechamento===null?"":rec.fechamento)+'" data-f="fechamento"></div>'+
+            '<div class="cfg-field"><span class="cfg-field-label">Limite</span><span class="amt"><span class="cur">R$</span><input type="text" inputmode="decimal" value="'+(rec.limite===null?"":String(rec.limite).replace(".", ","))+'" data-f="limite"></span></div>'+
+            '<button class="cfg-del" type="button" title="Excluir" aria-label="Excluir">✕</button>'+
+          '</div>' +
+          '<div class="cfg-notif-section">' +
+            '<div class="cfg-notif-title">Notificação de vencimento</div>' +
+            '<label class="cfg-check"><input type="checkbox" data-f="notifEnabled" '+(rec.notifEnabled!==false?"checked":"")+'> Ativar</label>' +
+            '<div class="field"><label>Avisar com quantos dias de antecedência <span class="opt">(além do dia do vencimento, que sempre avisa)</span></label>' +
+              '<input type="number" min="0" max="15" value="'+((rec.notifDiasAntes===null||rec.notifDiasAntes===undefined)?1:rec.notifDiasAntes)+'" data-f="notifDiasAntes"></div>' +
+            '<div class="field"><label>Título <span class="opt">(opcional — use {cartão} para o nome)</span></label>' +
+              '<input type="text" autocomplete="off" placeholder="Fatura vence em breve" value="'+escapeHtml(rec.notifTitle||"")+'" data-f="notifTitle"></div>' +
+            '<div class="field"><label>Mensagem <span class="opt">(opcional — use {cartão} para o nome)</span></label>' +
+              '<input type="text" autocomplete="off" placeholder="A fatura do cartão {cartão} vence em breve." value="'+escapeHtml(rec.notifBody||"")+'" data-f="notifBody"></div>' +
+            '<div class="cfg-notif-actions">' +
+              '<button class="btn" type="button" data-act="simular">Simular agora</button>' +
+              '<span class="field-error" data-role="notif-msg"></span>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      var body = block.querySelector(".cfg-card-body");
       function commit(){
-        var nome = row.querySelector('[data-f="nome"]').value.trim();
-        var venc = parseInt(row.querySelector('[data-f="vencimento"]').value,10);
-        var fech = parseInt(row.querySelector('[data-f="fechamento"]').value,10);
-        var lim = parseAmountInput(row.querySelector('[data-f="limite"]').value);
+        var nome = body.querySelector('[data-f="nome"]').value.trim();
+        var venc = parseInt(body.querySelector('[data-f="vencimento"]').value,10);
+        var fech = parseInt(body.querySelector('[data-f="fechamento"]').value,10);
+        var lim = parseAmountInput(body.querySelector('[data-f="limite"]').value);
+        var dias = parseInt(body.querySelector('[data-f="notifDiasAntes"]').value,10);
         if (!nome) { renderCfgLists(); return; }
         var newRec = {
           nome: nome,
           vencimento: isFinite(venc) ? venc : null,
           fechamento: isFinite(fech) ? fech : null,
           limite: isFinite(lim) ? Math.round(lim*100)/100 : null,
-          notifEnabled: rec.notifEnabled, notifDiasAntes: rec.notifDiasAntes, notifTitle: rec.notifTitle, notifBody: rec.notifBody
+          notifEnabled: body.querySelector('[data-f="notifEnabled"]').checked,
+          notifDiasAntes: isFinite(dias) ? Math.max(0, dias) : 1,
+          notifTitle: body.querySelector('[data-f="notifTitle"]').value.trim(),
+          notifBody: body.querySelector('[data-f="notifBody"]').value.trim()
         };
         saveTableRow("cartoes", "update", rec.row, newRec).then(loadAndRender).catch(function(err){ showError("Não foi possível salvar: "+err.message); });
       }
-      row.querySelectorAll("input").forEach(function(inp){ inp.addEventListener("change", commit); });
-      row.querySelector(".cfg-notif").addEventListener("click", function(){ openCartaoNotifModal(rec); });
-      row.querySelector(".cfg-del").addEventListener("click", function(){
+      body.querySelectorAll("input").forEach(function(inp){ inp.addEventListener("change", commit); });
+      body.querySelector(".cfg-del").addEventListener("click", function(){
         saveTableRow("cartoes", "delete", rec.row, null).then(loadAndRender).catch(function(err){ showError("Não foi possível excluir: "+err.message); });
       });
-      cList.appendChild(row);
+      body.querySelector('[data-act="simular"]').addEventListener("click", function(){
+        var msgEl = body.querySelector('[data-role="notif-msg"]');
+        var draftTitle = body.querySelector('[data-f="notifTitle"]').value.trim();
+        var draftBody = body.querySelector('[data-f="notifBody"]').value.trim();
+        msgEl.textContent = ""; msgEl.style.display = "none";
+        simulateCardNotification(rec, draftTitle, draftBody)
+          .then(function(){ msgEl.textContent = "Notificação de teste enviada — deve aparecer em ~5s."; msgEl.style.color = "var(--accent)"; msgEl.style.display = "inline"; })
+          .catch(function(err){ msgEl.textContent = err.message; msgEl.style.color = "var(--danger)"; msgEl.style.display = "inline"; });
+      });
+      block.querySelector(".cfg-card-header").addEventListener("click", function(){
+        var nowOpen = !block.classList.contains("open");
+        block.classList.toggle("open", nowOpen);
+        if (nowOpen) expandedCartaoRows[rec.row] = true; else delete expandedCartaoRows[rec.row];
+      });
+      cList.appendChild(block);
     });
   }
 
@@ -5121,51 +5155,6 @@
     }).catch(function(err){ showError("Não foi possível adicionar: "+err.message); });
   });
 
-  // ---------- Per-card notification settings modal ----------
-  var cartaoNotifOverlay = $("cartaoNotifOverlay");
-  var editingCartaoNotif = null; // the cartao record currently open in the modal
-  function openCartaoNotifModal(rec){
-    editingCartaoNotif = rec;
-    $("cartaoNotifModalTitle").textContent = "Notificação — " + rec.nome;
-    $("cnEnabled").checked = rec.notifEnabled !== false;
-    $("cnDiasAntes").value = (rec.notifDiasAntes===null || rec.notifDiasAntes===undefined) ? 1 : rec.notifDiasAntes;
-    $("cnTitulo").value = rec.notifTitle || "";
-    $("cnMensagem").value = rec.notifBody || "";
-    var errEl = $("cartaoNotifError"), resEl = $("cartaoNotifSimResult");
-    errEl.textContent = ""; errEl.style.display = "none";
-    resEl.textContent = ""; resEl.style.display = "none";
-    cartaoNotifOverlay.classList.add("show");
-  }
-  function closeCartaoNotifModal(){ cartaoNotifOverlay.classList.remove("show"); editingCartaoNotif = null; }
-  $("cartaoNotifClose").addEventListener("click", closeCartaoNotifModal);
-  $("cartaoNotifCancel").addEventListener("click", closeCartaoNotifModal);
-  cartaoNotifOverlay.addEventListener("click", function(e){ if (e.target===cartaoNotifOverlay) closeCartaoNotifModal(); });
-  $("cnSimular").addEventListener("click", function(){
-    if (!editingCartaoNotif) return;
-    var resEl = $("cartaoNotifSimResult"), errEl = $("cartaoNotifError");
-    errEl.textContent = ""; errEl.style.display = "none";
-    resEl.textContent = ""; resEl.style.display = "none";
-    simulateCardNotification(editingCartaoNotif, $("cnTitulo").value.trim(), $("cnMensagem").value.trim())
-      .then(function(){ resEl.textContent = "Notificação de teste enviada — deve aparecer em ~5s."; resEl.style.display = "block"; })
-      .catch(function(err){ errEl.textContent = err.message; errEl.style.display = "block"; });
-  });
-  $("cartaoNotifSave").addEventListener("click", function(){
-    if (!editingCartaoNotif) return;
-    var rec = editingCartaoNotif;
-    var errEl = $("cartaoNotifError");
-    var dias = parseInt($("cnDiasAntes").value, 10);
-    var newRec = {
-      nome: rec.nome, vencimento: rec.vencimento, fechamento: rec.fechamento, limite: rec.limite,
-      notifEnabled: $("cnEnabled").checked,
-      notifDiasAntes: isFinite(dias) ? Math.max(0, dias) : 1,
-      notifTitle: $("cnTitulo").value.trim(),
-      notifBody: $("cnMensagem").value.trim()
-    };
-    saveTableRow("cartoes", "update", rec.row, newRec).then(function(){
-      closeCartaoNotifModal();
-      return loadAndRender();
-    }).catch(function(err){ errEl.textContent = "Não foi possível salvar: " + err.message; errEl.style.display = "block"; });
-  });
 
   document.addEventListener("keydown", function(e){
     if (e.key !== "Escape") return;
@@ -5173,7 +5162,6 @@
     else if (cfgOverlay.classList.contains("show")) closeCfgModal();
     else if (txOverlay.classList.contains("show")) closeTxModal();
     else if (debOverlay.classList.contains("show")) closeDebModal();
-    else if (cartaoNotifOverlay.classList.contains("show")) closeCartaoNotifModal();
   });
 
   // ---------- Modal body-scroll lock ----------
@@ -5749,6 +5737,35 @@
     StatusBar.setBackgroundColor({ color: "#0E6E5E" }).catch(function(){});
     StatusBar.setStyle({ style: "DARK" }).catch(function(){}); // dark bg -> light (white) status icons
   })();
+
+  // ---------- Push notifications (real-time, cross-device) ----------
+  // Listeners are wired once at startup regardless of login state (cheap, no-op until something
+  // fires); the actual permission request + register() call happens after a successful login
+  // (see registerPushToken(), called from the auth-session branch below) since the resulting
+  // device token is meaningless without a signed-in user to attach it to via device_tokens.
+  (function wirePushNotificationListeners(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var PushNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+    if (!PushNotifications) return;
+    PushNotifications.addListener("registration", function(token){
+      // upsert (not insert) because the same physical device can re-register after a token
+      // rotation or a fresh app install — `token` text is UNIQUE, so this updates the existing
+      // row's user_id/updated_at instead of erroring on a duplicate.
+      supabaseClient.from("device_tokens")
+        .upsert({ token: token.value, platform: "android", updated_at: new Date().toISOString() }, { onConflict: "token" })
+        .then(throwIfError)
+        .catch(function(err){ console.warn("Não foi possível registrar o token de notificações:", err.message); });
+    });
+    PushNotifications.addListener("registrationError", function(err){ console.warn("Push registration error:", err); });
+  })();
+  function registerPushToken(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var PushNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+    if (!PushNotifications) return;
+    PushNotifications.requestPermissions().then(function(perm){
+      if (perm.receive === "granted") PushNotifications.register();
+    }).catch(function(){});
+  }
 
   renderMonthLabel();
   setTimeout(hideSplash, 4000); // safety net: never leave the splash stuck if auth is slow/unreachable

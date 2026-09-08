@@ -1,5 +1,11 @@
 {
   "appId": "com.fachetools.financas",
   "appName": "Financas",
-  "webDir": "../Financas"
+  "webDir": "../Financas",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#0E6E5E"
+    }
+  }
 }
