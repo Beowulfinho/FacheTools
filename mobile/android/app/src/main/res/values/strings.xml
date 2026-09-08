@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Financas</string>
+    <string name="title_activity_main">Financas</string>
+    <string name="package_name">com.fachetools.financas</string>
+    <string name="custom_url_scheme">com.fachetools.financas</string>
+</resources>

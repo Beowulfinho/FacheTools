@@ -679,7 +679,7 @@
   .cfg-section h4{ font-family:"Fraunces", serif; font-size:14.5px; font-weight:600; margin:0; }
   .cfg-hint{ font-size:12px; color:var(--ink-faint); margin:0 0 2px; }
   .cfg-row{ display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
-  .cfg-row.cards{ grid-template-columns:1.1fr 0.65fr 0.65fr 0.8fr auto; align-items:end; }
+  .cfg-row.cards{ grid-template-columns:1.1fr 0.65fr 0.65fr 0.8fr auto auto; align-items:end; }
   .cfg-row.pessoas{ grid-template-columns:1fr auto auto; }
   .cfg-row.pessoas .cfg-check{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); white-space:nowrap; }
   .cfg-row.pessoas .cfg-check input{ width:auto; padding:0; accent-color:var(--accent); }
@@ -694,6 +694,11 @@
     background:none; border:none; color:var(--ink-faint); font-size:16px; padding:4px 6px; border-radius:6px; line-height:1;
   }
   .cfg-del:hover{ background:var(--danger-soft); color:var(--danger); }
+  .cfg-notif{
+    background:none; border:1px solid var(--line-strong); color:var(--ink-soft); font-size:11px;
+    padding:5px 9px; border-radius:7px; white-space:nowrap;
+  }
+  .cfg-notif:hover{ background:var(--accent-soft); color:var(--accent-ink); border-color:var(--accent); }
   /* Labeled field wrapper — used where a row has several unlabeled-looking inputs side by
      side (e.g. Cartões: nome/vencimento/fechamento/limite) so it's always clear which is
      which, even once a placeholder is replaced by a real value. */
@@ -1421,6 +1426,41 @@
   </div>
 </div>
 
+<!-- Configure per-card local notification (vencimento reminder) -->
+<div class="overlay" id="cartaoNotifOverlay" style="z-index:60;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="cartaoNotifModalTitle">Notificação</h3>
+      <button class="modal-close" id="cartaoNotifClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="cfg-check">
+        <input type="checkbox" id="cnEnabled" checked> Ativar notificação de vencimento
+      </label>
+      <div class="field">
+        <label for="cnDiasAntes">Avisar com quantos dias de antecedência <span class="opt">(além do dia do vencimento, que sempre avisa)</span></label>
+        <input type="number" id="cnDiasAntes" min="0" max="15" value="1">
+      </div>
+      <div class="field">
+        <label for="cnTitulo">Título <span class="opt">(opcional — use {cartão} para o nome do cartão)</span></label>
+        <input type="text" id="cnTitulo" autocomplete="off" placeholder="Fatura vence em breve">
+      </div>
+      <div class="field">
+        <label for="cnMensagem">Mensagem <span class="opt">(opcional — use {cartão} para o nome do cartão)</span></label>
+        <input type="text" id="cnMensagem" autocomplete="off" placeholder="A fatura do cartão {cartão} vence em breve.">
+      </div>
+      <div class="field-error" id="cartaoNotifError"></div>
+      <div class="field-error" id="cartaoNotifSimResult" style="color:var(--accent);"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="cnSimular" type="button">Simular agora</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="cartaoNotifCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="cartaoNotifSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add / edit adiantamento (adelanto contra uma fatura aberta de um cartão) -->
 <div class="overlay" id="adiantamentoOverlay">
   <div class="modal">
@@ -2004,7 +2044,13 @@
       case "pessoas":
         return { nome: rec.nome, gera_ingresso: !!rec.geraIngresso };
       case "cartoes":
-        return { nome: rec.nome, vencimento: rec.vencimento, fechamento: rec.fechamento, limite: rec.limite };
+        return {
+          nome: rec.nome, vencimento: rec.vencimento, fechamento: rec.fechamento, limite: rec.limite,
+          notif_enabled: rec.notifEnabled !== false,
+          notif_days_before: (rec.notifDiasAntes===null || rec.notifDiasAntes===undefined) ? 1 : rec.notifDiasAntes,
+          notif_title: rec.notifTitle || null,
+          notif_body: rec.notifBody || null
+        };
       case "tipos":
         return { nome: rec.nome };
       case "compras":
@@ -2080,7 +2126,16 @@
       var tipoNameById = {}; tiposRows.forEach(function(r){ tipoNameById[r.id] = r.nome; });
 
       var pessoas = pessoasRows.map(function(r){ return {row:r.id, nome:r.nome, geraIngresso: !!r.gera_ingresso}; });
-      var cartoes = cartoesRows.map(function(r){ return {row:r.id, nome:r.nome, vencimento:r.vencimento, fechamento:r.fechamento, limite: r.limite===null?null:Number(r.limite)}; });
+      var cartoes = cartoesRows.map(function(r){
+        return {
+          row:r.id, nome:r.nome, vencimento:r.vencimento, fechamento:r.fechamento,
+          limite: r.limite===null?null:Number(r.limite),
+          notifEnabled: r.notif_enabled===false ? false : true,
+          notifDiasAntes: (r.notif_days_before===null || r.notif_days_before===undefined) ? 1 : r.notif_days_before,
+          notifTitle: r.notif_title || "",
+          notifBody: r.notif_body || ""
+        };
+      });
       var tipos = tiposRows.map(function(r){ return {row:r.id, nome:r.nome}; });
 
       var compras = comprasRows.map(function(r){
@@ -3924,6 +3979,98 @@
     });
   });
 
+  // ---------- Native local notifications (Android app shell only) ----------
+  // Only meaningful inside the Capacitor-wrapped app; window.Capacitor doesn't exist when this
+  // same index.html is opened as a plain web page/PWA, so this is a no-op there.
+  var NOTIF_HOUR = 9; // local time-of-day the reminders fire, both "day of" and "1 day before"
+  function clampDayToMonth(year, monthIndex0, day){
+    var lastDay = new Date(Date.UTC(year, monthIndex0 + 1, 0)).getUTCDate();
+    return Math.min(day, lastDay);
+  }
+  function nextVencimentoDate(vencimentoDay){
+    var now = new Date();
+    var y = now.getFullYear(), m = now.getMonth(); // 0-based
+    var candidate = new Date(y, m, clampDayToMonth(y, m, vencimentoDay), NOTIF_HOUR, 0, 0, 0);
+    if (candidate.getTime() < now.getTime()){
+      m += 1;
+      if (m > 11){ m = 0; y += 1; }
+      candidate = new Date(y, m, clampDayToMonth(y, m, vencimentoDay), NOTIF_HOUR, 0, 0, 0);
+    }
+    return candidate;
+  }
+  // A card's notification ids always occupy [baseId, baseId+1] — "vence hoje" and the
+  // configurable "N dias antes" reminder — so re-scheduling overwrites in place (Capacitor
+  // replaces a notification scheduled with an id already pending) instead of stacking duplicates
+  // every time loadAndRender() runs.
+  function cardNotifBaseId(idx){ return 5000 + idx*10; }
+  function fillNotifTemplate(str, cartao){ return String(str).replace(/\{cart[aã]o\}/gi, cartao.nome); }
+  function defaultNotifTitle(daysBefore){ return daysBefore > 0 ? "Fatura vence em breve" : "Fatura vence hoje"; }
+  function defaultNotifBody(cartao, daysBefore){
+    if (daysBefore > 0){
+      return "A fatura do cartão " + cartao.nome + " vence em " + daysBefore + (daysBefore===1 ? " dia" : " dias") + " — confira o valor no app.";
+    }
+    return "A fatura do cartão " + cartao.nome + " vence hoje.";
+  }
+  function scheduleCardDueNotifications(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if (!LocalNotifications) return;
+    LocalNotifications.requestPermissions().then(function(perm){
+      if (perm.display !== "granted") return;
+      var notifications = [];
+      var idsToCancel = [];
+      state.cartoes.records.forEach(function(cartao, idx){
+        var baseId = cardNotifBaseId(idx);
+        var day = cartao.vencimento;
+        if (!day || !isFinite(day) || !cartao.notifEnabled){
+          idsToCancel.push({id: baseId}, {id: baseId+1});
+          return;
+        }
+        var dueAt = nextVencimentoDate(day);
+        var daysBefore = (cartao.notifDiasAntes===null || cartao.notifDiasAntes===undefined) ? 1 : Number(cartao.notifDiasAntes);
+        var title = cartao.notifTitle ? fillNotifTemplate(cartao.notifTitle, cartao) : defaultNotifTitle(0);
+        var body = cartao.notifBody ? fillNotifTemplate(cartao.notifBody, cartao) : defaultNotifBody(cartao, 0);
+        notifications.push({ id: baseId, title: title, body: body, schedule: { at: dueAt } });
+
+        if (daysBefore > 0){
+          var reminderAt = new Date(dueAt.getTime() - daysBefore*24*60*60*1000);
+          if (reminderAt.getTime() > Date.now()){
+            var rTitle = cartao.notifTitle ? fillNotifTemplate(cartao.notifTitle, cartao) : defaultNotifTitle(daysBefore);
+            var rBody = cartao.notifBody ? fillNotifTemplate(cartao.notifBody, cartao) : defaultNotifBody(cartao, daysBefore);
+            notifications.push({ id: baseId+1, title: rTitle, body: rBody, schedule: { at: reminderAt } });
+          } else {
+            idsToCancel.push({id: baseId+1});
+          }
+        } else {
+          idsToCancel.push({id: baseId+1});
+        }
+      });
+      if (idsToCancel.length) LocalNotifications.cancel({ notifications: idsToCancel }).catch(function(){});
+      if (notifications.length) LocalNotifications.schedule({ notifications: notifications });
+    }).catch(function(){ /* native notifications are a nice-to-have, never block the app on this */ });
+  }
+  // Fires one immediate test notification (5s delay, just enough to background the app) using
+  // whatever title/body is currently drafted in the config modal — lets the user preview exact
+  // wording before saving. Does not touch the real scheduled [baseId, baseId+1] notifications.
+  function simulateCardNotification(cartao, title, body){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()){
+      return Promise.reject(new Error("A simulação só funciona no app instalado no celular, não na versão web."));
+    }
+    var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if (!LocalNotifications) return Promise.reject(new Error("Plugin de notificações indisponível."));
+    return LocalNotifications.requestPermissions().then(function(perm){
+      if (perm.display !== "granted") throw new Error("Permissão de notificações negada.");
+      return LocalNotifications.schedule({
+        notifications: [{
+          id: 9999,
+          title: fillNotifTemplate(title || defaultNotifTitle(0), cartao),
+          body: fillNotifTemplate(body || defaultNotifBody(cartao, 0), cartao),
+          schedule: { at: new Date(Date.now() + 5000) }
+        }]
+      });
+    });
+  }
+
   function loadAndRender(_isRetryAfterRefresh){
     clearError();
     return loadEverything().then(function(result){
@@ -3950,6 +4097,7 @@
       renderAdiantamentosList();
       markLastUpdated();
       if (cfgOverlay.classList.contains("show")) renderCfgLists();
+      scheduleCardDueNotifications();
     }).catch(function(err){
       var msg = String((err && err.message) || "");
       // A stale/expired access token — typically hit right after reopening the app once it
@@ -4921,6 +5069,7 @@
         '<div class="cfg-field"><span class="cfg-field-label">Vencimento</span><input type="number" min="1" max="31" value="'+(rec.vencimento===null?"":rec.vencimento)+'" data-f="vencimento"></div>'+
         '<div class="cfg-field"><span class="cfg-field-label">Fechamento</span><input type="number" min="1" max="31" value="'+(rec.fechamento===null?"":rec.fechamento)+'" data-f="fechamento"></div>'+
         '<div class="cfg-field"><span class="cfg-field-label">Limite</span><span class="amt"><span class="cur">R$</span><input type="text" inputmode="decimal" value="'+(rec.limite===null?"":String(rec.limite).replace(".", ","))+'" data-f="limite"></span></div>'+
+        '<button class="cfg-notif" type="button" title="Notificação">🔔 Notificação'+(rec.notifEnabled===false?" (off)":"")+'</button>'+
         '<button class="cfg-del" type="button" title="Excluir" aria-label="Excluir">✕</button>';
       function commit(){
         var nome = row.querySelector('[data-f="nome"]').value.trim();
@@ -4932,11 +5081,13 @@
           nome: nome,
           vencimento: isFinite(venc) ? venc : null,
           fechamento: isFinite(fech) ? fech : null,
-          limite: isFinite(lim) ? Math.round(lim*100)/100 : null
+          limite: isFinite(lim) ? Math.round(lim*100)/100 : null,
+          notifEnabled: rec.notifEnabled, notifDiasAntes: rec.notifDiasAntes, notifTitle: rec.notifTitle, notifBody: rec.notifBody
         };
         saveTableRow("cartoes", "update", rec.row, newRec).then(loadAndRender).catch(function(err){ showError("Não foi possível salvar: "+err.message); });
       }
       row.querySelectorAll("input").forEach(function(inp){ inp.addEventListener("change", commit); });
+      row.querySelector(".cfg-notif").addEventListener("click", function(){ openCartaoNotifModal(rec); });
       row.querySelector(".cfg-del").addEventListener("click", function(){
         saveTableRow("cartoes", "delete", rec.row, null).then(loadAndRender).catch(function(err){ showError("Não foi possível excluir: "+err.message); });
       });
@@ -4970,12 +5121,59 @@
     }).catch(function(err){ showError("Não foi possível adicionar: "+err.message); });
   });
 
+  // ---------- Per-card notification settings modal ----------
+  var cartaoNotifOverlay = $("cartaoNotifOverlay");
+  var editingCartaoNotif = null; // the cartao record currently open in the modal
+  function openCartaoNotifModal(rec){
+    editingCartaoNotif = rec;
+    $("cartaoNotifModalTitle").textContent = "Notificação — " + rec.nome;
+    $("cnEnabled").checked = rec.notifEnabled !== false;
+    $("cnDiasAntes").value = (rec.notifDiasAntes===null || rec.notifDiasAntes===undefined) ? 1 : rec.notifDiasAntes;
+    $("cnTitulo").value = rec.notifTitle || "";
+    $("cnMensagem").value = rec.notifBody || "";
+    var errEl = $("cartaoNotifError"), resEl = $("cartaoNotifSimResult");
+    errEl.textContent = ""; errEl.style.display = "none";
+    resEl.textContent = ""; resEl.style.display = "none";
+    cartaoNotifOverlay.classList.add("show");
+  }
+  function closeCartaoNotifModal(){ cartaoNotifOverlay.classList.remove("show"); editingCartaoNotif = null; }
+  $("cartaoNotifClose").addEventListener("click", closeCartaoNotifModal);
+  $("cartaoNotifCancel").addEventListener("click", closeCartaoNotifModal);
+  cartaoNotifOverlay.addEventListener("click", function(e){ if (e.target===cartaoNotifOverlay) closeCartaoNotifModal(); });
+  $("cnSimular").addEventListener("click", function(){
+    if (!editingCartaoNotif) return;
+    var resEl = $("cartaoNotifSimResult"), errEl = $("cartaoNotifError");
+    errEl.textContent = ""; errEl.style.display = "none";
+    resEl.textContent = ""; resEl.style.display = "none";
+    simulateCardNotification(editingCartaoNotif, $("cnTitulo").value.trim(), $("cnMensagem").value.trim())
+      .then(function(){ resEl.textContent = "Notificação de teste enviada — deve aparecer em ~5s."; resEl.style.display = "block"; })
+      .catch(function(err){ errEl.textContent = err.message; errEl.style.display = "block"; });
+  });
+  $("cartaoNotifSave").addEventListener("click", function(){
+    if (!editingCartaoNotif) return;
+    var rec = editingCartaoNotif;
+    var errEl = $("cartaoNotifError");
+    var dias = parseInt($("cnDiasAntes").value, 10);
+    var newRec = {
+      nome: rec.nome, vencimento: rec.vencimento, fechamento: rec.fechamento, limite: rec.limite,
+      notifEnabled: $("cnEnabled").checked,
+      notifDiasAntes: isFinite(dias) ? Math.max(0, dias) : 1,
+      notifTitle: $("cnTitulo").value.trim(),
+      notifBody: $("cnMensagem").value.trim()
+    };
+    saveTableRow("cartoes", "update", rec.row, newRec).then(function(){
+      closeCartaoNotifModal();
+      return loadAndRender();
+    }).catch(function(err){ errEl.textContent = "Não foi possível salvar: " + err.message; errEl.style.display = "block"; });
+  });
+
   document.addEventListener("keydown", function(e){
     if (e.key !== "Escape") return;
     if (confirmOverlay.classList.contains("show")) closeConfirm();
     else if (cfgOverlay.classList.contains("show")) closeCfgModal();
     else if (txOverlay.classList.contains("show")) closeTxModal();
     else if (debOverlay.classList.contains("show")) closeDebModal();
+    else if (cartaoNotifOverlay.classList.contains("show")) closeCartaoNotifModal();
   });
 
   // ---------- Modal body-scroll lock ----------
@@ -5539,6 +5737,19 @@
   }
 
   // ---------- Init ----------
+  // Android 15+ (API 35) draws the WebView edge-to-edge behind the status bar by default,
+  // regardless of manifest settings — without this the app's own top bar renders underneath
+  // the phone's notification shade. Telling the native StatusBar plugin not to overlay makes it
+  // resize the content view instead, same as before Android 15. No-op outside the native shell.
+  (function configureStatusBar(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var StatusBar = window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar;
+    if (!StatusBar) return;
+    StatusBar.setOverlaysWebView({ overlay: false }).catch(function(){});
+    StatusBar.setBackgroundColor({ color: "#0E6E5E" }).catch(function(){});
+    StatusBar.setStyle({ style: "DARK" }).catch(function(){}); // dark bg -> light (white) status icons
+  })();
+
   renderMonthLabel();
   setTimeout(hideSplash, 4000); // safety net: never leave the splash stuck if auth is slow/unreachable
   supabaseClient.auth.getSession().then(function(res){
