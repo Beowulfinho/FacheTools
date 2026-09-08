@@ -1551,6 +1551,7 @@
         <button data-tab="tipos" type="button">Tipos</button>
         <button data-tab="diario" type="button">Diário</button>
         <button data-tab="assinaturas" type="button">Assinaturas</button>
+        <button data-tab="notificacoes" type="button">Notificações</button>
       </div>
 
       <div class="cfg-pane active" id="cfgPanePessoas">
@@ -1636,6 +1637,25 @@
             <span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor</span><span>Cancelamento</span>
           </div>
           <div class="tx-list" id="subsList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cfg-pane" id="cfgPaneNotificacoes">
+        <div class="panel" style="box-shadow:none; border:1px solid var(--line);">
+          <div class="panel-head"><h2>Mandar mensagem push</h2></div>
+          <p class="cfg-hint" style="padding:0 18px 8px;">Manda uma notificação instantânea para quem mais está no hogar (a outra conta), tipo "faz as contas" ou um lembrete qualquer. Só funciona se ela já abriu o app instalado no celular ao menos uma vez.</p>
+          <div class="field" style="padding:0 18px 10px;">
+            <label for="pushMsgTitulo">Título <span class="opt">(opcional)</span></label>
+            <input type="text" id="pushMsgTitulo" autocomplete="off" placeholder="Mensagem">
+          </div>
+          <div class="field" style="padding:0 18px 10px;">
+            <label for="pushMsgTexto">Mensagem</label>
+            <input type="text" id="pushMsgTexto" autocomplete="off" placeholder="Ex.: Faz as contas de hoje!">
+          </div>
+          <div class="cfg-notif-actions" style="padding:0 18px 18px;">
+            <button class="btn btn-primary" id="pushMsgEnviar" type="button">Enviar</button>
+            <span class="field-error" id="pushMsgResult"></span>
           </div>
         </div>
       </div>
@@ -5002,6 +5022,45 @@
     var btn = e.target.closest("button[data-tab]");
     if (!btn) return;
     switchCfgTab(btn.getAttribute("data-tab"));
+  });
+
+  // ---------- Manual push message (Configurações > Notificações) ----------
+  // Unlike scheduleCardDueNotifications (local, on-device reminders) or the automatic
+  // notify-household trigger (fires on every compra/debito insert), this is an on-demand message
+  // the user types and sends themselves — a nudge like "faz as contas" that isn't tied to any
+  // data change. Calls a dedicated Edge Function rather than reusing notify-household, since this
+  // is invoked directly from the logged-in client (its own Supabase session authenticates the
+  // call) instead of from a database trigger.
+  $("pushMsgEnviar").addEventListener("click", function(){
+    var resEl = $("pushMsgResult");
+    var titulo = $("pushMsgTitulo").value.trim();
+    var texto = $("pushMsgTexto").value.trim();
+    resEl.textContent = ""; resEl.style.display = "none";
+    if (!texto){
+      resEl.textContent = "Escreva uma mensagem antes de enviar.";
+      resEl.style.color = "var(--danger)"; resEl.style.display = "inline";
+      return;
+    }
+    $("pushMsgEnviar").disabled = true;
+    supabaseClient.functions.invoke("send-household-message", { body: { title: titulo, body: texto } })
+      .then(function(res){
+        if (res.error) throw res.error;
+        var sentCount = (res.data && res.data.sent && res.data.sent.length) || 0;
+        if (sentCount === 0){
+          resEl.textContent = "Ninguém do hogar tem notificações ativas no celular ainda.";
+          resEl.style.color = "var(--warn)";
+        } else {
+          resEl.textContent = "Mensagem enviada!";
+          resEl.style.color = "var(--accent)";
+          $("pushMsgTexto").value = "";
+        }
+        resEl.style.display = "inline";
+      })
+      .catch(function(err){
+        resEl.textContent = "Não foi possível enviar: " + (err.message || err);
+        resEl.style.color = "var(--danger)"; resEl.style.display = "inline";
+      })
+      .then(function(){ $("pushMsgEnviar").disabled = false; });
   });
 
   function simpleListRow(tableKey, rec){
