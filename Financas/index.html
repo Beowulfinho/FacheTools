@@ -1439,6 +1439,13 @@
           <input type="text" inputmode="decimal" id="rValor" placeholder="0,00">
         </div>
       </div>
+      <div class="field">
+        <label class="out-check" style="cursor:pointer;">
+          <input type="checkbox" id="rSomaBalance" checked>
+          <span>Soma ao balance quando chegar no mês destino</span>
+        </label>
+        <span class="opt">Marcado: dinheiro livre — volta a contar no saldo do mês destino. Desmarcado: dinheiro já comprometido (ex.: separado pra um presente) — sai do mês origem mas não volta a contar como saldo livre.</span>
+      </div>
       <div class="field-error" id="reservaError"></div>
     </div>
     <div class="modal-foot">
@@ -2093,7 +2100,7 @@
       case "antecipacoes":
         return { compra_id: rec.compraRow, mes: rec.mes, indices: rec.indices, valor: rec.valor, out: !!rec.out };
       case "reservas":
-        return { descricao: rec.descricao || null, valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out };
+        return { descricao: rec.descricao || null, valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out, soma_balance: rec.somaBalance !== false };
       case "adiantamentos":
         return { descricao: rec.descricao || null, cartao_id: idByName("cartoes", rec.cartao), valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out };
     }
@@ -2186,7 +2193,7 @@
       });
 
       var reservas = reservasRows.map(function(r){
-        return {row:r.id, descricao: r.descricao||"", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0};
+        return {row:r.id, descricao: r.descricao||"", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0, somaBalance: r.soma_balance===false ? false : true};
       });
       var adiantamentos = adiantamentosRows.map(function(r){
         return {row:r.id, descricao: r.descricao||"", cartao: cartaoNameById[r.cartao_id] || "", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0};
@@ -2643,16 +2650,19 @@
   // ---------- Reservas (transferência genérica entre meses) e Adiantamentos (adelanto contra a
   // fatura aberta de um cartão) ----------
   // A "reserva" simply moves money from one month to another: it's subtracted from mesOrigem's
-  // balance and added back as if it were income in mesDestino — the same net-zero-across-time
-  // shape as Investimento/Retirada de Investimento, but resolved between two fixed months
-  // instead of "whenever withdrawn". Not tied to any card or fatura.
+  // balance and, if somaBalance is true, added back as if it were income in mesDestino — the same
+  // net-zero-across-time shape as Investimento/Retirada de Investimento, but resolved between two
+  // fixed months instead of "whenever withdrawn". Not tied to any card or fatura.
+  // When somaBalance is false, the reserva represents money already committed to something
+  // specific (e.g. a gift) rather than free cash: it still leaves mesOrigem's balance, but never
+  // comes back as available balance in mesDestino — it's tracked, not counted as spendable.
   function getReservasNetForMonth(monthStr){
     if (!monthStr) return 0;
     var net = 0;
     state.reservas.records.forEach(function(r){
       if (r.out) return;
       if (r.mesOrigem === monthStr) net -= (r.valor||0);
-      if (r.mesDestino === monthStr) net += (r.valor||0);
+      if (r.mesDestino === monthStr && r.somaBalance !== false) net += (r.valor||0);
     });
     return net;
   }
@@ -2725,7 +2735,7 @@
       row.style.gridTemplateColumns = "0.5fr 1.2fr 1fr 0.9fr";
       row.innerHTML =
         '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
-        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao || "Reserva")+'</span>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao || "Reserva")+(r.somaBalance===false?'<span class="tag-auto" title="Dinheiro já comprometido — não soma ao balance no mês destino">comprometido</span>':'')+'</span>'+
         '<span data-label="Mês">'+formatMesShort(r.mesOrigem)+' → '+formatMesShort(r.mesDestino)+'</span>'+
         '<span class="num f-valor">'+fmtBRL(r.valor)+'</span>';
       var checkbox = row.querySelector(".out-toggle");
@@ -2803,6 +2813,7 @@
     var curKey = monthKey(getRefMonth());
     $("rMesOrigem").value = curKey;
     $("rMesDestino").value = defaultNextMonthStr(curKey);
+    $("rSomaBalance").checked = true;
     reservaOverlay.classList.add("show");
   }
   function openReservaEditModal(r){
@@ -2815,6 +2826,7 @@
     $("rValor").value = String(r.valor).replace(".", ",");
     $("rMesOrigem").value = r.mesOrigem || "";
     $("rMesDestino").value = r.mesDestino || "";
+    $("rSomaBalance").checked = r.somaBalance !== false;
     reservaOverlay.classList.add("show");
   }
   function closeReservaModal(){ reservaOverlay.classList.remove("show"); }
@@ -2835,6 +2847,7 @@
       valor: Math.round(valor*100)/100,
       mesOrigem: mesOrigem,
       mesDestino: mesDestino,
+      somaBalance: $("rSomaBalance").checked,
       out: editingReservaRow ? (state.reservas.records.filter(function(x){ return x.row===editingReservaRow; })[0]||{}).out||0 : 0
     };
     var action = editingReservaRow ? "update" : "insert";
