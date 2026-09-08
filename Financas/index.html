@@ -1653,6 +1653,9 @@
             <label for="pushMsgTexto">Mensagem</label>
             <input type="text" id="pushMsgTexto" autocomplete="off" placeholder="Ex.: Faz as contas de hoje!">
           </div>
+          <label class="cfg-check" style="padding:0 18px 10px; display:block;">
+            <input type="checkbox" id="pushMsgIncludeSelf"> Também mandar para mim (testar como fica)
+          </label>
           <div class="cfg-notif-actions" style="padding:0 18px 18px;">
             <button class="btn btn-primary" id="pushMsgEnviar" type="button">Enviar</button>
             <span class="field-error" id="pushMsgResult"></span>
@@ -4996,7 +4999,7 @@
     $("cfgTabs").querySelectorAll("button[data-tab]").forEach(function(b){
       b.classList.toggle("active", b.getAttribute("data-tab") === tab);
     });
-    ["pessoas","cartoes","tipos","diario","assinaturas"].forEach(function(t){
+    ["pessoas","cartoes","tipos","diario","assinaturas","notificacoes"].forEach(function(t){
       $("cfgPane"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active", t===tab);
     });
     if (tab === "diario") renderDiarioPage();
@@ -5042,7 +5045,8 @@
       return;
     }
     $("pushMsgEnviar").disabled = true;
-    supabaseClient.functions.invoke("send-household-message", { body: { title: titulo, body: texto } })
+    var includeSelf = $("pushMsgIncludeSelf").checked;
+    supabaseClient.functions.invoke("send-household-message", { body: { title: titulo, body: texto, includeSelf: includeSelf } })
       .then(function(res){
         if (res.error) throw res.error;
         var sentCount = (res.data && res.data.sent && res.data.sent.length) || 0;

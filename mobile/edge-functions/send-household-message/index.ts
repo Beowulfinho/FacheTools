@@ -35,7 +35,7 @@ Deno.serve(async (req: Request) => {
     }
     const actorUserId = userData.user.id;
 
-    const { title, body } = await req.json();
+    const { title, body, includeSelf } = await req.json();
     if (!body || typeof body !== "string") {
       return new Response(JSON.stringify({ error: "body (message text) is required" }), { status: 400 });
     }
@@ -55,15 +55,16 @@ Deno.serve(async (req: Request) => {
       .select("user_id")
       .eq("household_id", myMembership.household_id)
       .neq("user_id", actorUserId);
-    const otherUserIds = (otherMembers || []).map((m) => m.user_id as string);
-    if (otherUserIds.length === 0) {
+    const targetUserIds = (otherMembers || []).map((m) => m.user_id as string);
+    if (includeSelf) targetUserIds.push(actorUserId);
+    if (targetUserIds.length === 0) {
       return new Response(JSON.stringify({ sent: [], skipped: "no other household members" }), { status: 200 });
     }
 
     const { data: tokens } = await admin
       .from("device_tokens")
       .select("token")
-      .in("user_id", otherUserIds);
+      .in("user_id", targetUserIds);
     if (!tokens || tokens.length === 0) {
       return new Response(JSON.stringify({ sent: [], skipped: "no device tokens for other members" }), { status: 200 });
     }
