@@ -64,7 +64,7 @@
   button:focus-visible, input:focus-visible, select:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
   button{ cursor:pointer; }
 
-  .wrap{ max-width:1080px; margin:0 auto; padding:26px 20px 70px; }
+  .wrap{ max-width:1080px; margin:0 auto; padding:calc(26px + env(safe-area-inset-top, 0px)) 20px 70px; }
 
   /* ---------- Header / trip info ---------- */
   .topbar{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
@@ -2722,6 +2722,19 @@
   });
   ["fPasHora","fAtvHora"].forEach(function(id){ enhanceTimeInput($(id)); });
   applyModeUI();
+
+  // Android 15+ (API 35) draws the WebView edge-to-edge behind the status bar by default,
+  // regardless of manifest settings — without this the app's own top bar renders underneath
+  // the phone's notification shade. Telling the native StatusBar plugin not to overlay makes it
+  // resize the content view instead, same as before Android 15. No-op outside the native shell.
+  (function configureStatusBar(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var StatusBar = window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar;
+    if (!StatusBar) return;
+    StatusBar.setOverlaysWebView({ overlay: false }).catch(function(){});
+    StatusBar.setBackgroundColor({ color: "#B5541F" }).catch(function(){});
+    StatusBar.setStyle({ style: "DARK" }).catch(function(){}); // dark bg -> light (white) status icons
+  })();
 })();
 </script>
 </body>
