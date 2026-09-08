@@ -14,11 +14,33 @@ import { GoogleAuth } from "npm:google-auth-library@9";
 
 const FCM_PROJECT_ID = "financas-fachetools";
 
+// Called straight from the app's webview (a different origin than the Supabase project), so the
+// browser sends a CORS preflight OPTIONS request before the real POST — without these headers on
+// *every* response (not just the preflight) the browser blocks the actual call outright,
+// surfacing to supabase-js as a generic "Failed to send a request to the Edge Function" with no
+// useful status code. notify-household doesn't need this since a pg_net trigger calls it
+// server-side, never through a browser.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "missing Authorization header" }), { status: 401 });
+      return json({ error: "missing Authorization header" }, 401);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -31,13 +53,13 @@ Deno.serve(async (req: Request) => {
     });
     const { data: userData, error: userErr } = await callerClient.auth.getUser();
     if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "invalid session" }), { status: 401 });
+      return json({ error: "invalid session" }, 401);
     }
     const actorUserId = userData.user.id;
 
     const { title, body, includeSelf } = await req.json();
     if (!body || typeof body !== "string") {
-      return new Response(JSON.stringify({ error: "body (message text) is required" }), { status: 400 });
+      return json({ error: "body (message text) is required" }, 400);
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
@@ -48,7 +70,7 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", actorUserId)
       .maybeSingle();
     if (!myMembership) {
-      return new Response(JSON.stringify({ sent: [], skipped: "actor has no household" }), { status: 200 });
+      return json({ sent: [], skipped: "actor has no household" });
     }
     const { data: otherMembers } = await admin
       .from("household_members")
@@ -58,7 +80,7 @@ Deno.serve(async (req: Request) => {
     const targetUserIds = (otherMembers || []).map((m) => m.user_id as string);
     if (includeSelf) targetUserIds.push(actorUserId);
     if (targetUserIds.length === 0) {
-      return new Response(JSON.stringify({ sent: [], skipped: "no other household members" }), { status: 200 });
+      return json({ sent: [], skipped: "no other household members" });
     }
 
     const { data: tokens } = await admin
@@ -66,12 +88,12 @@ Deno.serve(async (req: Request) => {
       .select("token")
       .in("user_id", targetUserIds);
     if (!tokens || tokens.length === 0) {
-      return new Response(JSON.stringify({ sent: [], skipped: "no device tokens for other members" }), { status: 200 });
+      return json({ sent: [], skipped: "no device tokens for other members" });
     }
 
     const serviceAccountJson = Deno.env.get("FCM_SERVICE_ACCOUNT");
     if (!serviceAccountJson) {
-      return new Response(JSON.stringify({ error: "FCM_SERVICE_ACCOUNT secret not set" }), { status: 500 });
+      return json({ error: "FCM_SERVICE_ACCOUNT secret not set" }, 500);
     }
     const serviceAccount = JSON.parse(serviceAccountJson);
     const auth = new GoogleAuth({
@@ -96,10 +118,8 @@ Deno.serve(async (req: Request) => {
       }),
     );
 
-    return new Response(JSON.stringify({ sent: results }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return json({ sent: results });
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return json({ error: String(err) }, 500);
   }
 });
