@@ -36,20 +36,30 @@ touches only one of them — know which before you start.
    already loaded in `<head>`. Don't introduce a build step or split the file apart unless
    explicitly asked — the whole point of this app is that it's a single file you can re-upload
    anywhere.
-2. **Test before committing.** Open the file directly in a browser
-   (`file:///C:/Users/andre/Documents/GitHub/FacheTools/Financas/index.html`) — the Supabase calls
-   work fine from a `file://` origin since they're plain HTTPS requests to a different domain. Log
-   in with a real account and exercise the actual page/flow you changed. Check the browser console
-   for errors. This app has no automated test suite, so manual verification in-browser is the only
-   safety net — don't skip it, especially for anything touching the installment/fatura math (see
-   financas-app-context) where a subtle bug silently misattributes money instead of crashing.
-3. **Commit locally** with a real, descriptive message (the existing history is mostly generic
+2. **Commit locally** with a real, descriptive message (the existing history is mostly generic
    "Add files via upload" from the GitHub web UI — no need to match that; write what actually
    changed).
-4. **Push only with explicit go-ahead.** Pushing updates what's live for anyone using the app, so
+3. **Push only with explicit go-ahead.** Pushing updates what's live for anyone using the app, so
    confirm with the user before `git push` even if they already asked for the change — show what's
    about to go out (`git diff`/`git status` summary) and wait for a clear yes, unless they've
    already told you to push straight through for this session.
+4. **Verify against the live published URL, not a local `file://` path.** Once pushed, test in a
+   normal Claude Browser tab at `https://beowulfinho.github.io/FacheTools/Financas/` (or
+   `.../Planes/`, `.../Tareas/`) — not `file:///C:/Users/andre/.../index.html`. A `file://` path
+   opens as a pinned "local preview" tab that can't be navigated away from and doesn't reliably keep
+   the Supabase login session across reloads/edits, so the user ends up re-entering credentials
+   constantly. The live URL is a normal tab whose session survives `location.reload()`, and since
+   Financas/Planes/Tareas share one origin (`beowulfinho.github.io`), logging in once on any of the
+   three keeps the others logged in too — reuse the same tab across a whole session rather than
+   opening a new one each time. GitHub Pages takes roughly ~30–60s to rebuild after a push; poll
+   `gh api repos/Beowulfinho/FacheTools/pages/builds/latest --jq .status` until it reports `"built"`
+   rather than guessing a fixed wait, then reload the tab and exercise the actual page/flow you
+   changed. Check the browser console for errors. This app has no automated test suite, so manual
+   verification in-browser is the only safety net — don't skip it, especially for anything touching
+   the installment/fatura math (see financas-app-context) where a subtle bug silently misattributes
+   money instead of crashing. (A local `file://` open is still fine for a quick visual-only check
+   that doesn't need a logged-in session, e.g. confirming a login screen redesign renders, or for
+   checking something before it's pushed.)
 
 ## Supabase backend changes
 
@@ -83,6 +93,6 @@ user to click through the dashboard.
 |---|---|
 | "Add a column / new table / change a policy" | `apply_migration`, then `get_advisors` |
 | "Why does X show the wrong number" | Read the relevant function in `index.html` per financas-app-context, reproduce with `execute_sql` SELECTs before touching code |
-| "Fix a typo / UI tweak / add a field to the form" | Edit `index.html`, test in-browser, commit, confirm before push |
+| "Fix a typo / UI tweak / add a field to the form" | Edit `index.html`, commit, confirm before push, then verify on the live URL (not `file://`) |
 | "Push what we've got" | Confirm scope of the diff, then push |
 | "Delete/correct some rows" | Show the affected rows via SELECT first, confirm, then run it |
