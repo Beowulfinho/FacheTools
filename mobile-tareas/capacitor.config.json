@@ -1,0 +1,9 @@
+{
+  "appId": "com.fachetools.tareas",
+  "appName": "Tareas",
+  "webDir": "../Tareas",
+  "server": {
+    "url": "https://beowulfinho.github.io/FacheTools/Tareas/",
+    "cleartext": false
+  }
+}
