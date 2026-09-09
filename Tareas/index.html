@@ -485,6 +485,58 @@
   .dsel-panel-foot { display: flex; justify-content: space-between; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
   .dsel-panel-foot button { border: none; background: none; color: var(--accent); font-size: 12.5px; font-weight: 700; padding: 4px 6px; cursor: pointer; font-family: 'IBM Plex Sans', sans-serif; }
 
+  .msel-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .msel-month {
+    border: 1px solid var(--line); background: var(--paper); border-radius: 8px; padding: 10px 0;
+    font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; color: var(--ink); cursor: pointer;
+  }
+  .msel-month:hover { border-color: var(--accent); }
+  .msel-month.selected { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+
+  .qsel-options { display: flex; gap: 8px; }
+  .qsel-opt {
+    flex: 1; border: 1px solid var(--line); background: var(--paper); border-radius: 8px; padding: 12px 8px;
+    font-size: 12.5px; font-weight: 600; color: var(--ink); cursor: pointer; text-align: center; font-family: 'IBM Plex Sans', sans-serif;
+  }
+  .qsel-opt:hover { border-color: var(--accent); }
+  .qsel-opt.selected { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .qsel-range { font-weight: 400; font-size: 11px; opacity: 0.8; }
+
+  /* ---------- Vincular con pendencia de Planes ---------- */
+  .pendencia-link-btn {
+    display: block; width: 100%; text-align: left; padding: 9px 11px; border-radius: 7px;
+    border: 1px dashed var(--line); background: var(--paper); color: var(--ink-soft);
+    font-size: 13px; font-family: 'IBM Plex Sans', sans-serif; cursor: pointer;
+  }
+  .pendencia-link-btn:hover { border-color: var(--accent); color: var(--ink); }
+  .pendencia-link-btn.linked { border-style: solid; border-color: var(--accent); color: var(--ink); background: var(--accent-soft); }
+  .pendencia-link-btn .unlink-x { float: right; color: var(--critical); font-weight: 700; }
+
+  /* ---------- Modales (overlay) ---------- */
+  .overlay {
+    display: none; position: fixed; inset: 0; background: rgba(20, 20, 20, 0.45); align-items: flex-start;
+    justify-content: center; padding: 8vh 16px; z-index: 150; overflow-y: auto;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--paper-raised); border-radius: 14px; width: 100%; max-width: 460px; box-shadow: var(--shadow); overflow: hidden;
+  }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .modal-head h3 { font-family: 'Archivo', sans-serif; font-size: 16px; margin: 0; color: var(--ink); }
+  .modal-close { background: none; border: none; font-size: 18px; color: var(--ink-faint); padding: 4px; cursor: pointer; }
+  .modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .modal-body input[type="text"] { width: 100%; }
+  .modal-foot { display: flex; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--line); }
+  .item-row { padding: 10px 6px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; }
+  .item-row:last-child { border-bottom: none; }
+  .item-row:hover { background: var(--paper-2); }
+  .item-row .row-title { font-weight: 600; color: var(--ink); }
+  .item-row .row-meta { color: var(--ink-faint); font-size: 11.5px; display: block; margin-top: 2px; }
+
+  /* ---------- Íconos por tipo de tarea ---------- */
+  .type-icon { display: inline-flex; width: 11px; height: 11px; vertical-align: -1px; margin-right: 3px; }
+  .type-icon svg { width: 100%; height: 100%; }
+
   .task-notes {
     margin-top: 6px;
     font-size: 13px;
@@ -820,19 +872,15 @@
           </div>
           <input type="hidden" id="type-input" value="puntual">
         </div>
-        <div class="chip-field due-field">
-          <span class="chip-field-label due-field-label">Fecha límite</span>
-          <input type="date" id="due-input">
-        </div>
         <div class="chip-field recurrence-field" style="display:none;">
           <span class="chip-field-label">Repetir</span>
           <div class="chip-group recurrence-type-chips">
-            <button type="button" class="chip chip-btn neutral active" data-value="semanal">Semanal</button>
+            <button type="button" class="chip chip-btn neutral" data-value="semanal">Semanal</button>
             <button type="button" class="chip chip-btn neutral" data-value="quincenal">Cada 15 días</button>
             <button type="button" class="chip chip-btn neutral" data-value="mensual">Mensual</button>
           </div>
-          <input type="hidden" id="recurrence-type-input" class="recurrence-type-input" value="semanal">
-          <div class="chip-group recurrence-weekday-chips">
+          <input type="hidden" id="recurrence-type-input" class="recurrence-type-input" value="">
+          <div class="chip-group recurrence-weekday-chips" style="display:none;">
             <button type="button" class="chip chip-btn neutral wd-btn" data-value="0">D</button>
             <button type="button" class="chip chip-btn neutral wd-btn" data-value="1">L</button>
             <button type="button" class="chip chip-btn neutral wd-btn" data-value="2">M</button>
@@ -842,6 +890,16 @@
             <button type="button" class="chip chip-btn neutral wd-btn" data-value="6">S</button>
           </div>
           <input type="hidden" id="recurrence-weekdays-input" value="">
+        </div>
+        <div class="chip-field due-field" style="display:none;">
+          <span class="chip-field-label due-field-label">Fecha límite</span>
+          <input type="date" id="due-input">
+          <div id="due-input-extra"></div>
+        </div>
+        <div class="chip-field">
+          <span class="chip-field-label">Planes</span>
+          <button type="button" class="pendencia-link-btn" id="pendencia-link-btn">🔗 Vincular con una pendencia de Planes</button>
+          <input type="hidden" id="planes-pendencia-input" value="">
         </div>
         <textarea id="notes-input" placeholder="Notas (opcional)"></textarea>
       </div>
@@ -865,12 +923,47 @@
   </div>
 </div>
 
+<div class="overlay" id="confirmOverlay">
+  <div class="modal" style="max-width:340px;">
+    <div class="modal-head"><h3 id="confirmTitle">Confirmar</h3></div>
+    <div class="modal-body"><p id="confirmMessage" style="margin:0; font-size:14px; color:var(--ink-soft);"></p></div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="confirmCancelBtn" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="confirmOkBtn" type="button" style="background:var(--critical); border-color:var(--critical);">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="pendenciaOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3>Vincular con pendencia de Planes</h3><button class="modal-close" id="pendenciaClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <input type="text" id="pendenciaSearch" placeholder="Buscar pendencia...">
+      <div class="field-error" id="pendenciaError"></div>
+      <div id="pendenciaList" style="max-height:320px; overflow:auto;"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="pendenciaCloseFoot" type="button">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   function $(id){ return document.getElementById(id); }
 
   var PRIORITY_LABEL = { baja: 'Baja', media: 'Media', alta: 'Alta' };
   var TYPE_LABEL = { recurrente: 'Recurrente', puntual: 'Puntual', seguimiento: 'Seguimiento' };
+  var TYPE_ICON = {
+    recurrente: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>',
+    puntual: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>',
+    seguimiento: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  };
+  function typeChipInnerHtml(type) {
+    return '<span class="type-icon">' + (TYPE_ICON[type] || '') + '</span>' + (TYPE_LABEL[type] || type);
+  }
   var TABS = [
     { id: 'todas', label: 'Todas' },
     { id: 'pendiente', label: 'Pendientes' },
@@ -1005,6 +1098,18 @@
   }
 
   // ---------- Visibility rules: seguimiento has no date, recurrente has a start date + repeat rule ----------
+  function applyRecurrenceDateWidget(scope, recurrenceType) {
+    var dselWrap = scope.querySelector('.due-field .dsel');
+    var mselWrap = scope.querySelector('.due-field .msel:not(.qsel)');
+    var qselWrap = scope.querySelector('.due-field .qsel');
+    var weekdayGroup = scope.querySelector('.recurrence-weekday-chips');
+    if (dselWrap) dselWrap.style.display = (!recurrenceType || recurrenceType === 'semanal') ? '' : 'none';
+    if (mselWrap) mselWrap.style.display = recurrenceType === 'mensual' ? '' : 'none';
+    if (qselWrap) qselWrap.style.display = recurrenceType === 'quincenal' ? '' : 'none';
+    if (weekdayGroup) weekdayGroup.style.display = (recurrenceType === 'semanal') ? '' : 'none';
+  }
+  // La fecha de inicio de una tarea recurrente solo se muestra una vez elegido el modo de
+  // repetición (y con el selector adecuado a esa granularidad: día exacto / quincena / mes).
   function applyTypeVisibility(scope, type) {
     var dueField = scope.querySelector('.due-field');
     var dueLabel = scope.querySelector('.due-field-label');
@@ -1014,21 +1119,22 @@
       dueField.style.display = 'none';
       recField.style.display = 'none';
     } else if (type === 'recurrente') {
-      dueField.style.display = '';
-      if (dueLabel) dueLabel.textContent = 'Fecha de inicio';
       recField.style.display = '';
-      applyRecurrenceVisibility(scope);
+      var recTypeInput = scope.querySelector('.recurrence-type-input');
+      var recType = recTypeInput ? recTypeInput.value : '';
+      if (recType) {
+        dueField.style.display = '';
+        if (dueLabel) dueLabel.textContent = 'Fecha de inicio';
+        applyRecurrenceDateWidget(scope, recType);
+      } else {
+        dueField.style.display = 'none';
+      }
     } else {
       dueField.style.display = '';
       if (dueLabel) dueLabel.textContent = 'Fecha límite';
       recField.style.display = 'none';
+      applyRecurrenceDateWidget(scope, null);
     }
-  }
-  function applyRecurrenceVisibility(scope) {
-    var recTypeInput = scope.querySelector('.recurrence-type-input');
-    var weekdayGroup = scope.querySelector('.recurrence-weekday-chips');
-    if (!recTypeInput || !weekdayGroup) return;
-    weekdayGroup.style.display = recTypeInput.value === 'semanal' ? '' : 'none';
   }
 
   // ---------- Filtro por período (semana/mes) ----------
@@ -1056,47 +1162,49 @@
     }
     return null;
   }
-  function recurrenceOccursInRange(t, rangeStart, rangeEnd) {
-    if (!t.dueDate || t.dueDate > rangeEnd) return false;
+  // Fechas (ISO) en las que cae una tarea dentro de [rangeStart, rangeEnd] — para tareas puntuales
+  // es su propia fecha (si cae en el rango); para recurrentes, expande la regla de repetición.
+  function occurrenceDatesInRange(t, rangeStart, rangeEnd) {
+    if (t.type !== 'recurrente') {
+      return (t.dueDate && t.dueDate >= rangeStart && t.dueDate <= rangeEnd) ? [t.dueDate] : [];
+    }
+    if (!t.dueDate || t.dueDate > rangeEnd) return [];
     var freq = t.recurrenceType || 'semanal';
     var start = parseIsoDate(t.dueDate);
     var rs = parseIsoDate(rangeStart), re = parseIsoDate(rangeEnd);
+    var dates = [];
     if (freq === 'mensual') {
       var day = start.getDate();
       var cur = new Date(rs.getFullYear(), rs.getMonth(), 1);
       while (cur <= re) {
         var daysInMonth = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
         var occ = new Date(cur.getFullYear(), cur.getMonth(), Math.min(day, daysInMonth));
-        if (occ >= start && occ >= rs && occ <= re) return true;
+        if (occ >= start && occ >= rs && occ <= re) dates.push(isoFromDate(occ));
         cur.setMonth(cur.getMonth() + 1);
       }
-      return false;
-    }
-    if (freq === 'quincenal') {
+    } else if (freq === 'quincenal') {
       var diffDays = Math.round((rs - start) / 86400000);
       var k = Math.max(0, Math.ceil(diffDays / 15));
-      for (var i = 0; i < 60; i++) {
+      for (var i = 0; i < 80; i++) {
         var occDate = new Date(start.getTime() + (k + i) * 15 * 86400000);
         if (occDate > re) break;
-        if (occDate >= rs) return true;
+        if (occDate >= rs) dates.push(isoFromDate(occDate));
       }
-      return false;
+    } else {
+      // semanal: repite en los días de semana elegidos (por defecto, el día de la fecha de inicio)
+      var weekdays = (t.recurrenceWeekdays && t.recurrenceWeekdays.length) ? t.recurrenceWeekdays : [start.getDay()];
+      var cursor = new Date(Math.max(start.getTime(), rs.getTime()));
+      while (cursor <= re) {
+        if (weekdays.indexOf(cursor.getDay()) !== -1) dates.push(isoFromDate(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
     }
-    // semanal: repite en los días de semana elegidos (por defecto, el día de la fecha de inicio)
-    var weekdays = (t.recurrenceWeekdays && t.recurrenceWeekdays.length) ? t.recurrenceWeekdays : [start.getDay()];
-    var cursor = new Date(Math.max(start.getTime(), rs.getTime()));
-    while (cursor <= re) {
-      if (weekdays.indexOf(cursor.getDay()) !== -1) return true;
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    return false;
+    return dates;
   }
   function taskMatchesPeriod(t, range) {
     if (!range) return true;
     if (t.type === 'seguimiento') return true;
-    if (t.type === 'recurrente') return recurrenceOccursInRange(t, range[0], range[1]);
-    if (!t.dueDate) return false;
-    return t.dueDate >= range[0] && t.dueDate <= range[1];
+    return occurrenceDatesInRange(t, range[0], range[1]).length > 0;
   }
   function recurrenceLabel(t) {
     var freq = t.recurrenceType || 'semanal';
@@ -1237,6 +1345,155 @@
     syncLabel();
   }
 
+  var MES_ABBR_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  // ---------- Selector de mes (recurrencia mensual: solo importa el mes de inicio) ----------
+  function createMonthSelector(input, mountEl) {
+    var wrap = document.createElement('div');
+    wrap.className = 'dsel msel';
+    mountEl.appendChild(wrap);
+
+    var trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'dsel-trigger';
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.innerHTML = '<span class="dsel-label ph">Seleccionar mes</span>' + CAL_ICON;
+    wrap.appendChild(trigger);
+
+    var panel = document.createElement('div');
+    panel.className = 'dsel-panel';
+    wrap.appendChild(panel);
+
+    var labelEl = trigger.querySelector('.dsel-label');
+    var viewY = null;
+
+    function syncLabel() {
+      var v = input.value;
+      var m = v ? /^(\d{4})-(\d{2})/.exec(v) : null;
+      if (m) { labelEl.textContent = MESES_ES[Number(m[2]) - 1] + ' ' + m[1]; labelEl.classList.remove('ph'); }
+      else { labelEl.textContent = 'Seleccionar mes'; labelEl.classList.add('ph'); }
+    }
+
+    function renderPanel() {
+      var v = input.value;
+      var m = v ? /^(\d{4})-(\d{2})/.exec(v) : null;
+      var curY = m ? Number(m[1]) : null, curM = m ? Number(m[2]) - 1 : null;
+      if (viewY == null) viewY = curY != null ? curY : new Date().getFullYear();
+      var grid = MES_ABBR_ES.map(function(name, idx){
+        var sel = (curY === viewY && curM === idx);
+        return '<button type="button" class="msel-month' + (sel ? ' selected' : '') + '" data-m="' + idx + '">' + name + '</button>';
+      }).join('');
+      panel.innerHTML =
+        '<div class="dsel-panel-head"><span class="dsel-panel-label">' + viewY + '</span>' +
+        '<div class="dsel-nav"><button type="button" class="dsel-prev">‹</button><button type="button" class="dsel-next">›</button></div></div>' +
+        '<div class="msel-grid">' + grid + '</div>';
+      panel.querySelector('.dsel-prev').addEventListener('click', function(){ viewY--; renderPanel(); });
+      panel.querySelector('.dsel-next').addEventListener('click', function(){ viewY++; renderPanel(); });
+      panel.querySelectorAll('.msel-month').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          input.value = viewY + '-' + pad2(Number(btn.getAttribute('data-m')) + 1) + '-01';
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          syncLabel();
+          closePanel();
+        });
+      });
+    }
+
+    function openPanel() {
+      document.querySelectorAll('.dsel-panel.show').forEach(function(p){ if (p !== panel) p.classList.remove('show'); });
+      document.querySelectorAll('.dsel-trigger[aria-expanded="true"]').forEach(function(b){ if (b !== trigger) b.setAttribute('aria-expanded', 'false'); });
+      viewY = null;
+      renderPanel();
+      panel.classList.add('show');
+      trigger.setAttribute('aria-expanded', 'true');
+      clampPanelToViewport(panel);
+    }
+    function closePanel() { panel.classList.remove('show'); trigger.setAttribute('aria-expanded', 'false'); }
+    trigger.addEventListener('click', function(e){ e.stopPropagation(); if (panel.classList.contains('show')) closePanel(); else openPanel(); });
+
+    syncLabel();
+    return wrap;
+  }
+
+  // ---------- Selector de quincena (recurrencia cada 15 días: mes + primera/segunda mitad) ----------
+  function createQuincenaSelector(input, mountEl) {
+    var wrap = document.createElement('div');
+    wrap.className = 'dsel msel qsel';
+    mountEl.appendChild(wrap);
+
+    var trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'dsel-trigger';
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.innerHTML = '<span class="dsel-label ph">Seleccionar quincena</span>' + CAL_ICON;
+    wrap.appendChild(trigger);
+
+    var panel = document.createElement('div');
+    panel.className = 'dsel-panel';
+    wrap.appendChild(panel);
+
+    var labelEl = trigger.querySelector('.dsel-label');
+    var viewY = null, viewM = null;
+
+    function parseVal() {
+      var v = input.value;
+      var m = v ? /^(\d{4})-(\d{2})-(\d{2})/.exec(v) : null;
+      if (!m) return null;
+      return { y: Number(m[1]), m: Number(m[2]) - 1, half: Number(m[3]) >= 16 ? 2 : 1 };
+    }
+
+    function syncLabel() {
+      var cur = parseVal();
+      if (cur) {
+        labelEl.textContent = (cur.half === 2 ? '2ª' : '1ª') + ' quincena · ' + MESES_ES[cur.m] + ' ' + cur.y;
+        labelEl.classList.remove('ph');
+      } else {
+        labelEl.textContent = 'Seleccionar quincena';
+        labelEl.classList.add('ph');
+      }
+    }
+
+    function renderPanel() {
+      var cur = parseVal();
+      if (viewY == null) { viewY = cur ? cur.y : new Date().getFullYear(); viewM = cur ? cur.m : new Date().getMonth(); }
+      var sel1 = cur && cur.y === viewY && cur.m === viewM && cur.half === 1;
+      var sel2 = cur && cur.y === viewY && cur.m === viewM && cur.half === 2;
+      panel.innerHTML =
+        '<div class="dsel-panel-head"><span class="dsel-panel-label">' + MESES_ES[viewM] + ' ' + viewY + '</span>' +
+        '<div class="dsel-nav"><button type="button" class="dsel-prev">‹</button><button type="button" class="dsel-next">›</button></div></div>' +
+        '<div class="qsel-options">' +
+          '<button type="button" class="qsel-opt' + (sel1 ? ' selected' : '') + '" data-half="1">1ª quincena<br><span class="qsel-range">(1–15)</span></button>' +
+          '<button type="button" class="qsel-opt' + (sel2 ? ' selected' : '') + '" data-half="2">2ª quincena<br><span class="qsel-range">(16–fin)</span></button>' +
+        '</div>';
+      panel.querySelector('.dsel-prev').addEventListener('click', function(){ viewM--; if (viewM < 0) { viewM = 11; viewY--; } renderPanel(); });
+      panel.querySelector('.dsel-next').addEventListener('click', function(){ viewM++; if (viewM > 11) { viewM = 0; viewY++; } renderPanel(); });
+      panel.querySelectorAll('.qsel-opt').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var half = Number(btn.getAttribute('data-half'));
+          input.value = viewY + '-' + pad2(viewM + 1) + '-' + pad2(half === 2 ? 16 : 1);
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          syncLabel();
+          closePanel();
+        });
+      });
+    }
+
+    function openPanel() {
+      document.querySelectorAll('.dsel-panel.show').forEach(function(p){ if (p !== panel) p.classList.remove('show'); });
+      document.querySelectorAll('.dsel-trigger[aria-expanded="true"]').forEach(function(b){ if (b !== trigger) b.setAttribute('aria-expanded', 'false'); });
+      viewY = null; viewM = null;
+      renderPanel();
+      panel.classList.add('show');
+      trigger.setAttribute('aria-expanded', 'true');
+      clampPanelToViewport(panel);
+    }
+    function closePanel() { panel.classList.remove('show'); trigger.setAttribute('aria-expanded', 'false'); }
+    trigger.addEventListener('click', function(e){ e.stopPropagation(); if (panel.classList.contains('show')) closePanel(); else openPanel(); });
+
+    syncLabel();
+    return wrap;
+  }
+
   document.addEventListener('click', function(e){
     var path = typeof e.composedPath === 'function' ? e.composedPath() : [];
     var insidePicker = path.some(function(el){ return el && el.classList && el.classList.contains('dsel'); });
@@ -1268,6 +1525,9 @@
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       completedAt: r.completed_at,
+      pendenciaId: r.planes_pendencia_id || null,
+      pendenciaTexto: null,
+      pendenciaFeito: false,
     };
   }
 
@@ -1275,6 +1535,19 @@
     return supabaseClient.from('tareas_tasks').select('*').order('created_at', { ascending: true }).then(function(res){
       throwIfError(res);
       tasks = (res.data || []).map(mapRow);
+      var ids = tasks.filter(function(t){ return t.pendenciaId; }).map(function(t){ return t.pendenciaId; });
+      if (!ids.length) return;
+      return supabaseClient.from('planes_pendencias').select('id, texto, feito').in('id', ids).then(function(res2){
+        throwIfError(res2);
+        var map = {};
+        (res2.data || []).forEach(function(p){ map[p.id] = p; });
+        tasks.forEach(function(t){
+          if (t.pendenciaId && map[t.pendenciaId]) {
+            t.pendenciaTexto = map[t.pendenciaId].texto;
+            t.pendenciaFeito = !!map[t.pendenciaId].feito;
+          }
+        });
+      });
     });
   }
 
@@ -1302,9 +1575,11 @@
         recurrenceWeekdays = wdCsv ? wdCsv.split(',').map(Number) : [dueDate ? parseIsoDate(dueDate).getDay() : new Date().getDay()];
       }
     }
+    var pendenciaVal = $('planes-pendencia-input').value;
     supabaseClient.from('tareas_tasks').insert({
       title: title, priority: priority, task_type: type, due_date: dueDate, notes: notes, status: 'pending',
       recurrence_type: recurrenceType, recurrence_weekdays: recurrenceWeekdays,
+      planes_pendencia_id: pendenciaVal ? Number(pendenciaVal) : null,
     }).select().then(throwIfError).then(function(){
       titleInput.value = '';
       $('notes-input').value = '';
@@ -1313,10 +1588,12 @@
       setChipGroupValue($('priority-chips'), 'media');
       $('type-input').value = 'puntual';
       setChipGroupValue($('type-chips'), 'puntual');
-      $('recurrence-type-input').value = 'semanal';
-      setChipGroupValue(document.querySelector('.recurrence-type-chips'), 'semanal');
+      $('recurrence-type-input').value = '';
+      setChipGroupValue(document.querySelector('.recurrence-type-chips'), '');
       $('recurrence-weekdays-input').value = '';
       setMultiChipGroupValue(document.querySelector('.recurrence-weekday-chips'), '');
+      $('planes-pendencia-input').value = '';
+      updatePendenciaLinkBtn($('pendencia-link-btn'), '');
       applyTypeVisibility(document, 'puntual');
       $('add-btn').disabled = true;
       titleInput.focus();
@@ -1332,9 +1609,11 @@
   }
 
   function deleteTask(id) {
-    if (!confirm('¿Eliminar esta tarea?')) return;
-    supabaseClient.from('tareas_tasks').delete().eq('id', id).then(throwIfError).then(loadAndRender)
-      .catch(function(err){ showError('No se pudo eliminar la tarea: ' + err.message); });
+    showConfirm('¿Eliminar esta tarea?', 'Esta acción no se puede deshacer.').then(function(ok){
+      if (!ok) return;
+      supabaseClient.from('tareas_tasks').delete().eq('id', id).then(throwIfError).then(loadAndRender)
+        .catch(function(err){ showError('No se pudo eliminar la tarea: ' + err.message); });
+    });
   }
 
   function saveEdit(id, form) {
@@ -1353,9 +1632,11 @@
         recurrenceWeekdays = wdCsv ? wdCsv.split(',').map(Number) : [dueDate ? parseIsoDate(dueDate).getDay() : new Date().getDay()];
       }
     }
+    var pendenciaVal = form.querySelector('.edit-planes-pendencia').value;
     supabaseClient.from('tareas_tasks').update({
       title: title, notes: notes, priority: priority, task_type: type, due_date: dueDate, updated_at: new Date().toISOString(),
       recurrence_type: recurrenceType, recurrence_weekdays: recurrenceWeekdays,
+      planes_pendencia_id: pendenciaVal ? Number(pendenciaVal) : null,
     }).eq('id', id).then(throwIfError).then(function(){
       openEditId = null;
       return loadAndRender();
@@ -1380,6 +1661,98 @@
     var d = new Date(ts);
     if (isNaN(d)) return '';
     return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  // ---------- Confirmación (reemplaza el confirm() nativo del navegador) ----------
+  var confirmResolve = null;
+  function showConfirm(title, message) {
+    return new Promise(function(resolve){
+      confirmResolve = resolve;
+      $('confirmTitle').textContent = title || 'Confirmar';
+      $('confirmMessage').textContent = message || '';
+      $('confirmOverlay').classList.add('show');
+    });
+  }
+  function closeConfirm(result) {
+    $('confirmOverlay').classList.remove('show');
+    var resolve = confirmResolve;
+    confirmResolve = null;
+    if (resolve) resolve(result);
+  }
+
+  // ---------- Vincular con una pendencia de Planes ----------
+  var pendenciasCache = null;
+  var pendenciaLinkTarget = null;
+  function loadPendenciasCache() {
+    if (pendenciasCache) return Promise.resolve(pendenciasCache);
+    return Promise.all([
+      supabaseClient.from('planes_pendencias').select('id, texto, feito, trip_id, created_at').order('created_at', { ascending: false }),
+      supabaseClient.from('planes_trip').select('id, nome, destino'),
+    ]).then(function(results){
+      throwIfError(results[0]); throwIfError(results[1]);
+      var trips = {};
+      (results[1].data || []).forEach(function(tr){ trips[tr.id] = tr.nome || tr.destino || ('Viaje #' + tr.id); });
+      pendenciasCache = (results[0].data || []).map(function(p){
+        return { id: p.id, texto: p.texto || '', feito: !!p.feito, tripLabel: trips[p.trip_id] || '' };
+      });
+      return pendenciasCache;
+    });
+  }
+  function renderPendenciaListUI(filter) {
+    var listEl = $('pendenciaList');
+    listEl.innerHTML = '<div class="empty">Cargando...</div>';
+    loadPendenciasCache().then(function(list){
+      var f = (filter || '').trim().toLowerCase();
+      var filtered = f ? list.filter(function(p){ return p.texto.toLowerCase().indexOf(f) !== -1 || p.tripLabel.toLowerCase().indexOf(f) !== -1; }) : list;
+      listEl.innerHTML = '';
+      if (!filtered.length) { listEl.innerHTML = '<div class="empty">Ninguna pendencia encontrada.</div>'; return; }
+      filtered.slice(0, 100).forEach(function(p){
+        var row = document.createElement('div');
+        row.className = 'item-row';
+        row.innerHTML = '<span class="row-title">' + escapeHtml(p.texto) + '</span>' +
+          '<span class="row-meta">' + (p.tripLabel ? escapeHtml(p.tripLabel) + ' · ' : '') + (p.feito ? 'Resuelta' : 'Pendiente') + '</span>';
+        row.addEventListener('click', function(){ selectPendencia(p); });
+        listEl.appendChild(row);
+      });
+    }).catch(function(err){
+      listEl.innerHTML = '';
+      $('pendenciaError').textContent = 'No se pudo cargar: ' + err.message;
+      $('pendenciaError').classList.add('show');
+    });
+  }
+  function openPendenciaPicker(target) {
+    pendenciaLinkTarget = target;
+    $('pendenciaError').classList.remove('show');
+    $('pendenciaSearch').value = '';
+    $('pendenciaOverlay').classList.add('show');
+    renderPendenciaListUI('');
+  }
+  function closePendenciaPicker() { $('pendenciaOverlay').classList.remove('show'); }
+  function updatePendenciaLinkBtn(btn, texto) {
+    if (texto) {
+      btn.classList.add('linked');
+      btn.innerHTML = '🔗 ' + escapeHtml(texto) + ' <span class="unlink-x" data-unlink="1">✕</span>';
+    } else {
+      btn.classList.remove('linked');
+      btn.innerHTML = '🔗 Vincular con una pendencia de Planes';
+    }
+  }
+  function selectPendencia(p) {
+    if (!pendenciaLinkTarget) return;
+    pendenciaLinkTarget.inputEl.value = p.id;
+    updatePendenciaLinkBtn(pendenciaLinkTarget.btnEl, p.texto);
+    closePendenciaPicker();
+  }
+  function wirePendenciaLinkBtn(btn, inputEl) {
+    btn.addEventListener('click', function(e){
+      if (e.target && e.target.getAttribute && e.target.getAttribute('data-unlink')) {
+        e.stopPropagation();
+        inputEl.value = '';
+        updatePendenciaLinkBtn(btn, '');
+        return;
+      }
+      openPendenciaPicker({ inputEl: inputEl, btnEl: btn });
+    });
   }
 
   function renderList() {
@@ -1429,7 +1802,7 @@
       meta.appendChild(priChip);
       var typeChip = document.createElement('span');
       typeChip.className = 'chip type-' + t.type;
-      typeChip.textContent = TYPE_LABEL[t.type] || t.type;
+      typeChip.innerHTML = typeChipInnerHtml(t.type);
       meta.appendChild(typeChip);
       if (t.type === 'recurrente') {
         var recChip = document.createElement('span');
@@ -1453,6 +1826,14 @@
         main.appendChild(notes);
       }
 
+      if (t.pendenciaId && openEditId !== t.id) {
+        var pendLine = document.createElement('div');
+        pendLine.className = 'task-notes';
+        pendLine.style.color = 'var(--accent)';
+        pendLine.textContent = '🔗 Planes: ' + (t.pendenciaTexto || ('#' + t.pendenciaId)) + (t.pendenciaFeito ? ' (resuelta)' : '');
+        main.appendChild(pendLine);
+      }
+
       if (openEditId === t.id) {
         var form = document.createElement('div');
         form.className = 'edit-form';
@@ -1468,33 +1849,56 @@
           '<div class="chip-field">' +
             '<span class="chip-field-label">Tipo</span>' +
             '<div class="chip-group edit-type-chips">' +
-              ['recurrente','puntual','seguimiento'].map(function(ty){ return '<button type="button" class="chip chip-btn type-' + ty + (ty === t.type ? ' active' : '') + '" data-value="' + ty + '">' + TYPE_LABEL[ty] + '</button>'; }).join('') +
+              ['recurrente','puntual','seguimiento'].map(function(ty){ return '<button type="button" class="chip chip-btn type-' + ty + (ty === t.type ? ' active' : '') + '" data-value="' + ty + '">' + typeChipInnerHtml(ty) + '</button>'; }).join('') +
             '</div>' +
             '<input type="hidden" class="edit-type" value="' + t.type + '">' +
-          '</div>' +
-          '<div class="chip-field due-field">' +
-            '<span class="chip-field-label due-field-label">Fecha límite</span>' +
-            '<input type="date" class="edit-due" value="' + (t.dueDate || '') + '">' +
           '</div>' +
           '<div class="chip-field recurrence-field">' +
             '<span class="chip-field-label">Repetir</span>' +
             '<div class="chip-group edit-recurrence-type-chips">' +
-              ['semanal','quincenal','mensual'].map(function(rt){ return '<button type="button" class="chip chip-btn neutral' + (rt === (t.recurrenceType || 'semanal') ? ' active' : '') + '" data-value="' + rt + '">' + (rt === 'semanal' ? 'Semanal' : rt === 'quincenal' ? 'Cada 15 días' : 'Mensual') + '</button>'; }).join('') +
+              ['semanal','quincenal','mensual'].map(function(rt){ return '<button type="button" class="chip chip-btn neutral' + (rt === t.recurrenceType ? ' active' : '') + '" data-value="' + rt + '">' + (rt === 'semanal' ? 'Semanal' : rt === 'quincenal' ? 'Cada 15 días' : 'Mensual') + '</button>'; }).join('') +
             '</div>' +
-            '<input type="hidden" class="edit-recurrence-type recurrence-type-input" value="' + (t.recurrenceType || 'semanal') + '">' +
+            '<input type="hidden" class="edit-recurrence-type recurrence-type-input" value="' + (t.recurrenceType || '') + '">' +
             '<div class="chip-group edit-recurrence-weekday-chips recurrence-weekday-chips">' +
               ['0','1','2','3','4','5','6'].map(function(wd){ return '<button type="button" class="chip chip-btn neutral wd-btn' + ((t.recurrenceWeekdays||[]).indexOf(Number(wd)) !== -1 ? ' active' : '') + '" data-value="' + wd + '">' + WEEKDAY_LABELS[wd] + '</button>'; }).join('') +
             '</div>' +
             '<input type="hidden" class="edit-recurrence-weekdays" value="' + (t.recurrenceWeekdays || []).join(',') + '">' +
           '</div>' +
+          '<div class="chip-field due-field">' +
+            '<span class="chip-field-label due-field-label">Fecha límite</span>' +
+            '<input type="date" class="edit-due" value="' + (t.dueDate || '') + '">' +
+            '<div class="edit-due-extra"></div>' +
+          '</div>' +
+          '<div class="chip-field">' +
+            '<span class="chip-field-label">Planes</span>' +
+            '<button type="button" class="pendencia-link-btn edit-pendencia-link-btn">🔗 Vincular con una pendencia de Planes</button>' +
+            '<input type="hidden" class="edit-planes-pendencia" value="' + (t.pendenciaId || '') + '">' +
+          '</div>' +
           '<textarea class="edit-notes" placeholder="Notas">' + (t.notes || '') + '</textarea>' +
           '<button class="save-btn">Guardar</button>';
         wireChipGroup(form.querySelector('.edit-priority-chips'), form.querySelector('.edit-priority'));
-        wireChipGroup(form.querySelector('.edit-type-chips'), form.querySelector('.edit-type'), function(val){ applyTypeVisibility(form, val); });
-        wireChipGroup(form.querySelector('.edit-recurrence-type-chips'), form.querySelector('.edit-recurrence-type'), function(){ applyRecurrenceVisibility(form); });
+        wireChipGroup(form.querySelector('.edit-type-chips'), form.querySelector('.edit-type'), function(val){
+          form.querySelector('.edit-due').value = '';
+          form.querySelector('.edit-recurrence-type').value = '';
+          setChipGroupValue(form.querySelector('.edit-recurrence-type-chips'), '');
+          form.querySelector('.edit-recurrence-weekdays').value = '';
+          setMultiChipGroupValue(form.querySelector('.edit-recurrence-weekday-chips'), '');
+          applyTypeVisibility(form, val);
+        });
+        wireChipGroup(form.querySelector('.edit-recurrence-type-chips'), form.querySelector('.edit-recurrence-type'), function(){
+          form.querySelector('.edit-due').value = '';
+          setMultiChipGroupValue(form.querySelector('.edit-recurrence-weekday-chips'), '');
+          applyTypeVisibility(form, 'recurrente');
+        });
         wireMultiChipGroup(form.querySelector('.edit-recurrence-weekday-chips'), form.querySelector('.edit-recurrence-weekdays'));
         enhanceDateInput(form.querySelector('.edit-due'));
+        createMonthSelector(form.querySelector('.edit-due'), form.querySelector('.edit-due-extra'));
+        createQuincenaSelector(form.querySelector('.edit-due'), form.querySelector('.edit-due-extra'));
         applyTypeVisibility(form, t.type);
+        var editPendBtn = form.querySelector('.edit-pendencia-link-btn');
+        var editPendInput = form.querySelector('.edit-planes-pendencia');
+        updatePendenciaLinkBtn(editPendBtn, t.pendenciaTexto || (t.pendenciaId ? ('Pendencia #' + t.pendenciaId) : ''));
+        wirePendenciaLinkBtn(editPendBtn, editPendInput);
         form.querySelector('.save-btn').onclick = function(){ saveEdit(t.id, form); };
         main.appendChild(form);
       }
@@ -1579,15 +1983,20 @@
     var month = calMonth.getMonth();
     var today = todayStr();
 
-    var byDay = {};
-    tasks.forEach(function(t){
-      if (!t.dueDate) return;
-      if (!byDay[t.dueDate]) byDay[t.dueDate] = [];
-      byDay[t.dueDate].push(t);
-    });
-
     var firstDow = new Date(year, month, 1).getDay();
     var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var monthStartIso = dateToKey(year, month, 1);
+    var monthEndIso = dateToKey(year, month, daysInMonth);
+
+    // Una tarea recurrente aparece como un punto en cada día del mes en que repite,
+    // no solo en su fecha de inicio.
+    var byDay = {};
+    tasks.forEach(function(t){
+      occurrenceDatesInRange(t, monthStartIso, monthEndIso).forEach(function(iso){
+        if (!byDay[iso]) byDay[iso] = [];
+        byDay[iso].push(t);
+      });
+    });
 
     var html = '<div class="cal-header">' +
       '<button class="cal-nav" id="cal-prev">‹</button>' +
@@ -1630,7 +2039,7 @@
           : sortTasks(dayTasks2).map(function(t){
               return '<div class="cal-task-row' + (t.status === 'done' ? ' done' : '') + '">' +
                 '<span class="chip pri-' + t.priority + '">' + (PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
-                '<span class="chip type-' + t.type + '">' + (TYPE_LABEL[t.type] || t.type) + '</span>' +
+                '<span class="chip type-' + t.type + '">' + typeChipInnerHtml(t.type) + '</span>' +
                 '<span class="cal-task-title">' + escapeHtml(t.title) + '</span>' +
               '</div>';
             }).join('')) +
@@ -1665,14 +2074,40 @@
     if (showCalendar) renderCalendar();
   }
 
+  var captureEl = document.querySelector('.capture');
+  captureEl.querySelectorAll('#type-chips .chip-btn').forEach(function(btn){
+    btn.innerHTML = typeChipInnerHtml(btn.getAttribute('data-value'));
+  });
+
   wireChipGroup($('priority-chips'), $('priority-input'));
-  wireChipGroup($('type-chips'), $('type-input'), function(val){ applyTypeVisibility(document, val); });
-  wireChipGroup(document.querySelector('.recurrence-type-chips'), $('recurrence-type-input'), function(){ applyRecurrenceVisibility(document); });
-  wireMultiChipGroup(document.querySelector('.recurrence-weekday-chips'), $('recurrence-weekdays-input'));
+  wireChipGroup($('type-chips'), $('type-input'), function(val){
+    $('due-input').value = '';
+    $('recurrence-type-input').value = '';
+    setChipGroupValue(captureEl.querySelector('.recurrence-type-chips'), '');
+    $('recurrence-weekdays-input').value = '';
+    setMultiChipGroupValue(captureEl.querySelector('.recurrence-weekday-chips'), '');
+    applyTypeVisibility(captureEl, val);
+  });
+  wireChipGroup(captureEl.querySelector('.recurrence-type-chips'), $('recurrence-type-input'), function(){
+    $('due-input').value = '';
+    setMultiChipGroupValue(captureEl.querySelector('.recurrence-weekday-chips'), '');
+    applyTypeVisibility(captureEl, 'recurrente');
+  });
+  wireMultiChipGroup(captureEl.querySelector('.recurrence-weekday-chips'), $('recurrence-weekdays-input'));
   enhanceDateInput($('due-input'));
-  applyTypeVisibility(document, $('type-input').value);
+  createMonthSelector($('due-input'), $('due-input-extra'));
+  createQuincenaSelector($('due-input'), $('due-input-extra'));
+  applyTypeVisibility(captureEl, $('type-input').value);
 
   wireChipGroup($('period-chips'), $('period-input'), function(val){ activePeriod = val; renderList(); });
+
+  wirePendenciaLinkBtn($('pendencia-link-btn'), $('planes-pendencia-input'));
+  $('pendenciaClose').addEventListener('click', closePendenciaPicker);
+  $('pendenciaCloseFoot').addEventListener('click', closePendenciaPicker);
+  $('pendenciaSearch').addEventListener('input', function(){ renderPendenciaListUI(this.value); });
+
+  $('confirmCancelBtn').addEventListener('click', function(){ closeConfirm(false); });
+  $('confirmOkBtn').addEventListener('click', function(){ closeConfirm(true); });
 
   $('add-btn').addEventListener('click', addTask);
   $('title-input').addEventListener('input', function(e){
