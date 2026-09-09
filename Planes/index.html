@@ -252,6 +252,8 @@
   }
   .pessoa-chip:hover{ border-color:var(--accent); }
   .pessoa-chip.active{ background:var(--accent); border-color:var(--accent); color:#FBF3EC; }
+  .pessoa-chip:disabled{ opacity:.5; cursor:not-allowed; border-color:var(--line-strong); }
+  .pessoa-chip:disabled.active{ background:var(--line-strong); border-color:var(--line-strong); color:var(--ink-soft); }
   .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:480px){ .field-row{ grid-template-columns:1fr; } }
   .field-error{ display:none; color:var(--danger); font-size:12.5px; }
@@ -481,6 +483,10 @@
       <span class="k">Total de dias</span>
       <div class="v num" id="tripTotalDias">0</div>
     </div>
+    <div class="field" style="flex:1 1 100%; display:flex; align-items:center; gap:10px;">
+      <button class="btn btn-sm" id="btnTripReminder" type="button">🔔 Avisar a família</button>
+      <span class="row-meta" id="tripReminderResult"></span>
+    </div>
   </div>
 
   <!-- As páginas são agrupadas por fase da viagem (Visão geral / Planejamento / Diário) —
@@ -693,7 +699,15 @@
     <div class="modal-head"><h3 id="penModalTitle">Nova pendência</h3><button class="modal-close" id="penClose" type="button">✕</button></div>
     <div class="modal-body">
       <div class="field"><label for="fPenTexto">Pendência</label><textarea id="fPenTexto" rows="4" placeholder="Ex.: Falta comprar a passagem — esperando confirmar as datas com a Fachera"></textarea></div>
-      <div class="field"><label for="fPenPassagem">Relacionado à passagem (opcional)</label><select id="fPenPassagem"><option value="">Nenhuma</option></select></div>
+      <div class="field">
+        <label>Relacionado à passagem (opcional)</label>
+        <div id="fPenPassagemInfo" class="row-meta" style="margin-bottom:6px;"></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-sm" id="btnVincularPenPassagem" type="button">Vincular com passagem</button>
+          <button class="btn btn-sm btn-danger" id="btnDesvincularPenPassagem" type="button" style="display:none;">Desvincular</button>
+        </div>
+        <input type="hidden" id="fPenPassagem" value="">
+      </div>
       <label class="check-field"><input type="checkbox" id="fPenFeito"> Resolvida</label>
       <div class="field-error" id="penError"></div>
     </div>
@@ -749,12 +763,20 @@
           </div>
           <input type="hidden" id="fPasPessoa">
         </div>
-        <div class="field"><label for="fPasValor">Valor (R$)</label><input type="text" inputmode="decimal" id="fPasValor" placeholder="0,00"></div>
+        <div class="field">
+          <div class="field-head"><label for="fPasValor">Valor (R$)</label><label class="field-undef"><input type="checkbox" class="pas-undef" data-field="fPasValor"> não definido</label></div>
+          <input type="text" inputmode="decimal" id="fPasValor" placeholder="0,00">
+        </div>
       </div>
       <div class="field-row">
         <div class="field"><label for="fPasConfirmacao">Número da reserva</label><input type="text" id="fPasConfirmacao" placeholder="Ex.: ABC123"></div>
-        <div class="field"><label for="fPasStatus">Status</label>
-          <select id="fPasStatus"><option>Comprado</option><option>Pendente</option><option>Cancelado</option></select>
+        <div class="field"><label>Status</label>
+          <div class="pessoa-chips" id="fPasStatusChips">
+            <button type="button" class="pessoa-chip" data-value="Comprado">Comprado</button>
+            <button type="button" class="pessoa-chip" data-value="Pendente">Pendente</button>
+            <button type="button" class="pessoa-chip" data-value="Cancelado">Cancelado</button>
+          </div>
+          <input type="hidden" id="fPasStatus" value="Comprado">
         </div>
       </div>
       <div class="field" id="pasCompraWrap" style="display:none;">
@@ -878,6 +900,21 @@
     <div class="modal-foot">
       <div style="flex:1;"></div>
       <button class="btn" id="compraCloseFoot" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: vincular passagem (pendências) ================= -->
+<div class="overlay" id="passagemPickerOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3>Vincular com passagem</h3><button class="modal-close" id="passagemPickerClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><input type="text" id="passagemPickerSearch" placeholder="Buscar por rota, data ou pessoa..."></div>
+      <div id="passagemPickerList" style="max-height:340px; overflow:auto;"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="passagemPickerCloseFoot" type="button">Fechar</button>
     </div>
   </div>
 </div>
@@ -1720,7 +1757,52 @@
     $("tripInicio").value = state.trip.inicio;
     $("tripFim").value = state.trip.fim;
     $("tripTotalDias").textContent = totalDias();
+    $("tripReminderResult").textContent = "";
   }
+
+  // ---------- Lembrete por push: avisa a família de quantos dias faltam para a viagem/aventura ----------
+  function tripReminderMessage(t){
+    var label = t.nome || t.destino || (currentMode === "salida" ? "A aventura" : "A viagem");
+    var diff = tripCountdownDays(t);
+    var quando;
+    if (diff === null) quando = "ainda sem data definida";
+    else if (diff > 1) quando = "faltam " + diff + " dias";
+    else if (diff === 1) quando = "falta 1 dia";
+    else if (diff === 0) quando = "é hoje!";
+    else quando = "já rolou";
+    return {
+      title: currentMode === "salida" ? "Lembrete de aventura" : "Lembrete de viagem",
+      body: label + " — " + quando,
+    };
+  }
+  $("btnTripReminder").addEventListener("click", function(){
+    var resEl = $("tripReminderResult");
+    resEl.textContent = "";
+    if (!state.trip || !state.trip.id){
+      resEl.textContent = "Salve a viagem antes de avisar a família.";
+      resEl.style.color = "var(--danger)";
+      return;
+    }
+    var msg = tripReminderMessage(state.trip);
+    $("btnTripReminder").disabled = true;
+    supabaseClient.functions.invoke("send-household-message", { body: { title: msg.title, body: msg.body, includeSelf: false } })
+      .then(function(res){
+        if (res.error) throw res.error;
+        var sentCount = (res.data && res.data.sent && res.data.sent.length) || 0;
+        if (sentCount === 0){
+          resEl.textContent = "Ninguém da família tem notificações ativas no celular ainda.";
+          resEl.style.color = "var(--warn)";
+        } else {
+          resEl.textContent = "Aviso enviado!";
+          resEl.style.color = "var(--accent)";
+        }
+      })
+      .catch(function(err){
+        resEl.textContent = "Não foi possível enviar: " + err.message;
+        resEl.style.color = "var(--danger)";
+      })
+      .finally(function(){ $("btnTripReminder").disabled = false; });
+  });
   var TRIP_FIELD_KEYS = { tripNome:"nome", tripDestino:"destino", tripInicio:"inicio", tripFim:"fim" };
   ["tripNome","tripDestino","tripInicio","tripFim"].forEach(function(id){
     $(id).addEventListener("change", function(){
@@ -1989,8 +2071,41 @@
     if (trigger) trigger.disabled = off;
     if (off) input.value = "";
   }
+
+  // ---------- Seletor de valor único por chips (ex.: Status) ----------
+  function wireSingleChipGroup(container, hiddenInput){
+    container.querySelectorAll(".pessoa-chip").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        if (btn.disabled) return;
+        container.querySelectorAll(".pessoa-chip").forEach(function(b){ b.classList.remove("active"); });
+        btn.classList.add("active");
+        hiddenInput.value = btn.getAttribute("data-value");
+      });
+    });
+  }
+  function setSingleChipGroupValue(container, value){
+    container.querySelectorAll(".pessoa-chip").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-value") === value); });
+  }
+  function setSingleChipGroupDisabled(container, disabled){
+    container.querySelectorAll(".pessoa-chip").forEach(function(b){ b.disabled = !!disabled; });
+  }
+  wireSingleChipGroup($("fPasStatusChips"), $("fPasStatus"));
+
+  // Enquanto qualquer campo da passagem estiver "não definido", o status fica travado em
+  // Pendente — não faz sentido marcar como Comprado/Cancelado algo que ainda não tem dados.
+  function refreshPasStatusLock(){
+    var anyUndef = Array.prototype.some.call(document.querySelectorAll(".pas-undef"), function(cb){ return cb.checked; });
+    if (anyUndef){
+      $("fPasStatus").value = "Pendente";
+      setSingleChipGroupValue($("fPasStatusChips"), "Pendente");
+    }
+    setSingleChipGroupDisabled($("fPasStatusChips"), anyUndef || !!pasCompraId);
+  }
   document.querySelectorAll(".pas-undef").forEach(function(cb){
-    cb.addEventListener("change", function(){ applyPasFieldUndef(cb.getAttribute("data-field"), cb.checked); });
+    cb.addEventListener("change", function(){
+      applyPasFieldUndef(cb.getAttribute("data-field"), cb.checked);
+      refreshPasStatusLock();
+    });
   });
 
   var pasOverlay = $("pasOverlay");
@@ -2013,12 +2128,14 @@
     $("fPasValor").value = src ? String(src.valor).replace(".", ",") : "";
     $("fPasConfirmacao").value = src ? src.confirmacao : "";
     $("fPasStatus").value = src ? src.status : "Comprado";
-    [["fPasCompanhia","companhia"],["fPasOrigem","origem"],["fPasDestino","destino"],["fPasData","data"],["fPasHora","hora"]].forEach(function(pair){
+    setSingleChipGroupValue($("fPasStatusChips"), $("fPasStatus").value);
+    [["fPasCompanhia","companhia"],["fPasOrigem","origem"],["fPasDestino","destino"],["fPasData","data"],["fPasHora","hora"],["fPasValor","valor"]].forEach(function(pair){
       var off = !!src && !src[pair[1]];
       pasUndefCheckbox(pair[0]).checked = off;
       applyPasFieldUndef(pair[0], off);
     });
     showPasCompraSection(r);
+    refreshPasStatusLock();
     pasOverlay.classList.add("show");
   }
   function closePasModal(){ pasOverlay.classList.remove("show"); }
@@ -2076,7 +2193,9 @@
   var pasCompraId = null;
   function applyPasCompraLock(locked){
     $("fPasValor").disabled = !!locked;
-    $("fPasStatus").disabled = !!locked;
+    var valorUndef = pasUndefCheckbox("fPasValor");
+    if (valorUndef) valorUndef.disabled = !!locked;
+    refreshPasStatusLock();
   }
   function showPasCompraSection(r){
     var wrap = $("pasCompraWrap");
@@ -2105,6 +2224,7 @@
           '<span class="row-meta">'+escapeHtml(c.cartaoNome||"—")+' · '+fmtBRL(c.valor_total)+' em '+(c.parcelas||1)+'x · '+(c.data?isoToBR(c.data):"—")+'</span>';
         $("fPasValor").value = String(c.valor_total).replace(".", ",");
         $("fPasStatus").value = "Comprado";
+        setSingleChipGroupValue($("fPasStatusChips"), "Comprado");
         applyPasCompraLock(true);
       } else {
         infoEl.innerHTML = '<span class="row-meta">Compra não encontrada (pode ter sido excluída).</span>';
@@ -2748,7 +2868,7 @@
   // ---------- Relacionar comentários/pendências a uma passagem específica ----------
   function passagemLabel(p){
     var route = (p.origem||"?") + " → " + (p.destino||"?");
-    return route + (p.data ? " · " + isoToBR(p.data) : "");
+    return route + (p.data ? " · " + isoToBR(p.data) : "") + (p.pessoa ? " · " + p.pessoa : "");
   }
   function passagemById(id){
     if (id == null) return null;
@@ -2758,11 +2878,9 @@
   function populatePassagemFilterSelects(){
     var options = state.passagens.slice().sort(function(a,b){ return (a.data||"").localeCompare(b.data||""); })
       .map(function(p){ return '<option value="'+p.id+'">'+escapeHtml(passagemLabel(p))+'</option>'; }).join("");
-    ["fComPassagem","fPenPassagem"].forEach(function(id){
-      var sel = $(id); var cur = sel.value;
-      sel.innerHTML = '<option value="">Nenhuma</option>' + options;
-      sel.value = cur;
-    });
+    var selCom = $("fComPassagem"); var curCom = selCom.value;
+    selCom.innerHTML = '<option value="">Nenhuma</option>' + options;
+    selCom.value = curCom;
     var sel1 = $("comFilterPassagem"); var cur1 = sel1.value;
     sel1.innerHTML = '<option value="">Todos os comentários</option>' + options;
     sel1.value = cur1;
@@ -2911,10 +3029,54 @@
     $("fPenTexto").value = r ? r.texto : "";
     $("fPenFeito").checked = r ? !!r.feito : false;
     $("fPenPassagem").value = r && r.passagem_id ? String(r.passagem_id) : "";
+    renderFPenPassagemInfo(r && r.passagem_id ? passagemById(r.passagem_id) : null);
     penOverlay.classList.add("show");
   }
   function closePenModal(){ penOverlay.classList.remove("show"); }
   $("btnAddPen").addEventListener("click", function(){ openPenModal(null); });
+
+  // ---------- Vincular pendência com uma passagem existente ----------
+  function renderFPenPassagemInfo(p){
+    var infoEl = $("fPenPassagemInfo");
+    if (p){
+      infoEl.innerHTML = '<span class="row-title">'+escapeHtml(passagemLabel(p))+'</span>';
+      $("btnDesvincularPenPassagem").style.display = "inline-flex";
+    } else {
+      infoEl.innerHTML = '<span class="row-meta">Nenhuma passagem vinculada.</span>';
+      $("btnDesvincularPenPassagem").style.display = "none";
+    }
+  }
+  function renderPassagemPickerList(filter){
+    var listEl = $("passagemPickerList");
+    var f = (filter||"").trim().toLowerCase();
+    var list = f ? state.passagens.filter(function(p){ return passagemLabel(p).toLowerCase().indexOf(f) !== -1; }) : state.passagens;
+    var sorted = list.slice().sort(function(a,b){ return (a.data||"").localeCompare(b.data||""); });
+    listEl.innerHTML = "";
+    if (!sorted.length){ listEl.innerHTML = '<div class="empty">Nenhuma passagem encontrada.</div>'; return; }
+    sorted.forEach(function(p){
+      var row = document.createElement("div");
+      row.className = "item-row";
+      row.innerHTML = '<span class="row-title">'+escapeHtml(passagemLabel(p))+'</span>';
+      row.addEventListener("click", function(){
+        $("fPenPassagem").value = p.id;
+        renderFPenPassagemInfo(p);
+        $("passagemPickerOverlay").classList.remove("show");
+      });
+      listEl.appendChild(row);
+    });
+  }
+  $("btnVincularPenPassagem").addEventListener("click", function(){
+    $("passagemPickerSearch").value = "";
+    renderPassagemPickerList("");
+    $("passagemPickerOverlay").classList.add("show");
+  });
+  $("btnDesvincularPenPassagem").addEventListener("click", function(){
+    $("fPenPassagem").value = "";
+    renderFPenPassagemInfo(null);
+  });
+  $("passagemPickerClose").addEventListener("click", function(){ $("passagemPickerOverlay").classList.remove("show"); });
+  $("passagemPickerCloseFoot").addEventListener("click", function(){ $("passagemPickerOverlay").classList.remove("show"); });
+  $("passagemPickerSearch").addEventListener("input", function(){ renderPassagemPickerList(this.value); });
   $("penClose").addEventListener("click", closePenModal);
   $("penCancel").addEventListener("click", closePenModal);
   $("penSave").addEventListener("click", function(){
