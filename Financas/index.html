@@ -4034,10 +4034,16 @@
   // every time loadAndRender() runs.
   function cardNotifBaseId(idx){ return 5000 + idx*10; }
   function fillNotifTemplate(str, cartao){ return String(str).replace(/\{cart[aã]o\}/gi, cartao.nome); }
-  function defaultNotifTitle(daysBefore){ return daysBefore > 0 ? "Fatura vence em breve" : "Fatura vence hoje"; }
+  function defaultNotifTitle(daysBefore){
+    if (daysBefore === 1) return "Fatura vence amanhã";
+    return daysBefore > 0 ? "Fatura vence em breve" : "Fatura vence hoje";
+  }
   function defaultNotifBody(cartao, daysBefore){
-    if (daysBefore > 0){
-      return "A fatura do cartão " + cartao.nome + " vence em " + daysBefore + (daysBefore===1 ? " dia" : " dias") + " — confira o valor no app.";
+    if (daysBefore === 1){
+      return "A fatura do cartão " + cartao.nome + " vence amanhã — confira o valor no app.";
+    }
+    if (daysBefore > 1){
+      return "A fatura do cartão " + cartao.nome + " vence em " + daysBefore + " dias — confira o valor no app.";
     }
     return "A fatura do cartão " + cartao.nome + " vence hoje.";
   }
