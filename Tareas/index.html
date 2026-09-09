@@ -630,6 +630,22 @@
     font-style: italic;
   }
 
+  .subtask-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 3px 0;
+  }
+  .subtask-row input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    accent-color: var(--accent);
+  }
+  .subtask-title { flex: 1; word-wrap: break-word; }
+  .subtask-row.done .subtask-title { color: var(--ink-faint); text-decoration: line-through; }
+
   .log-add-row {
     display: flex;
     gap: 6px;
@@ -977,6 +993,7 @@
   var selectedCalDay = null;
   var openEditId = null;
   var openLogId = null;
+  var openSubtasksId = null;
 
   // ---------- Supabase client (mesmo projeto/anon key do Finanças e Planes) ----------
   var SUPABASE_URL = "https://qdetwdneqncblxwylpyw.supabase.co";
@@ -1527,6 +1544,7 @@
       dueDate: r.due_date,
       status: r.status,
       log: Array.isArray(r.log) ? r.log : [],
+      subtasks: Array.isArray(r.subtasks) ? r.subtasks : [],
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       completedAt: r.completed_at,
@@ -1656,6 +1674,37 @@
     supabaseClient.from('tareas_tasks').update({ log: log, updated_at: new Date().toISOString() }).eq('id', id)
       .then(throwIfError).then(loadAndRender)
       .catch(function(err){ showError('No se pudo agregar al historial: ' + err.message); });
+  }
+
+  // ---------- Subtareas (checklist dentro de una tarea) ----------
+  function genLocalId() { return 'st' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function saveSubtasks(taskId, subtasks, errMsg) {
+    supabaseClient.from('tareas_tasks').update({ subtasks: subtasks, updated_at: new Date().toISOString() }).eq('id', taskId)
+      .then(throwIfError).then(loadAndRender)
+      .catch(function(err){ showError(errMsg + ': ' + err.message); });
+  }
+  function addSubtask(taskId, title) {
+    title = (title || '').trim();
+    if (!title) return;
+    var task = tasks.filter(function(x){ return x.id === taskId; })[0];
+    if (!task) return;
+    var subtasks = (Array.isArray(task.subtasks) ? task.subtasks : []).slice();
+    subtasks.push({ id: genLocalId(), title: title, done: false });
+    saveSubtasks(taskId, subtasks, 'No se pudo agregar la subtarea');
+  }
+  function toggleSubtask(taskId, subId) {
+    var task = tasks.filter(function(x){ return x.id === taskId; })[0];
+    if (!task) return;
+    var subtasks = (Array.isArray(task.subtasks) ? task.subtasks : []).map(function(s){
+      return s.id === subId ? { id: s.id, title: s.title, done: !s.done } : s;
+    });
+    saveSubtasks(taskId, subtasks, 'No se pudo actualizar la subtarea');
+  }
+  function deleteSubtask(taskId, subId) {
+    var task = tasks.filter(function(x){ return x.id === taskId; })[0];
+    if (!task) return;
+    var subtasks = (Array.isArray(task.subtasks) ? task.subtasks : []).filter(function(s){ return s.id !== subId; });
+    saveSubtasks(taskId, subtasks, 'No se pudo eliminar la subtarea');
   }
 
   function escapeHtml(s) {
@@ -1837,6 +1886,64 @@
         pendLine.style.color = 'var(--accent)';
         pendLine.textContent = '🔗 Planes: ' + (t.pendenciaTexto || ('#' + t.pendenciaId)) + (t.pendenciaFeito ? ' (resuelta)' : '');
         main.appendChild(pendLine);
+      }
+
+      if (openEditId !== t.id) {
+        var subtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
+        var subDoneCount = subtasks.filter(function(s){ return s.done; }).length;
+        var subToggle = document.createElement('button');
+        subToggle.className = 'log-toggle';
+        subToggle.textContent = (openSubtasksId === t.id ? '▾' : '▸') + ' Subtareas' + (subtasks.length ? ' (' + subDoneCount + '/' + subtasks.length + ')' : '');
+        subToggle.onclick = function(){ openSubtasksId = openSubtasksId === t.id ? null : t.id; renderList(); };
+        main.appendChild(subToggle);
+
+        if (openSubtasksId === t.id) {
+          var subList = document.createElement('div');
+          subList.className = 'task-log';
+          if (subtasks.length === 0) {
+            var subEmpty = document.createElement('div');
+            subEmpty.className = 'log-empty';
+            subEmpty.textContent = 'Sin subtareas todavía.';
+            subList.appendChild(subEmpty);
+          } else {
+            subtasks.forEach(function(s){
+              var subRow = document.createElement('div');
+              subRow.className = 'subtask-row' + (s.done ? ' done' : '');
+              var cb = document.createElement('input');
+              cb.type = 'checkbox';
+              cb.checked = !!s.done;
+              cb.addEventListener('change', function(){ toggleSubtask(t.id, s.id); });
+              var subTitle = document.createElement('span');
+              subTitle.className = 'subtask-title';
+              subTitle.textContent = s.title;
+              var subDel = document.createElement('button');
+              subDel.className = 'icon-btn';
+              subDel.textContent = '✕';
+              subDel.title = 'Eliminar subtarea';
+              subDel.onclick = function(){ deleteSubtask(t.id, s.id); };
+              subRow.appendChild(cb);
+              subRow.appendChild(subTitle);
+              subRow.appendChild(subDel);
+              subList.appendChild(subRow);
+            });
+          }
+          var subAddRow = document.createElement('div');
+          subAddRow.className = 'log-add-row';
+          var subInput = document.createElement('input');
+          subInput.type = 'text';
+          subInput.placeholder = 'Agregar subtarea...';
+          subInput.maxLength = 200;
+          var subAddBtn = document.createElement('button');
+          subAddBtn.className = 'log-add-btn';
+          subAddBtn.textContent = '+';
+          var submitSub = function(){ addSubtask(t.id, subInput.value); subInput.value = ''; };
+          subAddBtn.onclick = submitSub;
+          subInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') submitSub(); });
+          subAddRow.appendChild(subInput);
+          subAddRow.appendChild(subAddBtn);
+          subList.appendChild(subAddRow);
+          main.appendChild(subList);
+        }
       }
 
       if (openEditId === t.id) {
