@@ -1793,7 +1793,7 @@
     }
     var msg = tripReminderMessage(state.trip);
     $("btnTripReminder").disabled = true;
-    supabaseClient.functions.invoke("send-household-message", { body: { title: msg.title, body: msg.body, includeSelf: false } })
+    supabaseClient.functions.invoke("send-household-message-planes", { body: { title: msg.title, body: msg.body, includeSelf: false } })
       .then(function(res){
         if (res.error) throw res.error;
         var sentCount = (res.data && res.data.sent && res.data.sent.length) || 0;
