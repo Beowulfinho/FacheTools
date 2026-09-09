@@ -1,19 +1,19 @@
-// Supabase Edge Function: notify-household
+// Supabase Edge Function: notify-household-planes
 //
-// Triggered by a Database Webhook on INSERT into `compras` or `debito`. Looks up who else
-// shares a household with the row's owner (see the `households`/`household_members` tables and
-// `is_household_member()` from the household_sharing_setup migration), fetches their registered
-// device tokens, and pushes a real-time notification to each one via Firebase Cloud Messaging's
-// HTTP v1 API.
+// Planes' counterpart to notify-household (Financas). Triggered by a pg_net webhook on INSERT
+// into `planes_comentarios` (see the notify_household_on_comentario trigger /
+// trigger_notify_household_planes() from the device_tokens_add_app_and_planes_notify_trigger
+// migration). Looks up who else shares a household with the comment's author, fetches their
+// Planes-app device tokens (device_tokens.app = 'planes' — a phone with both Financas and Planes
+// installed must only get pinged by the app the change actually happened in), and pushes via
+// FCM's HTTP v1 API on Planes' own notification channel ("planes_alerts", see
+// ensureNotificationChannel in Planes/index.html) so it shows with Planes' icon/color, not
+// Financas'.
 //
-// Required secrets (set via the Supabase dashboard, Edge Functions > Manage secrets):
-//   FCM_SERVICE_ACCOUNT   — the full JSON content of a Firebase service account key
-//                           (Firebase console > Project settings > Service accounts > Generate new private key)
-//   WEBHOOK_SHARED_SECRET — an arbitrary random string, matched against the `x-webhook-secret`
-//                           header. This function is called directly by a pg_net trigger (not
-//                           the Dashboard's Database Webhooks UI, which needed a schema this
-//                           project doesn't have set up), so verify_jwt is off and this header
-//                           is the only gate — anyone without it gets a 401.
+// Required secrets (same Firebase project as notify-household, already set):
+//   FCM_SERVICE_ACCOUNT   — full JSON of a Firebase service account key.
+//   WEBHOOK_SHARED_SECRET — matched against x-webhook-secret; verify_jwt is off since a pg_net
+//                           trigger calls this directly, not the Dashboard's Database Webhooks UI.
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected automatically by Supabase.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -21,20 +21,12 @@ import { GoogleAuth } from "npm:google-auth-library@9";
 
 const FCM_PROJECT_ID = "financas-fachetools";
 
-function formatBRL(v: number): string {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
-}
-
 function messageForRow(table: string, record: Record<string, unknown>): { title: string; body: string } {
-  if (table === "compras") {
-    const desc = (record.descricao as string) || (record.comerciante as string) || "Nova compra";
-    const valor = formatBRL(Number(record.valor_total) || 0);
-    return { title: "Novo gasto no crédito", body: `${desc} — ${valor}` };
+  const texto = (record.texto as string) || "";
+  if (table === "planes_comentarios") {
+    return { title: "Novo comentário no plano", body: texto };
   }
-  const desc = (record.descricao as string) || "Novo lançamento";
-  const valor = formatBRL(Number(record.valor) || 0);
-  const sinal = record.out ? "Saída" : "Entrada";
-  return { title: `${sinal} registrada`, body: `${desc} — ${valor}` };
+  return { title: "Novidade no plano", body: texto };
 }
 
 Deno.serve(async (req: Request) => {
@@ -78,7 +70,7 @@ Deno.serve(async (req: Request) => {
     const { data: tokens } = await admin
       .from("device_tokens")
       .select("token")
-      .eq("app", "financas")
+      .eq("app", "planes")
       .in("user_id", otherUserIds);
     if (!tokens || tokens.length === 0) {
       return new Response(JSON.stringify({ skipped: "no device tokens for other members" }), { status: 200 });
@@ -112,10 +104,7 @@ Deno.serve(async (req: Request) => {
               message: {
                 token: row.token,
                 notification: { title, body },
-                // Matches the high-importance channel created client-side (ensureNotificationChannel
-                // in Financas/index.html) — without naming it here, Android falls back to FCM's
-                // default channel (normal importance), which never pops a heads-up banner.
-                android: { notification: { channel_id: "financas_alerts" } },
+                android: { notification: { channel_id: "planes_alerts" } },
               },
             }),
           },

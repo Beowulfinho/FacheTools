@@ -4066,14 +4066,14 @@
         var daysBefore = (cartao.notifDiasAntes===null || cartao.notifDiasAntes===undefined) ? 1 : Number(cartao.notifDiasAntes);
         var title = cartao.notifTitle ? fillNotifTemplate(cartao.notifTitle, cartao) : defaultNotifTitle(0);
         var body = cartao.notifBody ? fillNotifTemplate(cartao.notifBody, cartao) : defaultNotifBody(cartao, 0);
-        notifications.push({ id: baseId, title: title, body: body, schedule: { at: dueAt } });
+        notifications.push({ id: baseId, title: title, body: body, channelId: NOTIF_CHANNEL_ID, schedule: { at: dueAt } });
 
         if (daysBefore > 0){
           var reminderAt = new Date(dueAt.getTime() - daysBefore*24*60*60*1000);
           if (reminderAt.getTime() > Date.now()){
             var rTitle = cartao.notifTitle ? fillNotifTemplate(cartao.notifTitle, cartao) : defaultNotifTitle(daysBefore);
             var rBody = cartao.notifBody ? fillNotifTemplate(cartao.notifBody, cartao) : defaultNotifBody(cartao, daysBefore);
-            notifications.push({ id: baseId+1, title: rTitle, body: rBody, schedule: { at: reminderAt } });
+            notifications.push({ id: baseId+1, title: rTitle, body: rBody, channelId: NOTIF_CHANNEL_ID, schedule: { at: reminderAt } });
           } else {
             idsToCancel.push({id: baseId+1});
           }
@@ -4101,6 +4101,7 @@
           id: 9999,
           title: fillNotifTemplate(title || defaultNotifTitle(0), cartao),
           body: fillNotifTemplate(body || defaultNotifBody(cartao, 0), cartao),
+          channelId: NOTIF_CHANNEL_ID,
           schedule: { at: new Date(Date.now() + 5000) }
         }]
       });
@@ -5835,6 +5836,28 @@
   })();
 
   // ---------- Push notifications (real-time, cross-device) ----------
+  // Android 8+ only pops a heads-up banner (and plays a sound) for notifications posted on a
+  // channel whose importance is HIGH — the default channel Capacitor/FCM fall back to when none
+  // is given is NORMAL, which still lands in the shade but never interrupts the screen. Creating
+  // this channel up front (importance is fixed at creation time, later messages can't override
+  // it) and referencing its id on every notifications.schedule() call, plus on the FCM payload's
+  // android.notification.channel_id (see notify-household/send-household-message), is what
+  // actually turns delivery into a heads-up popup instead of a silent tray entry.
+  var NOTIF_CHANNEL_ID = "financas_alerts";
+  (function ensureNotificationChannel(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if (!LocalNotifications) return;
+    LocalNotifications.createChannel({
+      id: NOTIF_CHANNEL_ID,
+      name: "Alertas do Financas",
+      description: "Avisos de gastos, vencimentos e mensagens do household",
+      importance: 5,
+      visibility: 1,
+      vibration: true
+    }).catch(function(){});
+  })();
+
   // Listeners are wired once at startup regardless of login state (cheap, no-op until something
   // fires); the actual permission request + register() call happens after a successful login
   // (see registerPushToken(), called from the auth-session branch below) since the resulting
@@ -5867,6 +5890,7 @@
           id: Math.floor(Math.random() * 1000000) + 100000,
           title: (n.title || "Financas"),
           body: (n.body || ""),
+          channelId: NOTIF_CHANNEL_ID,
           schedule: { at: new Date(Date.now() + 500) }
         }]
       }).catch(function(){});

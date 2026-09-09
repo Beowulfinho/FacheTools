@@ -3259,10 +3259,80 @@
     if (session && session.user){
       setConnectedUI(true, session.user.email);
       loadAndRender();
+      registerPushToken();
     } else {
       setConnectedUI(false, "");
     }
   });
+
+  // ---------- Push notifications (real-time, cross-device) ----------
+  // Same pattern as Financas/index.html, with its own channel/id so a device with both apps
+  // installed keeps Planes and Financas pushes visually and functionally separate — including
+  // which device_tokens rows each app's Supabase trigger notifies (see the "app" column).
+  // Android 8+ only pops a heads-up banner for notifications posted on a channel whose importance
+  // is HIGH — the default channel Capacitor/FCM fall back to when none is given is NORMAL, which
+  // lands in the shade silently but never interrupts the screen. Importance is fixed at channel
+  // creation time, so this must run before anything schedules on it.
+  var NOTIF_CHANNEL_ID = "planes_alerts";
+  (function ensureNotificationChannel(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if (!LocalNotifications) return;
+    LocalNotifications.createChannel({
+      id: NOTIF_CHANNEL_ID,
+      name: "Alertas do Planes",
+      description: "Avisos de comentários e novidades nos planos compartilhados",
+      importance: 5,
+      visibility: 1,
+      vibration: true
+    }).catch(function(){});
+  })();
+
+  // Listeners are wired once at startup regardless of login state (cheap, no-op until something
+  // fires); the actual permission request + register() call happens after a successful login
+  // (see registerPushToken(), called from the auth-session branch above) since the resulting
+  // device token is meaningless without a signed-in user to attach it to via device_tokens.
+  (function wirePushNotificationListeners(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var PushNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+    if (!PushNotifications) return;
+    PushNotifications.addListener("registration", function(token){
+      // upsert (not insert) because the same physical device can re-register after a token
+      // rotation or a fresh app install — `token` text is UNIQUE, so this updates the existing
+      // row's user_id/app/updated_at instead of erroring on a duplicate.
+      supabaseClient.from("device_tokens")
+        .upsert({ token: token.value, platform: "android", app: "planes", updated_at: new Date().toISOString() }, { onConflict: "token" })
+        .then(throwIfError)
+        .catch(function(err){ console.warn("Não foi possível registrar o token de notificações:", err.message); });
+    });
+    PushNotifications.addListener("registrationError", function(err){ console.warn("Push registration error:", err); });
+    // Android only auto-shows a push in the system tray when the app is backgrounded/closed —
+    // while it's open, FCM hands the payload to this listener instead and shows nothing on its
+    // own. Re-displaying it as a local notification makes delivery consistent regardless of app
+    // state.
+    PushNotifications.addListener("pushNotificationReceived", function(notification){
+      var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+      if (!LocalNotifications) return;
+      var n = notification.notification || notification;
+      LocalNotifications.schedule({
+        notifications: [{
+          id: Math.floor(Math.random() * 1000000) + 100000,
+          title: (n.title || "Planes"),
+          body: (n.body || ""),
+          channelId: NOTIF_CHANNEL_ID,
+          schedule: { at: new Date(Date.now() + 500) }
+        }]
+      }).catch(function(){});
+    });
+  })();
+  function registerPushToken(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var PushNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+    if (!PushNotifications) return;
+    PushNotifications.requestPermissions().then(function(perm){
+      if (perm.receive === "granted") PushNotifications.register();
+    }).catch(function(){});
+  }
 
   // ---------- Init ----------
   ["tripInicio","tripFim","fPasData","fHosCheckin","fHosCheckout","fAtvData"].forEach(function(id){

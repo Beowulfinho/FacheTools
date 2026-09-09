@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the accent color variable in Planes/index.html -->
+    <color name="notificationColor">#B5541F</color>
+</resources>

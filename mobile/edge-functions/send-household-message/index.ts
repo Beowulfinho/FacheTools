@@ -86,6 +86,7 @@ Deno.serve(async (req: Request) => {
     const { data: tokens } = await admin
       .from("device_tokens")
       .select("token")
+      .eq("app", "financas")
       .in("user_id", targetUserIds);
     if (!tokens || tokens.length === 0) {
       return json({ sent: [], skipped: "no device tokens for other members" });
@@ -111,7 +112,13 @@ Deno.serve(async (req: Request) => {
           {
             method: "POST",
             headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ message: { token: row.token, notification: { title: finalTitle, body } } }),
+            body: JSON.stringify({
+              message: {
+                token: row.token,
+                notification: { title: finalTitle, body },
+                android: { notification: { channel_id: "financas_alerts" } },
+              },
+            }),
           },
         );
         const responseBody = await res.text();
