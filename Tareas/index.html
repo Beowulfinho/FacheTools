@@ -432,6 +432,9 @@
   .chip.type-recurrente { background: var(--accent-soft); color: var(--accent); }
   .chip.type-puntual { background: var(--paper-3); color: var(--ink-soft); }
   .chip.type-seguimiento { background: var(--good-soft); color: var(--good); }
+  .chip.neutral { background: var(--paper-3); color: var(--ink-soft); }
+
+  .wd-btn { min-width: 30px; text-align: center; }
 
   .chip-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
   .chip-field-label {
@@ -817,11 +820,43 @@
           </div>
           <input type="hidden" id="type-input" value="puntual">
         </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <input type="date" id="due-input" style="flex:1; min-width:140px;">
-          <textarea id="notes-input" placeholder="Notas (opcional)" style="flex:2;"></textarea>
+        <div class="chip-field due-field">
+          <span class="chip-field-label due-field-label">Fecha límite</span>
+          <input type="date" id="due-input">
         </div>
+        <div class="chip-field recurrence-field" style="display:none;">
+          <span class="chip-field-label">Repetir</span>
+          <div class="chip-group recurrence-type-chips">
+            <button type="button" class="chip chip-btn neutral active" data-value="semanal">Semanal</button>
+            <button type="button" class="chip chip-btn neutral" data-value="quincenal">Cada 15 días</button>
+            <button type="button" class="chip chip-btn neutral" data-value="mensual">Mensual</button>
+          </div>
+          <input type="hidden" id="recurrence-type-input" class="recurrence-type-input" value="semanal">
+          <div class="chip-group recurrence-weekday-chips">
+            <button type="button" class="chip chip-btn neutral wd-btn" data-value="0">D</button>
+            <button type="button" class="chip chip-btn neutral wd-btn" data-value="1">L</button>
+            <button type="button" class="chip chip-btn neutral wd-btn" data-value="2">M</button>
+            <button type="button" class="chip chip-btn neutral wd-btn" data-value="3">M</button>
+            <button type="button" class="chip chip-btn neutral wd-btn" data-value="4">J</button>
+            <button type="button" class="chip chip-btn neutral wd-btn" data-value="5">V</button>
+            <button type="button" class="chip chip-btn neutral wd-btn" data-value="6">S</button>
+          </div>
+          <input type="hidden" id="recurrence-weekdays-input" value="">
+        </div>
+        <textarea id="notes-input" placeholder="Notas (opcional)"></textarea>
       </div>
+    </div>
+
+    <div class="chip-field">
+      <span class="chip-field-label">Período</span>
+      <div class="chip-group" id="period-chips">
+        <button type="button" class="chip chip-btn neutral active" data-value="todas">Todas</button>
+        <button type="button" class="chip chip-btn neutral" data-value="semana">Esta semana</button>
+        <button type="button" class="chip chip-btn neutral" data-value="semana_prox">Semana que viene</button>
+        <button type="button" class="chip chip-btn neutral" data-value="mes">Este mes</button>
+        <button type="button" class="chip chip-btn neutral" data-value="mes_prox">Mes que viene</button>
+      </div>
+      <input type="hidden" id="period-input" value="todas">
     </div>
 
     <div class="tabs" id="tabs"></div>
@@ -864,8 +899,13 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
-  function fmtDue(dueDate, status) {
+  function fmtDue(dueDate, status, type) {
     if (!dueDate) return null;
+    var parts = dueDate.split('-');
+    // Una tarea recurrente no tiene "vencimiento": la fecha es solo el inicio de la repetición.
+    if (type === 'recurrente') {
+      return { text: parts[2] + '/' + parts[1], cls: 'due' };
+    }
     var today = todayStr();
     var cls = 'due';
     if (dueDate < today) {
@@ -874,7 +914,6 @@
     } else if (dueDate === today) {
       cls = 'due today';
     }
-    var parts = dueDate.split('-');
     return { text: parts[2] + '/' + parts[1], cls: cls };
   }
 
@@ -930,13 +969,14 @@
   }
 
   // ---------- Chip selectors (prioridad / tipo) ----------
-  function wireChipGroup(container, hiddenInput) {
+  function wireChipGroup(container, hiddenInput, onChange) {
     if (!container || !hiddenInput) return;
     container.querySelectorAll('.chip-btn').forEach(function(btn){
       btn.addEventListener('click', function(){
         container.querySelectorAll('.chip-btn').forEach(function(b){ b.classList.remove('active'); });
         btn.classList.add('active');
         hiddenInput.value = btn.getAttribute('data-value');
+        if (onChange) onChange(hiddenInput.value);
       });
     });
   }
@@ -945,6 +985,126 @@
     container.querySelectorAll('.chip-btn').forEach(function(b){
       b.classList.toggle('active', b.getAttribute('data-value') === value);
     });
+  }
+  function wireMultiChipGroup(container, hiddenInput) {
+    if (!container || !hiddenInput) return;
+    container.querySelectorAll('.chip-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        btn.classList.toggle('active');
+        var vals = Array.prototype.map.call(container.querySelectorAll('.chip-btn.active'), function(b){ return b.getAttribute('data-value'); });
+        hiddenInput.value = vals.join(',');
+      });
+    });
+  }
+  function setMultiChipGroupValue(container, valuesCsv) {
+    if (!container) return;
+    var vals = String(valuesCsv || '').split(',').filter(Boolean);
+    container.querySelectorAll('.chip-btn').forEach(function(b){
+      b.classList.toggle('active', vals.indexOf(b.getAttribute('data-value')) !== -1);
+    });
+  }
+
+  // ---------- Visibility rules: seguimiento has no date, recurrente has a start date + repeat rule ----------
+  function applyTypeVisibility(scope, type) {
+    var dueField = scope.querySelector('.due-field');
+    var dueLabel = scope.querySelector('.due-field-label');
+    var recField = scope.querySelector('.recurrence-field');
+    if (!dueField || !recField) return;
+    if (type === 'seguimiento') {
+      dueField.style.display = 'none';
+      recField.style.display = 'none';
+    } else if (type === 'recurrente') {
+      dueField.style.display = '';
+      if (dueLabel) dueLabel.textContent = 'Fecha de inicio';
+      recField.style.display = '';
+      applyRecurrenceVisibility(scope);
+    } else {
+      dueField.style.display = '';
+      if (dueLabel) dueLabel.textContent = 'Fecha límite';
+      recField.style.display = 'none';
+    }
+  }
+  function applyRecurrenceVisibility(scope) {
+    var recTypeInput = scope.querySelector('.recurrence-type-input');
+    var weekdayGroup = scope.querySelector('.recurrence-weekday-chips');
+    if (!recTypeInput || !weekdayGroup) return;
+    weekdayGroup.style.display = recTypeInput.value === 'semanal' ? '' : 'none';
+  }
+
+  // ---------- Filtro por período (semana/mes) ----------
+  var activePeriod = 'todas';
+  function isoFromDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function parseIsoDate(iso) { return new Date(iso + 'T00:00:00'); }
+  function startOfWeek(d) { var x = new Date(d); x.setDate(x.getDate() - x.getDay()); return x; }
+  function getPeriodRange(key) {
+    var now = new Date(); now.setHours(0,0,0,0);
+    if (key === 'semana') {
+      var s = startOfWeek(now); var e = new Date(s); e.setDate(e.getDate() + 6);
+      return [isoFromDate(s), isoFromDate(e)];
+    }
+    if (key === 'semana_prox') {
+      var s2 = startOfWeek(now); s2.setDate(s2.getDate() + 7); var e2 = new Date(s2); e2.setDate(e2.getDate() + 6);
+      return [isoFromDate(s2), isoFromDate(e2)];
+    }
+    if (key === 'mes') {
+      var s3 = new Date(now.getFullYear(), now.getMonth(), 1); var e3 = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return [isoFromDate(s3), isoFromDate(e3)];
+    }
+    if (key === 'mes_prox') {
+      var s4 = new Date(now.getFullYear(), now.getMonth() + 1, 1); var e4 = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      return [isoFromDate(s4), isoFromDate(e4)];
+    }
+    return null;
+  }
+  function recurrenceOccursInRange(t, rangeStart, rangeEnd) {
+    if (!t.dueDate || t.dueDate > rangeEnd) return false;
+    var freq = t.recurrenceType || 'semanal';
+    var start = parseIsoDate(t.dueDate);
+    var rs = parseIsoDate(rangeStart), re = parseIsoDate(rangeEnd);
+    if (freq === 'mensual') {
+      var day = start.getDate();
+      var cur = new Date(rs.getFullYear(), rs.getMonth(), 1);
+      while (cur <= re) {
+        var daysInMonth = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+        var occ = new Date(cur.getFullYear(), cur.getMonth(), Math.min(day, daysInMonth));
+        if (occ >= start && occ >= rs && occ <= re) return true;
+        cur.setMonth(cur.getMonth() + 1);
+      }
+      return false;
+    }
+    if (freq === 'quincenal') {
+      var diffDays = Math.round((rs - start) / 86400000);
+      var k = Math.max(0, Math.ceil(diffDays / 15));
+      for (var i = 0; i < 60; i++) {
+        var occDate = new Date(start.getTime() + (k + i) * 15 * 86400000);
+        if (occDate > re) break;
+        if (occDate >= rs) return true;
+      }
+      return false;
+    }
+    // semanal: repite en los días de semana elegidos (por defecto, el día de la fecha de inicio)
+    var weekdays = (t.recurrenceWeekdays && t.recurrenceWeekdays.length) ? t.recurrenceWeekdays : [start.getDay()];
+    var cursor = new Date(Math.max(start.getTime(), rs.getTime()));
+    while (cursor <= re) {
+      if (weekdays.indexOf(cursor.getDay()) !== -1) return true;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return false;
+  }
+  function taskMatchesPeriod(t, range) {
+    if (!range) return true;
+    if (t.type === 'seguimiento') return true;
+    if (t.type === 'recurrente') return recurrenceOccursInRange(t, range[0], range[1]);
+    if (!t.dueDate) return false;
+    return t.dueDate >= range[0] && t.dueDate <= range[1];
+  }
+  function recurrenceLabel(t) {
+    var freq = t.recurrenceType || 'semanal';
+    if (freq === 'mensual') return 'Mensual';
+    if (freq === 'quincenal') return 'Cada 15 días';
+    var wds = (t.recurrenceWeekdays && t.recurrenceWeekdays.length) ? t.recurrenceWeekdays.slice().sort() : null;
+    if (!wds) return 'Semanal';
+    return 'Semanal (' + wds.map(function(d){ return WEEKDAY_LABELS[d]; }).join('') + ')';
   }
 
   // ---------- Custom date picker (.dsel) — replaces the native date picker ----------
@@ -1100,6 +1260,8 @@
       notes: r.notes || '',
       priority: r.priority,
       type: r.task_type || 'puntual',
+      recurrenceType: r.recurrence_type,
+      recurrenceWeekdays: Array.isArray(r.recurrence_weekdays) ? r.recurrence_weekdays : [],
       dueDate: r.due_date,
       status: r.status,
       log: Array.isArray(r.log) ? r.log : [],
@@ -1131,8 +1293,18 @@
     var type = $('type-input').value;
     var dueDate = $('due-input').value || null;
     var notes = $('notes-input').value.trim() || null;
+    if (type === 'seguimiento') dueDate = null;
+    var recurrenceType = null, recurrenceWeekdays = null;
+    if (type === 'recurrente') {
+      recurrenceType = $('recurrence-type-input').value || 'semanal';
+      if (recurrenceType === 'semanal') {
+        var wdCsv = $('recurrence-weekdays-input').value;
+        recurrenceWeekdays = wdCsv ? wdCsv.split(',').map(Number) : [dueDate ? parseIsoDate(dueDate).getDay() : new Date().getDay()];
+      }
+    }
     supabaseClient.from('tareas_tasks').insert({
       title: title, priority: priority, task_type: type, due_date: dueDate, notes: notes, status: 'pending',
+      recurrence_type: recurrenceType, recurrence_weekdays: recurrenceWeekdays,
     }).select().then(throwIfError).then(function(){
       titleInput.value = '';
       $('notes-input').value = '';
@@ -1141,6 +1313,11 @@
       setChipGroupValue($('priority-chips'), 'media');
       $('type-input').value = 'puntual';
       setChipGroupValue($('type-chips'), 'puntual');
+      $('recurrence-type-input').value = 'semanal';
+      setChipGroupValue(document.querySelector('.recurrence-type-chips'), 'semanal');
+      $('recurrence-weekdays-input').value = '';
+      setMultiChipGroupValue(document.querySelector('.recurrence-weekday-chips'), '');
+      applyTypeVisibility(document, 'puntual');
       $('add-btn').disabled = true;
       titleInput.focus();
       return loadAndRender();
@@ -1167,8 +1344,18 @@
     var priority = form.querySelector('.edit-priority').value;
     var type = form.querySelector('.edit-type').value;
     var dueDate = form.querySelector('.edit-due').value || null;
+    if (type === 'seguimiento') dueDate = null;
+    var recurrenceType = null, recurrenceWeekdays = null;
+    if (type === 'recurrente') {
+      recurrenceType = form.querySelector('.edit-recurrence-type').value || 'semanal';
+      if (recurrenceType === 'semanal') {
+        var wdCsv = form.querySelector('.edit-recurrence-weekdays').value;
+        recurrenceWeekdays = wdCsv ? wdCsv.split(',').map(Number) : [dueDate ? parseIsoDate(dueDate).getDay() : new Date().getDay()];
+      }
+    }
     supabaseClient.from('tareas_tasks').update({
       title: title, notes: notes, priority: priority, task_type: type, due_date: dueDate, updated_at: new Date().toISOString(),
+      recurrence_type: recurrenceType, recurrence_weekdays: recurrenceWeekdays,
     }).eq('id', id).then(throwIfError).then(function(){
       openEditId = null;
       return loadAndRender();
@@ -1199,12 +1386,14 @@
     var el = $('list');
     el.innerHTML = '';
     var filtered = activeTab === 'todas' ? tasks : tasks.filter(function(t){ return t.status === activeTab; });
+    var range = getPeriodRange(activePeriod);
+    filtered = filtered.filter(function(t){ return taskMatchesPeriod(t, range); });
     var sorted = sortTasks(filtered);
 
     if (sorted.length === 0) {
       var empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = activeTab === 'todas'
+      empty.textContent = tasks.length === 0
         ? 'Todavía no hay tareas. Escribí la primera arriba.'
         : 'Nada por acá.';
       el.appendChild(empty);
@@ -1242,7 +1431,13 @@
       typeChip.className = 'chip type-' + t.type;
       typeChip.textContent = TYPE_LABEL[t.type] || t.type;
       meta.appendChild(typeChip);
-      var due = fmtDue(t.dueDate, t.status);
+      if (t.type === 'recurrente') {
+        var recChip = document.createElement('span');
+        recChip.className = 'chip neutral';
+        recChip.textContent = recurrenceLabel(t);
+        meta.appendChild(recChip);
+      }
+      var due = fmtDue(t.dueDate, t.status, t.type);
       if (due) {
         var dueChip = document.createElement('span');
         dueChip.className = 'chip ' + due.cls;
@@ -1277,12 +1472,29 @@
             '</div>' +
             '<input type="hidden" class="edit-type" value="' + t.type + '">' +
           '</div>' +
-          '<input type="date" class="edit-due" value="' + (t.dueDate || '') + '">' +
+          '<div class="chip-field due-field">' +
+            '<span class="chip-field-label due-field-label">Fecha límite</span>' +
+            '<input type="date" class="edit-due" value="' + (t.dueDate || '') + '">' +
+          '</div>' +
+          '<div class="chip-field recurrence-field">' +
+            '<span class="chip-field-label">Repetir</span>' +
+            '<div class="chip-group edit-recurrence-type-chips">' +
+              ['semanal','quincenal','mensual'].map(function(rt){ return '<button type="button" class="chip chip-btn neutral' + (rt === (t.recurrenceType || 'semanal') ? ' active' : '') + '" data-value="' + rt + '">' + (rt === 'semanal' ? 'Semanal' : rt === 'quincenal' ? 'Cada 15 días' : 'Mensual') + '</button>'; }).join('') +
+            '</div>' +
+            '<input type="hidden" class="edit-recurrence-type recurrence-type-input" value="' + (t.recurrenceType || 'semanal') + '">' +
+            '<div class="chip-group edit-recurrence-weekday-chips recurrence-weekday-chips">' +
+              ['0','1','2','3','4','5','6'].map(function(wd){ return '<button type="button" class="chip chip-btn neutral wd-btn' + ((t.recurrenceWeekdays||[]).indexOf(Number(wd)) !== -1 ? ' active' : '') + '" data-value="' + wd + '">' + WEEKDAY_LABELS[wd] + '</button>'; }).join('') +
+            '</div>' +
+            '<input type="hidden" class="edit-recurrence-weekdays" value="' + (t.recurrenceWeekdays || []).join(',') + '">' +
+          '</div>' +
           '<textarea class="edit-notes" placeholder="Notas">' + (t.notes || '') + '</textarea>' +
           '<button class="save-btn">Guardar</button>';
         wireChipGroup(form.querySelector('.edit-priority-chips'), form.querySelector('.edit-priority'));
-        wireChipGroup(form.querySelector('.edit-type-chips'), form.querySelector('.edit-type'));
+        wireChipGroup(form.querySelector('.edit-type-chips'), form.querySelector('.edit-type'), function(val){ applyTypeVisibility(form, val); });
+        wireChipGroup(form.querySelector('.edit-recurrence-type-chips'), form.querySelector('.edit-recurrence-type'), function(){ applyRecurrenceVisibility(form); });
+        wireMultiChipGroup(form.querySelector('.edit-recurrence-weekday-chips'), form.querySelector('.edit-recurrence-weekdays'));
         enhanceDateInput(form.querySelector('.edit-due'));
+        applyTypeVisibility(form, t.type);
         form.querySelector('.save-btn').onclick = function(){ saveEdit(t.id, form); };
         main.appendChild(form);
       }
@@ -1454,8 +1666,13 @@
   }
 
   wireChipGroup($('priority-chips'), $('priority-input'));
-  wireChipGroup($('type-chips'), $('type-input'));
+  wireChipGroup($('type-chips'), $('type-input'), function(val){ applyTypeVisibility(document, val); });
+  wireChipGroup(document.querySelector('.recurrence-type-chips'), $('recurrence-type-input'), function(){ applyRecurrenceVisibility(document); });
+  wireMultiChipGroup(document.querySelector('.recurrence-weekday-chips'), $('recurrence-weekdays-input'));
   enhanceDateInput($('due-input'));
+  applyTypeVisibility(document, $('type-input').value);
+
+  wireChipGroup($('period-chips'), $('period-input'), function(val){ activePeriod = val; renderList(); });
 
   $('add-btn').addEventListener('click', addTask);
   $('title-input').addEventListener('input', function(e){
