@@ -156,6 +156,7 @@
   }
   .item-row:last-child{ border-bottom:none; }
   .item-row:hover{ background:var(--paper); cursor:pointer; }
+  .item-row.active-row{ background:var(--accent-soft); }
   .row-title{ font-weight:600; }
   .row-meta{ font-size:12.5px; color:var(--ink-soft); }
   .row-amt{ font-family:"IBM Plex Mono",monospace; font-weight:600; text-align:right; }
@@ -608,7 +609,14 @@
         <button class="btn btn-sm btn-primary" id="btnAddPen" type="button">+ Pendência</button>
       </div>
       <div style="padding:12px 18px 0;">
-        <select id="penFilterPassagem" style="width:100%;"><option value="">Todas as pendências</option></select>
+        <div class="dsel">
+          <button type="button" class="dsel-trigger" id="penFilterTrigger" aria-expanded="false">
+            <span class="dsel-label" id="penFilterLabel">Todas as pendências</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="dsel-panel" id="penFilterPanel" style="max-height:300px; overflow-y:auto; min-width:100%;"></div>
+        </div>
+        <input type="hidden" id="penFilterPassagem" value="">
       </div>
       <div id="penList"></div>
     </div>
@@ -2884,13 +2892,58 @@
     var sel1 = $("comFilterPassagem"); var cur1 = sel1.value;
     sel1.innerHTML = '<option value="">Todos os comentários</option>' + options;
     sel1.value = cur1;
-    var sel2 = $("penFilterPassagem"); var cur2 = sel2.value;
-    sel2.innerHTML = '<option value="">Todas as pendências</option>' + options;
-    sel2.value = cur2;
+    syncPenFilterLabel();
   }
+
+  // ---------- Filtro de pendências por passagem (dropdown próprio, não <select> nativo) ----------
+  function syncPenFilterLabel(){
+    var val = $("penFilterPassagem").value;
+    var p = val ? passagemById(Number(val)) : null;
+    $("penFilterLabel").textContent = p ? passagemLabel(p) : "Todas as pendências";
+  }
+  function closePenFilterPanel(){
+    $("penFilterPanel").classList.remove("show");
+    $("penFilterTrigger").setAttribute("aria-expanded", "false");
+  }
+  function renderPenFilterPanel(){
+    var panel = $("penFilterPanel");
+    var curVal = $("penFilterPassagem").value;
+    var sorted = state.passagens.slice().sort(function(a,b){ return (a.data||"").localeCompare(b.data||""); });
+    var rows = [{ id: "", label: "Todas as pendências" }].concat(
+      sorted.map(function(p){ return { id: String(p.id), label: passagemLabel(p) }; })
+    );
+    panel.innerHTML = rows.map(function(o){
+      return '<div class="item-row'+(o.id === curVal ? " active-row" : "")+'" data-id="'+o.id+'"><span class="row-title">'+escapeHtml(o.label)+'</span></div>';
+    }).join("");
+    panel.querySelectorAll(".item-row").forEach(function(row, i){
+      row.addEventListener("click", function(){
+        $("penFilterPassagem").value = rows[i].id;
+        syncPenFilterLabel();
+        closePenFilterPanel();
+        renderPendencias();
+      });
+    });
+  }
+  $("penFilterTrigger").addEventListener("click", function(e){
+    e.stopPropagation();
+    var panel = $("penFilterPanel");
+    if (panel.classList.contains("show")){ closePenFilterPanel(); return; }
+    document.querySelectorAll(".dsel-panel.show").forEach(function(p){ p.classList.remove("show"); });
+    document.querySelectorAll(".dsel-trigger[aria-expanded='true']").forEach(function(b){ b.setAttribute("aria-expanded","false"); });
+    renderPenFilterPanel();
+    panel.classList.add("show");
+    $("penFilterTrigger").setAttribute("aria-expanded", "true");
+    clampPanelToViewport(panel);
+  });
+
   function goToPassagemDiario(passagemId, page){
     closePasModal();
-    $(page === "pendencias" ? "penFilterPassagem" : "comFilterPassagem").value = String(passagemId);
+    if (page === "pendencias"){
+      $("penFilterPassagem").value = String(passagemId);
+      syncPenFilterLabel();
+    } else {
+      $("comFilterPassagem").value = String(passagemId);
+    }
     setActivePage(page);
     if (page === "pendencias") renderPendencias(); else renderComentarios();
   }
@@ -3010,7 +3063,6 @@
       listEl.appendChild(row);
     });
   }
-  $("penFilterPassagem").addEventListener("change", renderPendencias);
   function togglePendenciaFeito(r){
     var rec = { texto: r.texto, feito: !r.feito, passagem_id: r.passagem_id||null };
     saveTableRow("planes_pendencias", "update", r.id, rec, currentMode, activeTripId()).then(function(){
