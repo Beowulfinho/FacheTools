@@ -163,6 +163,11 @@
     display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px;
     background:var(--accent-soft); color:var(--accent-ink); white-space:nowrap; width:fit-content;
   }
+  .trip-days{ display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1; min-width:56px; }
+  .trip-days .n{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; font-size:30px; font-weight:800; color:var(--accent); }
+  .trip-days .n.today{ font-size:18px; }
+  .trip-days .n.past{ color:var(--ink-faint); }
+  .trip-days .lbl{ font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); font-weight:600; margin-top:2px; }
   .tag.warn{ background:var(--warn-soft); color:var(--warn); }
   .tag.tag-success{ background:var(--success-soft); color:var(--success); }
   .tag.tag-danger{ background:var(--danger-soft); color:var(--danger); }
@@ -229,11 +234,24 @@
   .modal-foot{ display:flex; gap:8px; padding:14px 18px; border-top:1px solid var(--line); }
   .field{ display:flex; flex-direction:column; gap:5px; }
   .field label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); }
+  .field-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .field-undef{ display:flex; align-items:center; gap:4px; font-size:11px; font-weight:500; color:var(--ink-faint); white-space:nowrap; cursor:pointer; }
+  .field-undef input{ width:auto; padding:0; margin:0; }
   .field input, .field select, .field textarea{
     padding:9px 11px; border-radius:8px; border:1px solid var(--line-strong); background:var(--paper);
     color:var(--ink); width:100%; font-family:inherit; font-size:inherit;
   }
+  .field input:disabled, .field select:disabled{
+    background:var(--line); color:var(--ink-faint); cursor:not-allowed;
+  }
   .field textarea{ resize:vertical; box-sizing:border-box; }
+  .pessoa-chips{ display:flex; gap:6px; flex-wrap:wrap; }
+  .pessoa-chip{
+    padding:8px 13px; border-radius:999px; border:1px solid var(--line-strong); background:var(--paper);
+    color:var(--ink-soft); font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer;
+  }
+  .pessoa-chip:hover{ border-color:var(--accent); }
+  .pessoa-chip.active{ background:var(--accent); border-color:var(--accent); color:#FBF3EC; }
   .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:480px){ .field-row{ grid-template-columns:1fr; } }
   .field-error{ display:none; color:var(--danger); font-size:12.5px; }
@@ -247,6 +265,7 @@
     padding:9px 11px; border-radius:8px; border:1px solid var(--line-strong); background:var(--paper); color:var(--ink);
     font-size:inherit; text-align:left; font-family:"IBM Plex Mono",monospace;
   }
+  .dsel-trigger:disabled, .tsel-trigger:disabled{ background:var(--line); color:var(--ink-faint); cursor:not-allowed; }
   .dsel-trigger .dsel-label.ph, .tsel-trigger .tsel-label.ph{ color:var(--ink-faint); font-family:"IBM Plex Sans",sans-serif; }
   .dsel-trigger svg, .tsel-trigger svg{ flex:none; width:16px; height:16px; color:var(--ink-faint); }
   .dsel-panel, .tsel-panel{
@@ -386,7 +405,12 @@
       </div>
       <div class="field" style="width:100%; text-align:left;">
         <label for="authPassword">Senha</label>
-        <input type="password" id="authPassword" autocomplete="current-password">
+        <div style="position:relative;">
+          <input type="password" id="authPassword" autocomplete="current-password" style="width:100%; padding-right:38px;">
+          <button type="button" id="btnToggleSenha" aria-label="Mostrar senha" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; padding:4px; cursor:pointer; color:inherit; opacity:.65; display:flex;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </div>
       <div class="field-error" id="authError" style="display:none;"></div>
       <div style="display:flex; gap:10px; width:100%;">
@@ -563,6 +587,9 @@
         <h2>Comentários</h2>
         <button class="btn btn-sm btn-primary" id="btnAddCom" type="button">+ Comentário</button>
       </div>
+      <div style="padding:12px 18px 0;">
+        <select id="comFilterPassagem" style="width:100%;"><option value="">Todos os comentários</option></select>
+      </div>
       <div id="comList"></div>
     </div>
   </div>
@@ -573,6 +600,9 @@
       <div class="panel-head">
         <h2>Pendências</h2>
         <button class="btn btn-sm btn-primary" id="btnAddPen" type="button">+ Pendência</button>
+      </div>
+      <div style="padding:12px 18px 0;">
+        <select id="penFilterPassagem" style="width:100%;"><option value="">Todas as pendências</option></select>
       </div>
       <div id="penList"></div>
     </div>
@@ -645,6 +675,7 @@
     <div class="modal-head"><h3 id="comModalTitle">Novo comentário</h3><button class="modal-close" id="comClose" type="button">✕</button></div>
     <div class="modal-body">
       <div class="field"><label for="fComTexto">Comentário</label><textarea id="fComTexto" rows="5" placeholder="Ex.: Hoje a Fachera pesquisou na internet, as opções são X e Y por tal preço..."></textarea></div>
+      <div class="field"><label for="fComPassagem">Relacionado à passagem (opcional)</label><select id="fComPassagem"><option value="">Nenhuma</option></select></div>
       <div class="field-error" id="comError"></div>
     </div>
     <div class="modal-foot">
@@ -662,6 +693,7 @@
     <div class="modal-head"><h3 id="penModalTitle">Nova pendência</h3><button class="modal-close" id="penClose" type="button">✕</button></div>
     <div class="modal-body">
       <div class="field"><label for="fPenTexto">Pendência</label><textarea id="fPenTexto" rows="4" placeholder="Ex.: Falta comprar a passagem — esperando confirmar as datas com a Fachera"></textarea></div>
+      <div class="field"><label for="fPenPassagem">Relacionado à passagem (opcional)</label><select id="fPenPassagem"><option value="">Nenhuma</option></select></div>
       <label class="check-field"><input type="checkbox" id="fPenFeito"> Resolvida</label>
       <div class="field-error" id="penError"></div>
     </div>
@@ -683,24 +715,61 @@
         <div class="field"><label for="fPasTipo">Tipo</label>
           <select id="fPasTipo"><option>Ida</option><option>Volta</option><option>Interno</option></select>
         </div>
-        <div class="field"><label for="fPasCompanhia">Companhia</label><input type="text" id="fPasCompanhia" placeholder="Ex.: LATAM"></div>
+        <div class="field">
+          <div class="field-head"><label for="fPasCompanhia">Companhia</label><label class="field-undef"><input type="checkbox" class="pas-undef" data-field="fPasCompanhia"> não definido</label></div>
+          <input type="text" id="fPasCompanhia" placeholder="Ex.: LATAM">
+        </div>
       </div>
       <div class="field-row">
-        <div class="field"><label for="fPasOrigem">Origem</label><input type="text" id="fPasOrigem" placeholder="Ex.: GRU"></div>
-        <div class="field"><label for="fPasDestino">Destino</label><input type="text" id="fPasDestino" placeholder="Ex.: BRC"></div>
+        <div class="field">
+          <div class="field-head"><label for="fPasOrigem">Origem</label><label class="field-undef"><input type="checkbox" class="pas-undef" data-field="fPasOrigem"> não definido</label></div>
+          <input type="text" id="fPasOrigem" placeholder="Ex.: GRU">
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="fPasDestino">Destino</label><label class="field-undef"><input type="checkbox" class="pas-undef" data-field="fPasDestino"> não definido</label></div>
+          <input type="text" id="fPasDestino" placeholder="Ex.: BRC">
+        </div>
       </div>
       <div class="field-row">
-        <div class="field"><label for="fPasData">Data</label><input type="date" id="fPasData"></div>
-        <div class="field"><label for="fPasHora">Hora</label><input type="time" id="fPasHora"></div>
+        <div class="field">
+          <div class="field-head"><label for="fPasData">Data</label><label class="field-undef"><input type="checkbox" class="pas-undef" data-field="fPasData"> não definido</label></div>
+          <input type="date" id="fPasData">
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="fPasHora">Hora</label><label class="field-undef"><input type="checkbox" class="pas-undef" data-field="fPasHora"> não definido</label></div>
+          <input type="time" id="fPasHora">
+        </div>
       </div>
       <div class="field-row">
-        <div class="field"><label for="fPasPessoa">Pessoa(s)</label><input type="text" id="fPasPessoa" placeholder="Ex.: Andres e Gabriela"></div>
+        <div class="field"><label>Pessoa(s)</label>
+          <div class="pessoa-chips" data-target="fPasPessoa">
+            <button type="button" class="pessoa-chip" data-nome="Gabriela">Gabriela</button>
+            <button type="button" class="pessoa-chip" data-nome="Andres">Andres</button>
+            <button type="button" class="pessoa-chip" data-nome="Facheros">Facheros</button>
+          </div>
+          <input type="hidden" id="fPasPessoa">
+        </div>
         <div class="field"><label for="fPasValor">Valor (R$)</label><input type="text" inputmode="decimal" id="fPasValor" placeholder="0,00"></div>
       </div>
       <div class="field-row">
         <div class="field"><label for="fPasConfirmacao">Número da reserva</label><input type="text" id="fPasConfirmacao" placeholder="Ex.: ABC123"></div>
         <div class="field"><label for="fPasStatus">Status</label>
-          <select id="fPasStatus"><option>Comprado</option><option>Pendente</option></select>
+          <select id="fPasStatus"><option>Comprado</option><option>Pendente</option><option>Cancelado</option></select>
+        </div>
+      </div>
+      <div class="field" id="pasCompraWrap" style="display:none;">
+        <label>Compra vinculada em Finanças</label>
+        <div id="pasCompraInfo"></div>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <button class="btn btn-sm" id="btnVincularCompra" type="button">Vincular com compra</button>
+          <button class="btn btn-sm btn-danger" id="btnDesvincularCompra" type="button" style="display:none;">Desvincular</button>
+        </div>
+      </div>
+      <div class="field" id="pasDiarioWrap" style="display:none;">
+        <label>Diário da viagem</label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-sm" id="btnPasVerComentarios" type="button">💬 Ver comentários</button>
+          <button class="btn btn-sm" id="btnPasVerPendencias" type="button">📌 Ver pendências</button>
         </div>
       </div>
       <div class="field-error" id="pasError"></div>
@@ -723,7 +792,14 @@
       <div class="field"><label for="fHosNome">Nome do lugar</label><input type="text" id="fHosNome" placeholder="Ex.: Hotel Panamericano"></div>
       <div class="field-row">
         <div class="field"><label for="fHosCidade">Cidade</label><input type="text" id="fHosCidade" placeholder="Ex.: Bariloche"></div>
-        <div class="field"><label for="fHosPessoas">Pessoas</label><input type="text" id="fHosPessoas" placeholder="Ex.: Andres e Gabriela"></div>
+        <div class="field"><label>Pessoas</label>
+          <div class="pessoa-chips" data-target="fHosPessoas">
+            <button type="button" class="pessoa-chip" data-nome="Gabriela">Gabriela</button>
+            <button type="button" class="pessoa-chip" data-nome="Andres">Andres</button>
+            <button type="button" class="pessoa-chip" data-nome="Facheros">Facheros</button>
+          </div>
+          <input type="hidden" id="fHosPessoas">
+        </div>
       </div>
       <div class="field-row">
         <div class="field"><label for="fHosCheckin">Check-in</label><input type="date" id="fHosCheckin"></div>
@@ -790,6 +866,22 @@
   </div>
 </div>
 
+<!-- ================= Modal: vincular compra (Finanças) ================= -->
+<div class="overlay" id="compraOverlay">
+  <div class="modal">
+    <div class="modal-head"><h3>Vincular com compra</h3><button class="modal-close" id="compraClose" type="button">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><input type="text" id="fCompraBusca" placeholder="Buscar por descrição ou data..."></div>
+      <div class="field-error" id="compraError"></div>
+      <div id="compraList" style="max-height:340px; overflow:auto;"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="compraCloseFoot" type="button">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ================= Modal: eventos do dia (grade) ================= -->
 <div class="overlay" id="dayOverlay">
   <div class="modal" style="max-width:380px;">
@@ -816,6 +908,34 @@
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
     });
   }
+  // ---------- Seletor de Pessoa(s) por chips (Gabriela / Andres / Facheros) ----------
+  var PESSOA_OPCOES = ["Gabriela", "Andres", "Facheros"];
+  function pessoaChipsContainer(hiddenId){ return document.querySelector('.pessoa-chips[data-target="'+hiddenId+'"]'); }
+  function pessoaChipsValue(container){
+    var picked = [];
+    PESSOA_OPCOES.forEach(function(nome){
+      var btn = container.querySelector('.pessoa-chip[data-nome="'+nome+'"]');
+      if (btn && btn.classList.contains("active")) picked.push(nome);
+    });
+    return picked.join(" e ");
+  }
+  function setPessoaChips(hiddenId, value){
+    var container = pessoaChipsContainer(hiddenId);
+    var selected = String(value||"").split(/\s+e\s+/i).map(function(s){ return s.trim(); }).filter(Boolean);
+    container.querySelectorAll(".pessoa-chip").forEach(function(btn){
+      btn.classList.toggle("active", selected.indexOf(btn.getAttribute("data-nome")) !== -1);
+    });
+    $(hiddenId).value = pessoaChipsValue(container);
+  }
+  document.querySelectorAll(".pessoa-chips").forEach(function(container){
+    var hiddenId = container.getAttribute("data-target");
+    container.querySelectorAll(".pessoa-chip").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        btn.classList.toggle("active");
+        $(hiddenId).value = pessoaChipsValue(container);
+      });
+    });
+  });
   // ---------- Supabase client ----------
   var SUPABASE_URL = "https://qdetwdneqncblxwylpyw.supabase.co";
   var SUPABASE_ANON_KEY = "sb_publishable_CI3FY5MplWpHWaU25bewZg_l2YvjsmZ";
@@ -899,9 +1019,9 @@
       case "planes_atividade_itens":
         return { atividade_id: rec.atividade_id, texto: rec.texto, feito: !!rec.feito };
       case "planes_comentarios":
-        return { modo: modo, trip_id: tripId, texto: rec.texto };
+        return { modo: modo, trip_id: tripId, texto: rec.texto, passagem_id: rec.passagem_id || null };
       case "planes_pendencias":
-        return { modo: modo, trip_id: tripId, texto: rec.texto, feito: !!rec.feito };
+        return { modo: modo, trip_id: tripId, texto: rec.texto, feito: !!rec.feito, passagem_id: rec.passagem_id || null };
     }
   }
 
@@ -955,19 +1075,19 @@
           return {id:r.id, trip_id:r.trip_id, categoria:r.categoria, subtitulo:r.subtitulo||"", planejado:Number(r.planejado)||0, gasto:Number(r.gasto)||0, porDia: !!r.por_dia};
         });
         STORE[modo].allPas = byModo(pasRows, modo).map(function(r){
-          return {id:r.id, trip_id:r.trip_id, tipo:r.tipo, companhia:r.companhia||"", origem:r.origem||"", destino:r.destino||"", data:r.data||"", hora:hhmm(r.hora), pessoa:r.pessoa||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", status:r.status||"Pendente"};
+          return {id:r.id, trip_id:r.trip_id, tipo:r.tipo, companhia:r.companhia||"", origem:r.origem||"", destino:r.destino||"", data:r.data||"", hora:hhmm(r.hora), pessoa:r.pessoa||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", status:r.status||"Pendente", compra_id:r.compra_id||null};
         });
         STORE[modo].allHos = byModo(hosRows, modo).map(function(r){
-          return {id:r.id, trip_id:r.trip_id, nome:r.nome, cidade:r.cidade||"", checkin:r.checkin||"", checkout:r.checkout||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", endereco:r.endereco||"", pessoas:r.pessoas||""};
+          return {id:r.id, trip_id:r.trip_id, nome:r.nome, cidade:r.cidade||"", checkin:r.checkin||"", checkout:r.checkout||"", valor:Number(r.valor)||0, confirmacao:r.confirmacao||"", endereco:r.endereco||"", pessoas:r.pessoas||"", compra_id:r.compra_id||null};
         });
         STORE[modo].allAtv = byModo(atvRows, modo).map(function(r){
           return {id:r.id, trip_id:r.trip_id, titulo:r.titulo, data:r.data||"", hora:hhmm(r.hora), notas:r.notas||""};
         });
         STORE[modo].allCom = byModo(comRows, modo).map(function(r){
-          return {id:r.id, trip_id:r.trip_id, texto:r.texto||"", created_at:r.created_at||""};
+          return {id:r.id, trip_id:r.trip_id, texto:r.texto||"", created_at:r.created_at||"", passagem_id:r.passagem_id||null};
         });
         STORE[modo].allPen = byModo(penRows, modo).map(function(r){
-          return {id:r.id, trip_id:r.trip_id, texto:r.texto||"", feito: !!r.feito, created_at:r.created_at||""};
+          return {id:r.id, trip_id:r.trip_id, texto:r.texto||"", feito: !!r.feito, created_at:r.created_at||"", passagem_id:r.passagem_id||null};
         });
         // Se a trip ativa não existe mais (ex.: excluída em outro dispositivo), volta para o seletor.
         if (STORE[modo].activeId != null && !STORE[modo].trips.some(function(t){ return t.id === STORE[modo].activeId; })){
@@ -989,6 +1109,7 @@
     renderPassagens();
     renderHospedagem();
     renderCalendario();
+    populatePassagemFilterSelects();
     renderComentarios();
     renderPendencias();
     renderStatus();
@@ -1016,30 +1137,39 @@
     return currentMode === "salida" ? "Aventura sem nome" : "Viagem sem nome";
   }
   function tripPickerDetail(t){
-    var base;
     if (currentMode === "salida"){
-      base = t.inicio ? isoToBR(t.inicio) : "Sem data definida";
+      return t.inicio ? isoToBR(t.inicio) : "Sem data definida";
     } else if (t.inicio && t.fim) {
-      base = isoToBR(t.inicio) + " – " + isoToBR(t.fim);
+      return isoToBR(t.inicio) + " – " + isoToBR(t.fim);
     } else if (t.inicio) {
-      base = "Início: " + isoToBR(t.inicio);
-    } else {
-      base = "Datas ainda não definidas";
+      return "Início: " + isoToBR(t.inicio);
     }
-    var countdown = tripCountdownLabel(t);
-    return countdown ? (base + " · " + countdown) : base;
+    return "Datas ainda não definidas";
   }
-  // Contador regressivo de dias até o início da viagem/aventura (só quando há data definida).
-  function tripCountdownLabel(t){
-    if (!t.inicio) return "";
+  // Contador regressivo de dias até o início da viagem/aventura (só quando há data definida) —
+  // exibido em destaque na lista para dar aquele gostinho de ver os dias diminuindo.
+  function tripCountdownDays(t){
+    if (!t.inicio) return null;
     var todaySerial = Math.round(new Date(new Date().toDateString()).getTime() / 86400000);
     var startSerial = dateInputToSerial(t.inicio);
-    if (startSerial === null) return "";
-    var diff = startSerial - todaySerial;
+    if (startSerial === null) return null;
+    return startSerial - todaySerial;
+  }
+  function tripCountdownLabel(t){
+    var diff = tripCountdownDays(t);
+    if (diff === null) return "";
     if (diff > 1) return "faltam " + diff + " dias";
     if (diff === 1) return "falta 1 dia";
     if (diff === 0) return "é hoje!";
     return "";
+  }
+  function tripDaysBadgeHtml(t){
+    var diff = tripCountdownDays(t);
+    if (diff === null) return '<span class="row-meta">›</span>';
+    if (diff > 1) return '<div class="trip-days"><span class="n">'+diff+'</span><span class="lbl">dias</span></div>';
+    if (diff === 1) return '<div class="trip-days"><span class="n">1</span><span class="lbl">dia</span></div>';
+    if (diff === 0) return '<div class="trip-days"><span class="n today">Hoje!</span></div>';
+    return '<div class="trip-days"><span class="n past">✓</span><span class="lbl">rolou</span></div>';
   }
   function tripBudgetTotal(t){
     return STORE[currentMode].allOrc.filter(function(r){ return r.trip_id === t.id; })
@@ -1085,8 +1215,7 @@
         delBtn.addEventListener("click", function(e){ e.stopPropagation(); pendingDeleteId = null; deleteTrip(t); });
         actionSpan.appendChild(delBtn);
       } else {
-        actionSpan.className = "row-meta";
-        actionSpan.textContent = "›";
+        actionSpan.innerHTML = tripDaysBadgeHtml(t);
       }
       row.appendChild(infoSpan);
       row.appendChild(actionSpan);
@@ -1817,13 +1946,15 @@
     var card = document.createElement("div");
     card.className = "item-row";
     card.style.gridTemplateColumns = "1fr";
-    var statusTag = r.status === "Comprado" ? '<span class="tag tag-success">Comprado</span>' : '<span class="tag tag-danger">Pendente</span>';
+    var statusTag = r.status === "Comprado" ? '<span class="tag tag-success">Comprado</span>'
+      : r.status === "Cancelado" ? '<span class="tag warn">Cancelado</span>'
+      : '<span class="tag tag-danger">Pendente</span>';
     card.innerHTML =
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">'+
-        '<span class="row-title">'+escapeHtml(r.origem)+' → '+escapeHtml(r.destino)+'</span>'+
+        '<span class="row-title">'+(r.origem||r.destino ? escapeHtml(r.origem||"?")+' → '+escapeHtml(r.destino||"?") : "A definir")+'</span>'+
         statusTag+
       '</div>'+
-      '<span class="row-meta">'+escapeHtml(r.companhia)+' · '+(r.data?serialToBR(r.data):"—")+' '+escapeHtml(r.hora||"")+'</span>'+
+      '<span class="row-meta">'+escapeHtml(r.companhia||"—")+' · '+(r.data?serialToBR(r.data):"—")+' '+escapeHtml(r.hora||"")+'</span>'+
       '<span class="row-meta">'+escapeHtml(r.pessoa||"")+'</span>'+
       '<span class="num row-amt" style="text-align:left;">'+fmtBRL(r.valor)+'</span>';
     card.addEventListener("click", function(){ openPasModal(r); });
@@ -1847,6 +1978,21 @@
     $("pasTotal").textContent = fmtBRL(total);
   }
 
+  // Cada campo (companhia/origem/destino/data/hora) pode ficar "ainda não definido" individualmente
+  // quando a passagem está só reservada/pendente — não é tudo ou nada.
+  function pasFieldTrigger(input){ var wrap = input.closest(".dsel, .tsel"); return wrap ? wrap.querySelector(".dsel-trigger, .tsel-trigger") : null; }
+  function pasUndefCheckbox(fieldId){ return document.querySelector('.pas-undef[data-field="'+fieldId+'"]'); }
+  function applyPasFieldUndef(fieldId, off){
+    var input = $(fieldId);
+    input.disabled = off;
+    var trigger = pasFieldTrigger(input);
+    if (trigger) trigger.disabled = off;
+    if (off) input.value = "";
+  }
+  document.querySelectorAll(".pas-undef").forEach(function(cb){
+    cb.addEventListener("change", function(){ applyPasFieldUndef(cb.getAttribute("data-field"), cb.checked); });
+  });
+
   var pasOverlay = $("pasOverlay");
   var editingPas = null;
   function openPasModal(r, seed){
@@ -1855,6 +2001,7 @@
     $("pasModalTitle").textContent = r ? "Editar passagem" : (seed ? "Duplicar passagem" : "Nova passagem");
     $("pasDelete").style.display = r ? "inline-flex" : "none";
     $("pasDuplicate").style.display = r ? "inline-flex" : "none";
+    $("pasDiarioWrap").style.display = r ? "" : "none";
     $("pasError").classList.remove("show");
     $("fPasTipo").value = src ? src.tipo : "Ida";
     $("fPasCompanhia").value = src ? src.companhia : "";
@@ -1862,10 +2009,16 @@
     $("fPasDestino").value = src ? src.destino : "";
     $("fPasData").value = src ? src.data : "";
     $("fPasHora").value = src ? src.hora : "";
-    $("fPasPessoa").value = src ? src.pessoa : "";
+    setPessoaChips("fPasPessoa", src ? src.pessoa : "");
     $("fPasValor").value = src ? String(src.valor).replace(".", ",") : "";
     $("fPasConfirmacao").value = src ? src.confirmacao : "";
     $("fPasStatus").value = src ? src.status : "Comprado";
+    [["fPasCompanhia","companhia"],["fPasOrigem","origem"],["fPasDestino","destino"],["fPasData","data"],["fPasHora","hora"]].forEach(function(pair){
+      var off = !!src && !src[pair[1]];
+      pasUndefCheckbox(pair[0]).checked = off;
+      applyPasFieldUndef(pair[0], off);
+    });
+    showPasCompraSection(r);
     pasOverlay.classList.add("show");
   }
   function closePasModal(){ pasOverlay.classList.remove("show"); }
@@ -1880,7 +2033,9 @@
   });
   $("pasSave").addEventListener("click", function(){
     var origem = $("fPasOrigem").value.trim(), destino = $("fPasDestino").value.trim();
-    if (!origem || !destino){ $("pasError").textContent = "Informe origem e destino."; $("pasError").classList.add("show"); return; }
+    var origemOk = origem || pasUndefCheckbox("fPasOrigem").checked;
+    var destinoOk = destino || pasUndefCheckbox("fPasDestino").checked;
+    if (!origemOk || !destinoOk){ $("pasError").textContent = "Informe origem e destino (ou marque como ainda não definidos)."; $("pasError").classList.add("show"); return; }
     var rec = {
       tipo: $("fPasTipo").value, companhia: $("fPasCompanhia").value.trim(), origem: origem, destino: destino,
       data: $("fPasData").value, hora: $("fPasHora").value, pessoa: $("fPasPessoa").value.trim(),
@@ -1903,6 +2058,124 @@
       $("pasError").textContent = "Não foi possível excluir: " + err.message; $("pasError").classList.add("show");
     });
   });
+
+  // ---------- Vincular passagem com compra existente em Finanças (somente leitura do lado do dinheiro) ----------
+  var COMPRAS_CACHE = null;
+  function loadComprasCache(){
+    if (COMPRAS_CACHE) return Promise.resolve(COMPRAS_CACHE);
+    return supabaseClient.from("compras")
+      .select("id, descricao, valor_total, parcelas, data, cartoes(nome)")
+      .order("data", {ascending:false})
+      .then(throwIfError).then(function(res){
+        COMPRAS_CACHE = (res.data||[]).map(function(c){
+          return { id:c.id, descricao:c.descricao, valor_total:c.valor_total, parcelas:c.parcelas, data:c.data, cartaoNome: c.cartoes ? c.cartoes.nome : null };
+        });
+        return COMPRAS_CACHE;
+      });
+  }
+  var pasCompraId = null;
+  function applyPasCompraLock(locked){
+    $("fPasValor").disabled = !!locked;
+    $("fPasStatus").disabled = !!locked;
+  }
+  function showPasCompraSection(r){
+    var wrap = $("pasCompraWrap");
+    if (!r){ wrap.style.display = "none"; pasCompraId = null; applyPasCompraLock(false); return; }
+    wrap.style.display = "";
+    pasCompraId = r.compra_id || null;
+    renderPasCompraInfo();
+  }
+  function renderPasCompraInfo(){
+    var infoEl = $("pasCompraInfo"), btnVinc = $("btnVincularCompra"), btnDesv = $("btnDesvincularCompra");
+    if (!pasCompraId){
+      infoEl.innerHTML = '<span class="row-meta">Nenhuma compra vinculada.</span>';
+      btnVinc.textContent = "Vincular com compra";
+      btnDesv.style.display = "none";
+      applyPasCompraLock(false);
+      return;
+    }
+    btnVinc.textContent = "Trocar compra vinculada";
+    btnDesv.style.display = "inline-flex";
+    infoEl.innerHTML = '<span class="row-meta">Carregando...</span>';
+    loadComprasCache().then(function(list){
+      if (pasCompraId === null) return;
+      var c = list.filter(function(x){ return x.id === pasCompraId; })[0];
+      if (c){
+        infoEl.innerHTML = '<span class="row-title">'+escapeHtml(c.descricao)+'</span><br>'+
+          '<span class="row-meta">'+escapeHtml(c.cartaoNome||"—")+' · '+fmtBRL(c.valor_total)+' em '+(c.parcelas||1)+'x · '+(c.data?isoToBR(c.data):"—")+'</span>';
+        $("fPasValor").value = String(c.valor_total).replace(".", ",");
+        $("fPasStatus").value = "Comprado";
+        applyPasCompraLock(true);
+      } else {
+        infoEl.innerHTML = '<span class="row-meta">Compra não encontrada (pode ter sido excluída).</span>';
+        applyPasCompraLock(false);
+      }
+    });
+  }
+  var compraOverlay = $("compraOverlay");
+  function renderCompraList(filter){
+    var listEl = $("compraList");
+    listEl.innerHTML = '<div class="empty">Carregando...</div>';
+    loadComprasCache().then(function(list){
+      var f = (filter||"").trim().toLowerCase();
+      var filtered = f ? list.filter(function(c){
+        return (c.descricao||"").toLowerCase().indexOf(f) !== -1 || (c.data||"").indexOf(f) !== -1;
+      }) : list;
+      listEl.innerHTML = "";
+      if (!filtered.length){ listEl.innerHTML = '<div class="empty">Nenhuma compra encontrada.</div>'; return; }
+      filtered.slice(0, 80).forEach(function(c){
+        var row = document.createElement("div");
+        row.className = "item-row";
+        row.style.cursor = "pointer";
+        row.innerHTML =
+          '<span class="row-title">'+escapeHtml(c.descricao)+'</span>'+
+          '<span class="row-meta">'+escapeHtml(c.cartaoNome||"—")+' · '+fmtBRL(c.valor_total)+' em '+(c.parcelas||1)+'x · '+(c.data?isoToBR(c.data):"—")+'</span>';
+        row.addEventListener("click", function(){ selectCompra(c.id); });
+        listEl.appendChild(row);
+      });
+    }).catch(function(err){
+      listEl.innerHTML = "";
+      $("compraError").textContent = "Não foi possível carregar compras: " + err.message; $("compraError").classList.add("show");
+    });
+  }
+  function selectCompra(compraId){
+    if (!editingPas) return;
+    loadComprasCache().then(function(list){
+      var c = list.filter(function(x){ return x.id === compraId; })[0];
+      var payload = { compra_id: compraId };
+      if (c){ payload.valor = c.valor_total; payload.status = "Comprado"; }
+      return supabaseClient.from("planes_passagens").update(payload).eq("id", editingPas.id).then(throwIfError).then(function(){ return c; });
+    }).then(function(c){
+      editingPas.compra_id = compraId;
+      if (c){ editingPas.valor = Number(c.valor_total)||0; editingPas.status = "Comprado"; }
+      pasCompraId = compraId;
+      compraOverlay.classList.remove("show");
+      renderPasCompraInfo();
+      return loadAndRender();
+    }).catch(function(err){
+      $("compraError").textContent = "Não foi possível vincular: " + err.message; $("compraError").classList.add("show");
+    });
+  }
+  $("btnVincularCompra").addEventListener("click", function(){
+    $("compraError").classList.remove("show");
+    $("fCompraBusca").value = "";
+    compraOverlay.classList.add("show");
+    renderCompraList("");
+  });
+  $("btnDesvincularCompra").addEventListener("click", function(){
+    if (!editingPas) return;
+    supabaseClient.from("planes_passagens").update({compra_id:null}).eq("id", editingPas.id).then(throwIfError).then(function(){
+      editingPas.compra_id = null;
+      pasCompraId = null;
+      renderPasCompraInfo();
+      return loadAndRender();
+    }).catch(function(err){
+      $("pasError").textContent = "Não foi possível desvincular: " + err.message; $("pasError").classList.add("show");
+    });
+  });
+  $("compraClose").addEventListener("click", function(){ compraOverlay.classList.remove("show"); });
+  $("compraCloseFoot").addEventListener("click", function(){ compraOverlay.classList.remove("show"); });
+  $("fCompraBusca").addEventListener("input", function(){ renderCompraList(this.value); });
 
   // ---------- Hospedagem ----------
   function nightsBetween(checkin, checkout){
@@ -1945,7 +2218,7 @@
     $("hosError").classList.remove("show");
     $("fHosNome").value = r ? r.nome : "";
     $("fHosCidade").value = r ? r.cidade : "";
-    $("fHosPessoas").value = r ? r.pessoas : "";
+    setPessoaChips("fHosPessoas", r ? r.pessoas : "");
     $("fHosCheckin").value = r ? r.checkin : "";
     $("fHosCheckout").value = r ? r.checkout : "";
     $("fHosValor").value = r ? String(r.valor).replace(".", ",") : "";
@@ -2472,6 +2745,44 @@
   $("vincClose").addEventListener("click", function(){ vincOverlay.classList.remove("show"); });
   $("vincCloseFoot").addEventListener("click", function(){ vincOverlay.classList.remove("show"); });
 
+  // ---------- Relacionar comentários/pendências a uma passagem específica ----------
+  function passagemLabel(p){
+    var route = (p.origem||"?") + " → " + (p.destino||"?");
+    return route + (p.data ? " · " + isoToBR(p.data) : "");
+  }
+  function passagemById(id){
+    if (id == null) return null;
+    for (var i=0;i<state.passagens.length;i++){ if (state.passagens[i].id === id) return state.passagens[i]; }
+    return null;
+  }
+  function populatePassagemFilterSelects(){
+    var options = state.passagens.slice().sort(function(a,b){ return (a.data||"").localeCompare(b.data||""); })
+      .map(function(p){ return '<option value="'+p.id+'">'+escapeHtml(passagemLabel(p))+'</option>'; }).join("");
+    ["fComPassagem","fPenPassagem"].forEach(function(id){
+      var sel = $(id); var cur = sel.value;
+      sel.innerHTML = '<option value="">Nenhuma</option>' + options;
+      sel.value = cur;
+    });
+    var sel1 = $("comFilterPassagem"); var cur1 = sel1.value;
+    sel1.innerHTML = '<option value="">Todos os comentários</option>' + options;
+    sel1.value = cur1;
+    var sel2 = $("penFilterPassagem"); var cur2 = sel2.value;
+    sel2.innerHTML = '<option value="">Todas as pendências</option>' + options;
+    sel2.value = cur2;
+  }
+  function goToPassagemDiario(passagemId, page){
+    closePasModal();
+    $(page === "pendencias" ? "penFilterPassagem" : "comFilterPassagem").value = String(passagemId);
+    setActivePage(page);
+    if (page === "pendencias") renderPendencias(); else renderComentarios();
+  }
+  $("btnPasVerComentarios").addEventListener("click", function(){
+    if (editingPas) goToPassagemDiario(editingPas.id, "comentarios");
+  });
+  $("btnPasVerPendencias").addEventListener("click", function(){
+    if (editingPas) goToPassagemDiario(editingPas.id, "pendencias");
+  });
+
   // ---------- Comentários (log) ----------
   function formatLogTimestamp(iso){
     if (!iso) return "";
@@ -2484,22 +2795,27 @@
   function renderComentarios(){
     var listEl = $("comList");
     listEl.innerHTML = "";
-    if (!state.comentarios.length){
-      listEl.innerHTML = '<div class="empty">Nenhum comentário ainda.</div>';
+    var filterVal = $("comFilterPassagem").value;
+    var filterId = filterVal ? Number(filterVal) : null;
+    var base = filterId ? state.comentarios.filter(function(r){ return r.passagem_id === filterId; }) : state.comentarios;
+    if (!base.length){
+      listEl.innerHTML = '<div class="empty">'+(filterId ? "Nenhum comentário para esta passagem." : "Nenhum comentário ainda.")+'</div>';
       return;
     }
-    var sorted = state.comentarios.slice().sort(function(a,b){ return (b.created_at||"").localeCompare(a.created_at||""); });
+    var sorted = base.slice().sort(function(a,b){ return (b.created_at||"").localeCompare(a.created_at||""); });
     sorted.forEach(function(r){
       var row = document.createElement("div");
       row.className = "item-row";
       row.style.gridTemplateColumns = "1fr";
+      var p = passagemById(r.passagem_id);
       row.innerHTML =
-        '<span><span class="row-meta">'+formatLogTimestamp(r.created_at)+'</span><br>'+
+        '<span><span class="row-meta">'+formatLogTimestamp(r.created_at)+(p ? ' · <span class="tag">✈ '+escapeHtml(passagemLabel(p))+'</span>' : '')+'</span><br>'+
         escapeHtml(r.texto).replace(/\n/g,"<br>")+'</span>';
       row.addEventListener("click", function(){ openComModal(r); });
       listEl.appendChild(row);
     });
   }
+  $("comFilterPassagem").addEventListener("change", renderComentarios);
   var comOverlay = $("comOverlay");
   var editingCom = null;
   function openComModal(r){
@@ -2508,6 +2824,7 @@
     $("comDelete").style.display = r ? "inline-flex" : "none";
     $("comError").classList.remove("show");
     $("fComTexto").value = r ? r.texto : "";
+    $("fComPassagem").value = r && r.passagem_id ? String(r.passagem_id) : "";
     comOverlay.classList.add("show");
   }
   function closeComModal(){ comOverlay.classList.remove("show"); }
@@ -2517,7 +2834,8 @@
   $("comSave").addEventListener("click", function(){
     var texto = $("fComTexto").value.trim();
     if (!texto){ $("comError").textContent = "Escreva o comentário."; $("comError").classList.add("show"); return; }
-    var rec = { texto: texto };
+    var passagemVal = $("fComPassagem").value;
+    var rec = { texto: texto, passagem_id: passagemVal ? Number(passagemVal) : null };
     var action = editingCom ? "update" : "insert";
     saveTableRow("planes_comentarios", action, editingCom ? editingCom.id : null, rec, currentMode, activeTripId()).then(function(){
       closeComModal();
@@ -2541,12 +2859,15 @@
     var listEl = $("penList");
     if (!listEl) return;
     listEl.innerHTML = "";
-    if (!state.pendencias.length){
-      listEl.innerHTML = '<div class="empty">Nenhuma pendência ainda.</div>';
+    var filterVal = $("penFilterPassagem").value;
+    var filterId = filterVal ? Number(filterVal) : null;
+    var base = filterId ? state.pendencias.filter(function(r){ return r.passagem_id === filterId; }) : state.pendencias;
+    if (!base.length){
+      listEl.innerHTML = '<div class="empty">'+(filterId ? "Nenhuma pendência para esta passagem." : "Nenhuma pendência ainda.")+'</div>';
       return;
     }
     // Pendências em aberto primeiro, depois as já resolvidas; dentro de cada grupo, mais recentes primeiro.
-    var sorted = state.pendencias.slice().sort(function(a,b){
+    var sorted = base.slice().sort(function(a,b){
       if (!!a.feito !== !!b.feito) return a.feito ? 1 : -1;
       return (b.created_at||"").localeCompare(a.created_at||"");
     });
@@ -2560,18 +2881,20 @@
       check.checked = !!r.feito;
       check.addEventListener("click", function(e){ e.stopPropagation(); togglePendenciaFeito(r); });
       checkSpan.appendChild(check);
+      var p = passagemById(r.passagem_id);
       var textSpan = document.createElement("span");
       textSpan.innerHTML =
         '<span style="'+(r.feito?"text-decoration:line-through;opacity:.6;":"")+'">'+escapeHtml(r.texto).replace(/\n/g,"<br>")+'</span><br>'+
-        '<span class="row-meta">'+formatLogTimestamp(r.created_at)+'</span>';
+        '<span class="row-meta">'+formatLogTimestamp(r.created_at)+(p ? ' · <span class="tag">✈ '+escapeHtml(passagemLabel(p))+'</span>' : '')+'</span>';
       row.appendChild(checkSpan);
       row.appendChild(textSpan);
       row.addEventListener("click", function(){ openPenModal(r); });
       listEl.appendChild(row);
     });
   }
+  $("penFilterPassagem").addEventListener("change", renderPendencias);
   function togglePendenciaFeito(r){
-    var rec = { texto: r.texto, feito: !r.feito };
+    var rec = { texto: r.texto, feito: !r.feito, passagem_id: r.passagem_id||null };
     saveTableRow("planes_pendencias", "update", r.id, rec, currentMode, activeTripId()).then(function(){
       return loadAndRender();
     }).catch(function(err){
@@ -2587,6 +2910,7 @@
     $("penError").classList.remove("show");
     $("fPenTexto").value = r ? r.texto : "";
     $("fPenFeito").checked = r ? !!r.feito : false;
+    $("fPenPassagem").value = r && r.passagem_id ? String(r.passagem_id) : "";
     penOverlay.classList.add("show");
   }
   function closePenModal(){ penOverlay.classList.remove("show"); }
@@ -2596,7 +2920,8 @@
   $("penSave").addEventListener("click", function(){
     var texto = $("fPenTexto").value.trim();
     if (!texto){ $("penError").textContent = "Escreva a pendência."; $("penError").classList.add("show"); return; }
-    var rec = { texto: texto, feito: $("fPenFeito").checked };
+    var passagemVal = $("fPenPassagem").value;
+    var rec = { texto: texto, feito: $("fPenFeito").checked, passagem_id: passagemVal ? Number(passagemVal) : null };
     var action = editingPen ? "update" : "insert";
     saveTableRow("planes_pendencias", action, editingPen ? editingPen.id : null, rec, currentMode, activeTripId()).then(function(){
       closePenModal();
@@ -2687,6 +3012,15 @@
   $("btnSignIn").addEventListener("click", doSignIn);
   $("btnSignUp").addEventListener("click", doSignUp);
   $("btnLogout").addEventListener("click", function(){ supabaseClient.auth.signOut(); });
+  $("btnToggleSenha").addEventListener("click", function(){
+    var input = $("authPassword");
+    var showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    this.setAttribute("aria-label", showing ? "Mostrar senha" : "Ocultar senha");
+    this.innerHTML = showing
+      ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>'
+      : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a19.4 19.4 0 0 1 4.22-5.29M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a19.4 19.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  });
   ["authEmail","authPassword"].forEach(function(id){
     $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") doSignIn(); });
   });

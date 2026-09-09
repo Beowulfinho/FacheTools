@@ -908,7 +908,12 @@
       </div>
       <div class="field" style="width:100%; text-align:left;">
         <label for="authPassword">Senha</label>
-        <input type="password" id="authPassword" autocomplete="current-password">
+        <div style="position:relative;">
+          <input type="password" id="authPassword" autocomplete="current-password" style="width:100%; padding-right:38px;">
+          <button type="button" id="btnToggleSenha" aria-label="Mostrar senha" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; padding:4px; cursor:pointer; color:inherit; opacity:.65; display:flex;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </div>
       <div class="field-error" id="authError" style="display:none;"></div>
       <div style="display:flex; gap:10px; width:100%;">
@@ -4178,6 +4183,15 @@
   $("btnSignIn").addEventListener("click", doSignIn);
   $("btnSignUp").addEventListener("click", doSignUp);
   $("btnLogout").addEventListener("click", function(){ supabaseClient.auth.signOut(); });
+  $("btnToggleSenha").addEventListener("click", function(){
+    var input = $("authPassword");
+    var showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    this.setAttribute("aria-label", showing ? "Mostrar senha" : "Ocultar senha");
+    this.innerHTML = showing
+      ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>'
+      : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a19.4 19.4 0 0 1 4.22-5.29M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a19.4 19.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  });
   ["authEmail","authPassword"].forEach(function(id){
     $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") doSignIn(); });
   });
