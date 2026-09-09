@@ -1,0 +1,9 @@
+{
+  "name": "Tareas",
+  "short_name": "Tareas",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F1EFE6",
+  "theme_color": "#3D5A80"
+}
