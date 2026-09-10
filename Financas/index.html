@@ -1284,6 +1284,20 @@
         <input type="date" id="fCancelacao">
       </div>
 
+      <div class="field">
+        <label class="out-check" style="cursor:pointer;">
+          <input type="checkbox" id="fReembolsado">
+          <span>Recebeu reembolso desta compra</span>
+        </label>
+      </div>
+      <div class="field" id="fReembolsoValorWrap" style="display:none;">
+        <label for="fReembolsoValor">Valor reembolsado <span class="opt">(pode ser parcial — raramente é 100%)</span></label>
+        <div class="amount-wrap">
+          <span class="cur">R$</span>
+          <input type="text" inputmode="decimal" id="fReembolsoValor" placeholder="0,00">
+        </div>
+      </div>
+
       <div class="field-error" id="txError"></div>
     </div>
     <div class="modal-foot">
@@ -2088,7 +2102,8 @@
           tipo_id: idByName("tipos", rec.tipo),
           cancelamento: rec.cancelSerial ? serialToInputValue(rec.cancelSerial) : null,
           out: !!rec.out,
-          comerciante: rec.comerciante || null
+          comerciante: rec.comerciante || null,
+          reembolso_valor: (rec.reembolsoValor && rec.reembolsoValor > 0) ? rec.reembolsoValor : null
         };
       case "debito":
         return {
@@ -2174,7 +2189,8 @@
           tipo: tipoNameById[r.tipo_id] || "",
           cancelSerial: r.cancelamento ? dateInputToSerial(r.cancelamento) : null,
           out: r.out ? 1 : 0,
-          comerciante: r.comerciante || ""
+          comerciante: r.comerciante || "",
+          reembolsoValor: (r.reembolso_valor===null || r.reembolso_valor===undefined) ? null : Number(r.reembolso_valor)
         };
       });
 
@@ -2590,7 +2606,7 @@
       row.innerHTML =
         '<input type="checkbox" class="row-select f-select" '+(selectedCompras.has(r.row)?"checked":"")+'>'+
         '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
-        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+(r.antecipacao?'<span class="tag-auto">antecipação</span>':'')+'</span>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+(r.antecipacao?'<span class="tag-auto">antecipação</span>':'')+((r.reembolsoValor!==null&&r.reembolsoValor!==undefined)?'<span class="tag-auto" title="Reembolso recebido">reemb. '+fmtBRL(r.reembolsoValor)+'</span>':'')+'</span>'+
         '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
         '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartao)+'</span>'+
         '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
@@ -4336,6 +4352,13 @@
     if (!show) $("fCancelacao").value = "";
   }
   $("fTipoSel").addEventListener("change", updateCancelacaoVisibility);
+
+  function updateReembolsoVisibility(){
+    var show = $("fReembolsado").checked;
+    $("fReembolsoValorWrap").style.display = show ? "flex" : "none";
+    if (show) setTimeout(function(){ $("fReembolsoValor").focus(); }, 30);
+  }
+  $("fReembolsado").addEventListener("change", updateReembolsoVisibility);
   // Keep the tipo in sync with the parcelas count while the user hasn't deliberately picked
   // something else (Assinatura, Estorno, a custom tipo...) — only auto-switches between the two
   // "quantity" defaults, "Á vista" (1 parcela) and "Parcelado" (2+).
@@ -4373,6 +4396,9 @@
     else $("fTipoSel").selectedIndex = 0;
     $("fCancelacao").value = "";
     updateCancelacaoVisibility();
+    $("fReembolsado").checked = false;
+    $("fReembolsoValor").value = "";
+    updateReembolsoVisibility();
     txOverlay.classList.add("show");
     setTimeout(function(){ $("fDescricao").focus(); }, 30);
   }
@@ -4398,6 +4424,9 @@
     $("fTipoSel").value = r.tipo;
     updateCancelacaoVisibility();
     $("fCancelacao").value = serialToInputValue(r.cancelSerial);
+    $("fReembolsado").checked = r.reembolsoValor !== null && r.reembolsoValor !== undefined;
+    $("fReembolsoValor").value = $("fReembolsado").checked ? String(r.reembolsoValor).replace(".", ",") : "";
+    updateReembolsoVisibility();
     txOverlay.classList.add("show");
   }
   function closeTxModal(){ txOverlay.classList.remove("show"); }
@@ -4423,6 +4452,12 @@
     if (!descricao){ errEl.textContent = "Informe uma descrição."; errEl.style.display="block"; return; }
     if (!isFinite(valor) || valor<=0){ errEl.textContent = "Informe um valor válido maior que zero."; errEl.style.display="block"; return; }
     if (!dataStr){ errEl.textContent = "Informe a data da compra."; errEl.style.display="block"; return; }
+
+    var reembolsado = $("fReembolsado").checked;
+    var reembolsoValor = reembolsado ? parseAmountInput($("fReembolsoValor").value) : null;
+    if (reembolsado && (!isFinite(reembolsoValor) || reembolsoValor<=0)){
+      errEl.textContent = "Informe o valor reembolsado."; errEl.style.display="block"; return;
+    }
     errEl.style.display = "none";
 
     var comercianteInput = $("fComerciante").value.trim();
@@ -4438,7 +4473,8 @@
       tipo: tipo,
       cancelSerial: isAssinaturaTipo(tipo) ? dateInputToSerial($("fCancelacao").value) : null,
       out: editingRowOut,
-      comerciante: comerciante
+      comerciante: comerciante,
+      reembolsoValor: reembolsado ? Math.round(reembolsoValor*100)/100 : null
     };
 
     var action = editingRow ? "update" : "insert";
