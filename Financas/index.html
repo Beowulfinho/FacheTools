@@ -1582,6 +1582,7 @@
         <button data-tab="diario" type="button">Diário</button>
         <button data-tab="assinaturas" type="button">Assinaturas</button>
         <button data-tab="notificacoes" type="button">Notificações</button>
+        <button data-tab="lixeira" type="button">Lixeira</button>
       </div>
 
       <div class="cfg-pane active" id="cfgPanePessoas">
@@ -1691,6 +1692,11 @@
             <span class="field-error" id="pushMsgResult"></span>
           </div>
         </div>
+      </div>
+
+      <div class="cfg-pane" id="cfgPaneLixeira">
+        <p class="cfg-hint" style="padding:0 0 12px;">Itens excluídos ficam aqui por 72 horas antes de serem apagados de vez — dá para restaurar em caso de exclusão por engano.</p>
+        <div id="lixeiraList"></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -2135,7 +2141,7 @@
   // call site elsewhere in this file (modals, bulk actions, config lists, CSV import) is unchanged.
   function saveTableRow(tableKey, action, rowNum, rec){
     if (action === "delete"){
-      return supabaseClient.from(tableKey).delete().eq("id", rowNum).then(throwIfError);
+      return moveToLixeiraThenDelete(tableKey, rowNum);
     }
     var payload = buildPayload(tableKey, rec);
     if (action === "insert"){
@@ -2144,10 +2150,82 @@
     return supabaseClient.from(tableKey).update(payload).eq("id", rowNum).then(throwIfError);
   }
 
+  function genUuid(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c){
+      var r = Math.random()*16|0, v = c === "x" ? r : (r&0x3|0x8);
+      return v.toString(16);
+    });
+  }
+
+  // ---------- Lixeira (72h trash, undo for deletes) ----------
+  // Snapshots the exact DB row(s) about to be deleted into "lixeira" before actually deleting
+  // them, so an accidental delete can be restored from Configurações > Lixeira within 72h.
+  // Deleting a "compras" row needs its antecipações snapshotted too: antecipacoes.compra_id has
+  // ON DELETE CASCADE, so the DB removes them silently along with the purchase — without this
+  // they'd be gone for good even though only the purchase delete was recorded. All rows from one
+  // delete share a batch_id so "Restaurar" brings back the whole thing together.
+  function moveToLixeiraThenDelete(tableKey, rowNum){
+    var childQuery = (tableKey === "compras")
+      ? supabaseClient.from("antecipacoes").select("*").eq("compra_id", rowNum).then(throwIfError)
+      : Promise.resolve({data: []});
+    return Promise.all([
+      supabaseClient.from(tableKey).select("*").eq("id", rowNum).then(throwIfError),
+      childQuery
+    ]).then(function(results){
+      var mainRows = results[0].data || [];
+      var childRows = results[1].data || [];
+      if (!mainRows.length){
+        // Already gone (or a table without RLS-visible rows) — just try the delete so the UI
+        // doesn't get stuck, nothing to snapshot.
+        return supabaseClient.from(tableKey).delete().eq("id", rowNum).then(throwIfError);
+      }
+      var batchId = genUuid();
+      var lixeiraRows = mainRows.map(function(r){
+        return {batch_id: batchId, table_name: tableKey, record_id: String(r.id), payload: r};
+      });
+      childRows.forEach(function(r){
+        lixeiraRows.push({batch_id: batchId, table_name: "antecipacoes", record_id: String(r.id), payload: r});
+      });
+      return supabaseClient.from("lixeira").insert(lixeiraRows).then(throwIfError).then(function(){
+        return supabaseClient.from(tableKey).delete().eq("id", rowNum).then(throwIfError);
+      });
+    });
+  }
+
+  // Deletes lixeira rows older than 72h for the signed-in user. Fire-and-forget — called once
+  // per load, failures here shouldn't block the app from starting.
+  function purgeExpiredLixeira(){
+    var cutoff = new Date(Date.now() - 72*3600*1000).toISOString();
+    return supabaseClient.from("lixeira").delete().lt("deleted_at", cutoff).then(throwIfError);
+  }
+
+  // A table ordering that restores parents before children (antecipacoes depends on compras
+  // existing first); every other table is independent so it doesn't matter where it falls.
+  var LIXEIRA_RESTORE_ORDER = {compras:0, debito:0, reservas:0, adiantamentos:0, pessoas:0, cartoes:0, tipos:0, diario:0, antecipacoes:1};
+  function restoreLixeiraBatch(batchId){
+    return supabaseClient.from("lixeira").select("*").eq("batch_id", batchId).then(throwIfError).then(function(res){
+      var rows = (res.data || []).slice().sort(function(a,b){
+        return (LIXEIRA_RESTORE_ORDER[a.table_name]||0) - (LIXEIRA_RESTORE_ORDER[b.table_name]||0);
+      });
+      var chain = Promise.resolve();
+      rows.forEach(function(r){
+        chain = chain.then(function(){ return supabaseClient.from(r.table_name).insert(r.payload).then(throwIfError); });
+      });
+      return chain.then(function(){
+        return supabaseClient.from("lixeira").delete().eq("batch_id", batchId).then(throwIfError);
+      });
+    });
+  }
+  function purgeLixeiraBatchNow(batchId){
+    return supabaseClient.from("lixeira").delete().eq("batch_id", batchId).then(throwIfError);
+  }
+
   // Loads every table for the signed-in user (Row Level Security means each query already
   // returns only that user's rows) and reshapes them back into the same {records:[...]} shape
   // the rest of this file has always used, with pessoa/cartao/tipo resolved from id back to name.
   function loadEverything(){
+    purgeExpiredLixeira().catch(function(){ /* best-effort — a leftover expired row is harmless */ });
     return Promise.all([
       supabaseClient.from("pessoas").select("*").order("nome"),
       supabaseClient.from("cartoes").select("*").order("nome"),
@@ -2157,13 +2235,15 @@
       supabaseClient.from("diario").select("*"),
       supabaseClient.from("antecipacoes").select("*"),
       supabaseClient.from("reservas").select("*"),
-      supabaseClient.from("adiantamentos").select("*")
+      supabaseClient.from("adiantamentos").select("*"),
+      supabaseClient.from("lixeira").select("*").order("deleted_at", {ascending:false})
     ]).then(function(results){
       results.forEach(throwIfError);
       var pessoasRows = results[0].data||[], cartoesRows = results[1].data||[], tiposRows = results[2].data||[];
       var comprasRows = results[3].data||[], debitoRows = results[4].data||[], diarioRows = results[5].data||[];
       var antecipacoesRows = results[6].data||[];
       var reservasRows = results[7].data||[], adiantamentosRows = results[8].data||[];
+      var lixeiraRows = results[9].data||[];
 
       var pessoaNameById = {}; pessoasRows.forEach(function(r){ pessoaNameById[r.id] = r.nome; });
       var cartaoNameById = {}; cartoesRows.forEach(function(r){ cartaoNameById[r.id] = r.nome; });
@@ -2225,18 +2305,22 @@
       var adiantamentos = adiantamentosRows.map(function(r){
         return {row:r.id, descricao: r.descricao||"", cartao: cartaoNameById[r.cartao_id] || "", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0};
       });
+      var lixeira = lixeiraRows.map(function(r){
+        return {row:r.id, batchId:r.batch_id, tableName:r.table_name, recordId:r.record_id, payload:r.payload, deletedAt:r.deleted_at};
+      });
 
       return {
         fileName: currentUserEmail || "",
         pessoas:{records:pessoas}, cartoes:{records:cartoes}, tipos:{records:tipos},
         compras:{records:compras}, debito:{records:debito}, diario:{records:diario},
-        antecipacoes:{records:antecipacoes}, reservas:{records:reservas}, adiantamentos:{records:adiantamentos}
+        antecipacoes:{records:antecipacoes}, reservas:{records:reservas}, adiantamentos:{records:adiantamentos},
+        lixeira:{records:lixeira}
       };
     });
   }
 
   // ---------- App state ----------
-  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]} };
+  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]} };
 
   function showError(msg){
     var b = $("errorBanner");
@@ -2598,7 +2682,11 @@
       });
     });
 
-    var visibleRows = filtered.map(function(r){ return r.row; });
+    // Antecipação lump-sum rows reuse the underlying compra's own r.row (there's no separate id
+    // to select by), so they're excluded from bulk-select entirely — checking that box and bulk-
+    // deleting would delete the COMPRA (and, via cascade, every antecipação on it), not just
+    // "cancel" this one antecipação the way the dedicated "Excluir antecipação" button does.
+    var visibleRows = filtered.filter(function(r){ return !r.antecipacao; }).map(function(r){ return r.row; });
     lastVisibleComprasRows = visibleRows;
     Array.from(selectedCompras).forEach(function(rn){ if (visibleRows.indexOf(rn)===-1) selectedCompras.delete(rn); });
     updateComprasBulkBar();
@@ -2621,7 +2709,7 @@
           ? (r.parcelaTotal||1) + "x"
           : (r.parcelaAtual < 1 ? "futura" : (r.parcelaAtual > r.parcelaTotal ? "concluída" : r.parcelaAtual + "/" + r.parcelaTotal));
       row.innerHTML =
-        '<input type="checkbox" class="row-select f-select" '+(selectedCompras.has(r.row)?"checked":"")+'>'+
+        '<input type="checkbox" class="row-select f-select" '+(r.antecipacao ? 'disabled title="Antecipações não podem ser selecionadas em massa — abra a linha e use Excluir antecipação"' : (selectedCompras.has(r.row)?"checked":""))+'>'+
         '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
         '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+(r.antecipacao?'<span class="tag-auto">antecipação</span>':'')+((r.reembolsoValor!==null&&r.reembolsoValor!==undefined)?'<span class="tag-auto" title="Reembolso recebido">reemb. '+fmtBRL(r.reembolsoValor)+'</span>':'')+((r.reembolsoValor!==null&&r.reembolsoValor!==undefined&&!r.antecipacao)?'<label class="out-check reembolso-toggle" title="Desmarque para ignorar este reembolso nos balances/limite (mantém a compra pelo valor cheio)"><input type="checkbox" class="reembolso-out-toggle" '+(r.reembolsoOut?"":"checked")+'><span class="out-label">'+(r.reembolsoOut?"Reemb. Out":"Reemb. Inside")+'</span></label>':'')+'</span>'+
         '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
@@ -4176,6 +4264,7 @@
       state.antecipacoes = result.antecipacoes;
       state.reservas = result.reservas;
       state.adiantamentos = result.adiantamentos;
+      state.lixeira = result.lixeira;
       setConnectedUI(true, result.fileName);
       refreshDropdowns();
       renderList();
@@ -5113,11 +5202,12 @@
     $("cfgTabs").querySelectorAll("button[data-tab]").forEach(function(b){
       b.classList.toggle("active", b.getAttribute("data-tab") === tab);
     });
-    ["pessoas","cartoes","tipos","diario","assinaturas","notificacoes"].forEach(function(t){
+    ["pessoas","cartoes","tipos","diario","assinaturas","notificacoes","lixeira"].forEach(function(t){
       $("cfgPane"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active", t===tab);
     });
     if (tab === "diario") renderDiarioPage();
     if (tab === "assinaturas") renderAssinaturasPage();
+    if (tab === "lixeira") renderLixeiraList();
   }
   // tab is optional: pass it (e.g. "diario") to jump straight to that tab — used by the
   // "Mais opções" menu's Diário shortcut — otherwise the modal opens on whichever tab was
@@ -5205,7 +5295,70 @@
   // it survives the loadAndRender() re-render that follows every save (otherwise every edit
   // would collapse the card the user is actively working in).
   var expandedCartaoRows = {};
+  // ---------- Lixeira list (Configurações > Lixeira) ----------
+  function lixeiraItemLabel(item){
+    var p = item.payload || {};
+    switch (item.tableName){
+      case "compras": return (p.descricao||"Compra") + " — " + fmtBRL(Number(p.valor_total)||0);
+      case "antecipacoes": return "Antecipação de parcelas — " + fmtBRL(Number(p.valor)||0);
+      case "debito": return (p.descricao||"Movimento") + " — " + fmtBRL(Number(p.valor)||0);
+      case "reservas": return "Reserva" + (p.descricao?(": "+p.descricao):"") + " — " + fmtBRL(Number(p.valor)||0);
+      case "adiantamentos": return "Adiantamento" + (p.descricao?(": "+p.descricao):"") + " — " + fmtBRL(Number(p.valor)||0);
+      case "pessoas": return "Pessoa: " + (p.nome||"");
+      case "cartoes": return "Cartão: " + (p.nome||"");
+      case "tipos": return "Tipo: " + (p.nome||"");
+      case "diario": return "Diário " + (p.mes||"");
+      default: return item.tableName;
+    }
+  }
+  function lixeiraHoursLeft(deletedAt){
+    var deadline = new Date(deletedAt).getTime() + 72*3600*1000;
+    return Math.max(0, Math.ceil((deadline - Date.now())/3600000));
+  }
+  function renderLixeiraList(){
+    var el = $("lixeiraList");
+    if (!el) return;
+    var records = state.lixeira.records || [];
+    if (!records.length){
+      el.innerHTML = '<div class="empty"><span class="big">Lixeira vazia</span>Itens excluídos aparecem aqui por 72 horas.</div>';
+      return;
+    }
+    var batches = {}, order = [];
+    records.forEach(function(r){
+      if (!batches[r.batchId]){ batches[r.batchId] = []; order.push(r.batchId); }
+      batches[r.batchId].push(r);
+    });
+    el.innerHTML = "";
+    order.forEach(function(batchId){
+      var items = batches[batchId];
+      var primary = items.filter(function(i){ return i.tableName !== "antecipacoes"; })[0] || items[0];
+      var card = document.createElement("div");
+      card.className = "cfg-row";
+      card.style.flexWrap = "wrap";
+      card.innerHTML =
+        '<div style="flex:1; min-width:180px;">' +
+          items.map(function(i){ return escapeHtml(lixeiraItemLabel(i)); }).join("<br>") +
+          '<div class="cfg-hint" style="padding:2px 0 0;">Apaga definitivamente em ' + lixeiraHoursLeft(primary.deletedAt) + 'h</div>' +
+        '</div>' +
+        '<button class="btn btn-sm" data-act="restaurar" type="button">Restaurar</button>' +
+        '<button class="cfg-del" type="button" title="Excluir definitivamente" aria-label="Excluir definitivamente">✕</button>';
+      card.querySelector('[data-act="restaurar"]').addEventListener("click", function(){
+        var btn = card.querySelector('[data-act="restaurar"]');
+        btn.disabled = true;
+        restoreLixeiraBatch(batchId).then(loadAndRender).catch(function(err){
+          showError("Não foi possível restaurar: " + err.message);
+          btn.disabled = false;
+        });
+      });
+      card.querySelector(".cfg-del").addEventListener("click", function(){
+        purgeLixeiraBatchNow(batchId).then(loadAndRender).catch(function(err){ showError("Não foi possível excluir: " + err.message); });
+      });
+      el.appendChild(card);
+    });
+  }
+
   function renderCfgLists(){
+    renderLixeiraList();
     var pList = $("cfgPessoasList"); pList.innerHTML = "";
     state.pessoas.records.forEach(function(rec){
       var row = document.createElement("div");
