@@ -1307,6 +1307,7 @@
     <div class="modal-foot">
       <button class="btn btn-danger" id="txDelete" type="button" style="display:none;">Excluir</button>
       <button class="btn" id="txAntecip" type="button" style="display:none;">Anticipar parcelas</button>
+      <button class="btn" id="txTrocarCartao" type="button" style="display:none;">Trocar cartão</button>
       <div style="flex:1;"></div>
       <button class="btn" id="txCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="txSave" type="button">Salvar</button>
@@ -1341,6 +1342,39 @@
       <div style="flex:1;"></div>
       <button class="btn" id="antecipCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="antecipSave" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trocar cartão (a compra/assinatura muda de cartão a partir de um mês, sem reescrever os meses anteriores) -->
+<div class="overlay" id="trocaCartaoOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="trocaCartaoModalTitle">Trocar cartão</h3>
+      <button class="modal-close" id="trocaCartaoClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="cfg-hint" id="trocaCartaoHint"></p>
+      <div class="field-row">
+        <div class="field">
+          <label for="trocaCartaoSel">Novo cartão</label>
+          <select id="trocaCartaoSel"></select>
+        </div>
+        <div class="field">
+          <label for="trocaCartaoMes">A partir do mês</label>
+          <input type="month" id="trocaCartaoMes">
+        </div>
+      </div>
+      <div class="field-error" id="trocaCartaoError"></div>
+      <div class="field" id="trocaCartaoHistoryWrap" style="display:none;">
+        <label>Histórico de trocas</label>
+        <div id="trocaCartaoHistoryList"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1;"></div>
+      <button class="btn" id="trocaCartaoCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="trocaCartaoSave" type="button">Salvar</button>
     </div>
   </div>
 </div>
@@ -2134,6 +2168,8 @@
         return { descricao: rec.descricao || null, valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out, soma_balance: rec.somaBalance !== false };
       case "adiantamentos":
         return { descricao: rec.descricao || null, cartao_id: idByName("cartoes", rec.cartao), valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out };
+      case "compra_cartao_trocas":
+        return { compra_id: rec.compraRow, cartao_id: idByName("cartoes", rec.cartao), mes: rec.mes };
     }
   }
 
@@ -2161,20 +2197,25 @@
   // ---------- Lixeira (72h trash, undo for deletes) ----------
   // Snapshots the exact DB row(s) about to be deleted into "lixeira" before actually deleting
   // them, so an accidental delete can be restored from Configurações > Lixeira within 72h.
-  // Deleting a "compras" row needs its antecipações snapshotted too: antecipacoes.compra_id has
-  // ON DELETE CASCADE, so the DB removes them silently along with the purchase — without this
-  // they'd be gone for good even though only the purchase delete was recorded. All rows from one
-  // delete share a batch_id so "Restaurar" brings back the whole thing together.
+  // Deleting a "compras" row needs its antecipações AND cartão-trocas snapshotted too: both have
+  // ON DELETE CASCADE on compra_id, so the DB removes them silently along with the purchase —
+  // without this they'd be gone for good even though only the purchase delete was recorded. All
+  // rows from one delete share a batch_id so "Restaurar" brings back the whole thing together.
+  var LIXEIRA_COMPRA_CHILD_TABLES = ["antecipacoes", "compra_cartao_trocas"];
   function moveToLixeiraThenDelete(tableKey, rowNum){
-    var childQuery = (tableKey === "compras")
-      ? supabaseClient.from("antecipacoes").select("*").eq("compra_id", rowNum).then(throwIfError)
-      : Promise.resolve({data: []});
+    var childQueries = (tableKey === "compras")
+      ? LIXEIRA_COMPRA_CHILD_TABLES.map(function(t){
+          return supabaseClient.from(t).select("*").eq("compra_id", rowNum).then(throwIfError).then(function(res){
+            return {tableName: t, rows: res.data || []};
+          });
+        })
+      : [];
     return Promise.all([
       supabaseClient.from(tableKey).select("*").eq("id", rowNum).then(throwIfError),
-      childQuery
+      Promise.all(childQueries)
     ]).then(function(results){
       var mainRows = results[0].data || [];
-      var childRows = results[1].data || [];
+      var childGroups = results[1];
       if (!mainRows.length){
         // Already gone (or a table without RLS-visible rows) — just try the delete so the UI
         // doesn't get stuck, nothing to snapshot.
@@ -2184,8 +2225,10 @@
       var lixeiraRows = mainRows.map(function(r){
         return {batch_id: batchId, table_name: tableKey, record_id: String(r.id), payload: r};
       });
-      childRows.forEach(function(r){
-        lixeiraRows.push({batch_id: batchId, table_name: "antecipacoes", record_id: String(r.id), payload: r});
+      childGroups.forEach(function(g){
+        g.rows.forEach(function(r){
+          lixeiraRows.push({batch_id: batchId, table_name: g.tableName, record_id: String(r.id), payload: r});
+        });
       });
       return supabaseClient.from("lixeira").insert(lixeiraRows).then(throwIfError).then(function(){
         return supabaseClient.from(tableKey).delete().eq("id", rowNum).then(throwIfError);
@@ -2202,7 +2245,7 @@
 
   // A table ordering that restores parents before children (antecipacoes depends on compras
   // existing first); every other table is independent so it doesn't matter where it falls.
-  var LIXEIRA_RESTORE_ORDER = {compras:0, debito:0, reservas:0, adiantamentos:0, pessoas:0, cartoes:0, tipos:0, diario:0, antecipacoes:1};
+  var LIXEIRA_RESTORE_ORDER = {compras:0, debito:0, reservas:0, adiantamentos:0, pessoas:0, cartoes:0, tipos:0, diario:0, antecipacoes:1, compra_cartao_trocas:1};
   function restoreLixeiraBatch(batchId){
     return supabaseClient.from("lixeira").select("*").eq("batch_id", batchId).then(throwIfError).then(function(res){
       var rows = (res.data || []).slice().sort(function(a,b){
@@ -2236,7 +2279,8 @@
       supabaseClient.from("antecipacoes").select("*"),
       supabaseClient.from("reservas").select("*"),
       supabaseClient.from("adiantamentos").select("*"),
-      supabaseClient.from("lixeira").select("*").order("deleted_at", {ascending:false})
+      supabaseClient.from("lixeira").select("*").order("deleted_at", {ascending:false}),
+      supabaseClient.from("compra_cartao_trocas").select("*").order("mes")
     ]).then(function(results){
       results.forEach(throwIfError);
       var pessoasRows = results[0].data||[], cartoesRows = results[1].data||[], tiposRows = results[2].data||[];
@@ -2244,6 +2288,7 @@
       var antecipacoesRows = results[6].data||[];
       var reservasRows = results[7].data||[], adiantamentosRows = results[8].data||[];
       var lixeiraRows = results[9].data||[];
+      var cartaoTrocasRows = results[10].data||[];
 
       var pessoaNameById = {}; pessoasRows.forEach(function(r){ pessoaNameById[r.id] = r.nome; });
       var cartaoNameById = {}; cartoesRows.forEach(function(r){ cartaoNameById[r.id] = r.nome; });
@@ -2308,19 +2353,22 @@
       var lixeira = lixeiraRows.map(function(r){
         return {row:r.id, batchId:r.batch_id, tableName:r.table_name, recordId:r.record_id, payload:r.payload, deletedAt:r.deleted_at};
       });
+      var cartaoTrocas = cartaoTrocasRows.map(function(r){
+        return {row:r.id, compraRow:r.compra_id, cartao: cartaoNameById[r.cartao_id] || "", mes:r.mes};
+      });
 
       return {
         fileName: currentUserEmail || "",
         pessoas:{records:pessoas}, cartoes:{records:cartoes}, tipos:{records:tipos},
         compras:{records:compras}, debito:{records:debito}, diario:{records:diario},
         antecipacoes:{records:antecipacoes}, reservas:{records:reservas}, adiantamentos:{records:adiantamentos},
-        lixeira:{records:lixeira}
+        lixeira:{records:lixeira}, cartaoTrocas:{records:cartaoTrocas}
       };
     });
   }
 
   // ---------- App state ----------
-  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]} };
+  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]}, cartaoTrocas:{records:[]} };
 
   function showError(msg){
     var b = $("errorBanner");
@@ -2515,6 +2563,33 @@
     });
     return map;
   }
+  // ---------- Trocar cartão ----------
+  // A purchase (typically an assinatura) can move to a different card partway through its life
+  // — e.g. the old card was cancelled — without rewriting history: each troca just says "from
+  // this month on, attribute this purchase's charge to this card instead", leaving every earlier
+  // month's line showing whichever card was actually charged at the time. The purchase's own
+  // r.cartao stays the ORIGINAL card and still drives the fatura start-month math (which card's
+  // fechamento the very first charge landed in) — a troca only overrides which card is displayed/
+  // grouped-by for the months at or after it, never the underlying schedule dates.
+  function getTrocasForCompra(compraRow, excludeRow){
+    return state.cartaoTrocas.records
+      .filter(function(t){ return t.compraRow === compraRow && t.row !== excludeRow; })
+      .sort(function(a,b){ return a.mes < b.mes ? -1 : (a.mes > b.mes ? 1 : 0); });
+  }
+  // ym null/undefined means "no specific month" (the lifetime/"Todos os meses" view) — shows
+  // whichever card is effective as of the most recent troca, i.e. the purchase's current card.
+  function getEffectiveCartaoNome(r, ym){
+    var trocas = getTrocasForCompra(r.row);
+    if (!trocas.length) return r.cartao;
+    if (!ym) return trocas[trocas.length-1].cartao;
+    var ymKey = monthKey(ym);
+    var effective = r.cartao;
+    for (var i=0;i<trocas.length;i++){
+      if (trocas[i].mes <= ymKey) effective = trocas[i].cartao; else break;
+    }
+    return effective;
+  }
+
   // Today's real calendar date as a serial, independent of whatever month is selected in the
   // month filter — used wherever "is this fatura open right now" must reflect reality, not the
   // page the user happens to be looking at.
@@ -2614,6 +2689,11 @@
         out.parcelaAtual = null;
         out.parcelaTotal = r.parcelas||1;
         out.antecipacao = null;
+        // cartaoEfetivo is the card to actually display/group by for this row — kept separate
+        // from r.cartao (the purchase's ORIGINAL card, untouched here) so the edit modal keeps
+        // showing/saving the original card rather than silently overwriting it with whatever a
+        // "trocar cartão" made effective for the month being viewed (see openEditModal).
+        out.cartaoEfetivo = getEffectiveCartaoNome(r, null);
         return out;
       });
     }
@@ -2628,6 +2708,7 @@
         // An antecipação lump sum has its own Inside/Out flag, independent from the purchase
         // it belongs to — don't let it inherit the purchase's own r.out here.
         if (e.antecipacao) rec.out = e.outOverride ? 1 : 0;
+        rec.cartaoEfetivo = getEffectiveCartaoNome(r, filterMonth);
         out.push(rec);
       });
     });
@@ -2665,7 +2746,7 @@
 
     var filtered = recs.filter(function(r){
       if (fPersona.length && fPersona.indexOf(r.pessoa) === -1) return false;
-      if (fCartao.length && fCartao.indexOf(r.cartao) === -1) return false;
+      if (fCartao.length && fCartao.indexOf(r.cartaoEfetivo) === -1) return false;
       if (fTipo.length && fTipo.indexOf(r.tipo) === -1) return false;
       if (!matchesSearch(r, search)) return false;
       return true;
@@ -2713,7 +2794,7 @@
         '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
         '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+(r.antecipacao?'<span class="tag-auto">antecipação</span>':'')+((r.reembolsoValor!==null&&r.reembolsoValor!==undefined)?'<span class="tag-auto" title="Reembolso recebido">reemb. '+fmtBRL(r.reembolsoValor)+'</span>':'')+((r.reembolsoValor!==null&&r.reembolsoValor!==undefined&&!r.antecipacao)?'<label class="out-check reembolso-toggle" title="Desmarque para ignorar este reembolso nos balances/limite (mantém a compra pelo valor cheio)"><input type="checkbox" class="reembolso-out-toggle" '+(r.reembolsoOut?"":"checked")+'><span class="out-label">'+(r.reembolsoOut?"Reemb. Out":"Reemb. Inside")+'</span></label>':'')+'</span>'+
         '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
-        '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartao)+'</span>'+
+        '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartaoEfetivo)+(r.cartaoEfetivo!==r.cartao?'<span class="tag-auto" title="Cartão original: '+escapeHtml(r.cartao)+'">trocado</span>':'')+'</span>'+
         '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
         '<span class="num f-pvalor" data-label="Parcela R$">'+fmtBRL(r.effectiveValor)+'</span>'+
         '<span class="num f-parcela" data-label="Parcela">'+parcelaLabel+'</span>'+
@@ -3086,7 +3167,7 @@
     total = Math.max(0, total - abatimento);
     $("compFaturaTotal").textContent = fmtBRL(total);
     renderBarList("compFaturaPorPessoa", groupSum(monthRecs, "pessoa"));
-    renderBarList("compFaturaPorCartao", applyAdiantamentosToCartaoGroups(groupSum(monthRecs, "cartao"), refKey));
+    renderBarList("compFaturaPorCartao", applyAdiantamentosToCartaoGroups(groupSum(monthRecs, "cartaoEfetivo"), refKey));
   }
 
   // ---------- Calendário de parcelas: every purchase, month by month, independent of any filter ----------
@@ -3563,10 +3644,11 @@
       row.className = "tx-row";
       row.tabIndex = 0;
       row.style.gridTemplateColumns = "1.6fr 0.9fr 1fr 0.9fr 1fr";
+      var cartaoAtual = getEffectiveCartaoNome(r, null);
       row.innerHTML =
         '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'</span>'+
         '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
-        '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartao)+'</span>'+
+        '<span class="f-cartao" data-label="Cartão">'+escapeHtml(cartaoAtual)+(cartaoAtual!==r.cartao?'<span class="tag-auto" title="Cartão original: '+escapeHtml(r.cartao)+'">trocado</span>':'')+'</span>'+
         '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
         '<span class="num f-data" data-label="Cancelamento">'+(r.cancelSerial ? serialToDisplay(r.cancelSerial) : "—")+'</span>'+
         '<span class="f-linebreak" aria-hidden="true"></span>';
@@ -4265,6 +4347,7 @@
       state.reservas = result.reservas;
       state.adiantamentos = result.adiantamentos;
       state.lixeira = result.lixeira;
+      state.cartaoTrocas = result.cartaoTrocas;
       setConnectedUI(true, result.fileName);
       refreshDropdowns();
       renderList();
@@ -4508,6 +4591,7 @@
     $("txModalTitle").textContent = "Nova compra";
     $("txDelete").style.display = "none";
     $("txAntecip").style.display = "none";
+    $("txTrocarCartao").style.display = "none";
     $("txError").style.display = "none";
     $("fDescricao").value = "";
     $("fComerciante").value = "";
@@ -4543,6 +4627,7 @@
     $("txDelete").style.display = "inline-flex";
     var avail = getAntecipacaoAvailability(r);
     $("txAntecip").style.display = ((r.parcelas||1) > 1 && avail.available.length >= 1) ? "inline-flex" : "none";
+    $("txTrocarCartao").style.display = "inline-flex";
     $("txError").style.display = "none";
     $("fDescricao").value = r.descricao;
     $("fComerciante").value = r.comerciante || "";
@@ -4743,6 +4828,73 @@
     closeAntecipModal();
     $("confirmTitle").textContent = "Excluir antecipação";
     $("confirmOverlay").classList.add("show");
+  });
+
+  // ---------- Trocar cartão ----------
+  var trocaCartaoOverlay = $("trocaCartaoOverlay");
+  var trocaCartaoCompraRow = null;
+  function closeTrocaCartaoModal(){ trocaCartaoOverlay.classList.remove("show"); }
+  function renderTrocaCartaoHistory(compraRow){
+    var wrap = $("trocaCartaoHistoryWrap"), listEl = $("trocaCartaoHistoryList");
+    var trocas = getTrocasForCompra(compraRow);
+    if (!trocas.length){ wrap.style.display = "none"; listEl.innerHTML = ""; return; }
+    wrap.style.display = "block";
+    listEl.innerHTML = "";
+    trocas.forEach(function(t){
+      var row = document.createElement("div");
+      row.className = "cfg-row";
+      row.innerHTML =
+        '<span style="flex:1;">A partir de '+ymStringToLabel(t.mes)+': '+escapeHtml(t.cartao)+'</span>'+
+        '<button class="cfg-del" type="button" title="Excluir" aria-label="Excluir">✕</button>';
+      row.querySelector(".cfg-del").addEventListener("click", function(){
+        saveTableRow("compra_cartao_trocas", "delete", t.row, null).then(loadAndRender).then(function(){
+          var rec = state.compras.records.filter(function(c){ return c.row === compraRow; })[0];
+          if (rec) openTrocaCartaoModal(rec); else closeTrocaCartaoModal();
+        }).catch(function(err){ showError("Não foi possível excluir: " + err.message); });
+      });
+      listEl.appendChild(row);
+    });
+  }
+  function openTrocaCartaoModal(r){
+    if (READONLY_MAE) return;
+    trocaCartaoCompraRow = r.row;
+    var cartaoAtual = getEffectiveCartaoNome(r, null);
+    $("trocaCartaoModalTitle").textContent = "Trocar cartão — " + r.descricao;
+    $("trocaCartaoHint").textContent = "Cartão atual: " + cartaoAtual + ". Os meses já passados continuam com o cartão de então — só os meses a partir do escolhido abaixo passam a valer o novo.";
+    populateSelect($("trocaCartaoSel"), nomes("cartoes"), null, false);
+    $("trocaCartaoSel").value = cartaoAtual;
+    $("trocaCartaoMes").value = monthKey(addMonths(getRefMonth(), 1));
+    $("trocaCartaoError").style.display = "none";
+    renderTrocaCartaoHistory(r.row);
+    trocaCartaoOverlay.classList.add("show");
+  }
+  $("txTrocarCartao").addEventListener("click", function(){
+    if (!editingRowRec) return;
+    closeTxModal();
+    openTrocaCartaoModal(editingRowRec);
+  });
+  $("trocaCartaoClose").addEventListener("click", closeTrocaCartaoModal);
+  $("trocaCartaoCancel").addEventListener("click", closeTrocaCartaoModal);
+  trocaCartaoOverlay.addEventListener("click", function(e){ if (e.target===trocaCartaoOverlay) closeTrocaCartaoModal(); });
+  $("trocaCartaoSave").addEventListener("click", function(){
+    var errEl = $("trocaCartaoError");
+    var cartao = $("trocaCartaoSel").value;
+    var mes = $("trocaCartaoMes").value;
+    if (!cartao){ errEl.textContent = "Selecione o novo cartão."; errEl.style.display="block"; return; }
+    if (!mes){ errEl.textContent = "Selecione a partir de qual mês."; errEl.style.display="block"; return; }
+    errEl.style.display = "none";
+    // A second troca saved for the same month replaces the first rather than stacking a
+    // duplicate — there can only be one "effective card" per month per purchase.
+    var existing = getTrocasForCompra(trocaCartaoCompraRow).filter(function(t){ return t.mes === mes; })[0];
+    var action = existing ? "update" : "insert";
+    var rowNum = existing ? existing.row : null;
+    saveTableRow("compra_cartao_trocas", action, rowNum, {compraRow: trocaCartaoCompraRow, cartao: cartao, mes: mes}).then(function(){
+      closeTrocaCartaoModal();
+      return loadAndRender();
+    }).catch(function(err){
+      errEl.textContent = "Não foi possível salvar: " + err.message;
+      errEl.style.display = "block";
+    });
   });
 
   // ---------- Confirm delete (shared by Compras and Débito) ----------
@@ -5308,6 +5460,7 @@
       case "cartoes": return "Cartão: " + (p.nome||"");
       case "tipos": return "Tipo: " + (p.nome||"");
       case "diario": return "Diário " + (p.mes||"");
+      case "compra_cartao_trocas": return "Troca de cartão (a partir de " + (p.mes||"") + ")";
       default: return item.tableName;
     }
   }
@@ -5331,7 +5484,7 @@
     el.innerHTML = "";
     order.forEach(function(batchId){
       var items = batches[batchId];
-      var primary = items.filter(function(i){ return i.tableName !== "antecipacoes"; })[0] || items[0];
+      var primary = items.filter(function(i){ return i.tableName !== "antecipacoes" && i.tableName !== "compra_cartao_trocas"; })[0] || items[0];
       var card = document.createElement("div");
       card.className = "cfg-row";
       card.style.flexWrap = "wrap";
