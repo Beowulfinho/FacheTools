@@ -17,6 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root {
+    color-scheme: light;
     --paper: #F1EFE6;
     --paper-2: #E4E1D2;
     --paper-3: #D8D4C0;
@@ -39,6 +40,7 @@
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+      color-scheme: dark;
       --paper: #131E1B;
       --paper-2: #1B2724;
       --paper-3: #24322E;
@@ -61,6 +63,7 @@
   }
 
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --paper: #131E1B;
     --paper-2: #1B2724;
     --paper-3: #24322E;
@@ -258,7 +261,7 @@
     flex-shrink: 0;
   }
 
-  input[type="text"], input[type="date"], select, textarea {
+  input[type="text"], input[type="date"], input[type="time"], select, textarea {
     font-family: inherit;
     font-size: 14.5px;
     color: var(--ink);
@@ -281,7 +284,7 @@
     flex-wrap: wrap;
   }
 
-  .capture-opts select, .capture-opts input[type="date"] {
+  .capture-opts select, .capture-opts input[type="date"], .capture-opts input[type="time"] {
     font-size: 13px;
     padding: 6px 8px;
   }
@@ -778,10 +781,25 @@
   .cal-dot-active { background: var(--accent); }
   .cal-dot-done { background: var(--ink-faint); }
 
+  .cal-layout { display: flex; gap: 16px; align-items: flex-start; }
+  .cal-grid-col { flex: 1 1 auto; min-width: 0; }
+  .cal-side-panel { flex: 0 0 220px; border-left: 1px solid var(--line); padding-left: 16px; }
+  .cal-day-panel-placeholder { font-size: 12.5px; color: var(--ink-faint); }
+
+  @media (max-width: 640px) {
+    .cal-layout { flex-direction: column; }
+    .cal-side-panel {
+      flex: 0 0 auto;
+      width: 100%;
+      border-left: none;
+      padding-left: 0;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+      margin-top: 12px;
+    }
+  }
+
   .cal-day-panel {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -877,6 +895,27 @@
         <div class="n" id="stat-done-today">–</div>
         <div class="label">Hechas hoy</div>
       </div>
+    </div>
+
+    <div class="chip-field" style="margin-bottom:14px;">
+      <span class="chip-field-label">🔔 Avisarme de una tarea puntual</span>
+      <div class="chip-group" id="notif-dias-chips">
+        <button type="button" class="chip chip-btn neutral" data-value="0">El mismo día</button>
+        <button type="button" class="chip chip-btn neutral active" data-value="1">1 día antes</button>
+        <button type="button" class="chip chip-btn neutral" data-value="2">2 días antes</button>
+        <button type="button" class="chip chip-btn neutral" data-value="3">3 días antes</button>
+      </div>
+      <input type="hidden" id="notif-dias-input" value="1">
+      <select id="notif-hora-input" style="margin-top:6px; width:140px;">
+        <option value="7">07:00</option>
+        <option value="8">08:00</option>
+        <option value="9" selected>09:00</option>
+        <option value="12">12:00</option>
+        <option value="15">15:00</option>
+        <option value="18">18:00</option>
+        <option value="20">20:00</option>
+        <option value="21">21:00</option>
+      </select>
     </div>
 
     <div class="capture">
@@ -1044,7 +1083,12 @@
   var openLogId = null;
   var openSubtasksId = null;
   var NOTIF_CHANNEL_ID = "tareas_alerts";
-  var NOTIF_HOUR = 9; // hora local en la que suenan los recordatorios de vencimiento
+  // Preferencia del usuario de cuándo avisar antes del vencimiento — persistida en localStorage
+  // porque es una configuración por dispositivo (cada celular programa sus propias notificaciones
+  // locales), no un dato que necesite sincronizarse entre dispositivos vía Supabase.
+  var NOTIF_HOUR = Number(localStorage.getItem('tareasNotifHora')) || 9;
+  var NOTIF_DIAS_ANTES = localStorage.getItem('tareasNotifDiasAntes');
+  NOTIF_DIAS_ANTES = NOTIF_DIAS_ANTES === null ? 1 : Number(NOTIF_DIAS_ANTES);
 
   // ---------- Supabase client (mesmo projeto/anon key do Finanças e Planes) ----------
   var SUPABASE_URL = "https://qdetwdneqncblxwylpyw.supabase.co";
@@ -1646,7 +1690,10 @@
     });
   }
   function loadHealthAndRender(){
-    return loadHealth().then(renderHealthList).catch(function(err){
+    return loadHealth().then(function(){
+      renderHealthList();
+      renderCalendar(); // no-op si la sección activa no es "calendario"
+    }).catch(function(err){
       showError('No se pudo cargar Health: ' + err.message);
     });
   }
@@ -1795,7 +1842,7 @@
   }
   // Solo las tareas puntuales tienen un vencimiento real (las recurrentes solo guardan la fecha
   // de inicio de la repetición, y las de seguimiento no tienen fecha) — a esas se les programa un
-  // aviso el día que vencen y otro el día anterior, ambos a NOTIF_HOUR.
+  // aviso el día que vencen y, si NOTIF_DIAS_ANTES > 0, otro N días antes, ambos a NOTIF_HOUR.
   function scheduleTaskDueNotifications(){
     if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
     var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
@@ -1812,14 +1859,15 @@
         }
         var due = parseIsoDate(t.dueDate);
         var dueAt = new Date(due.getFullYear(), due.getMonth(), due.getDate(), NOTIF_HOUR, 0, 0, 0);
-        var dayBefore = new Date(dueAt.getTime() - 24*60*60*1000);
+        var reminderAt = new Date(dueAt.getTime() - NOTIF_DIAS_ANTES*24*60*60*1000);
         if (dueAt.getTime() > Date.now()){
           notifications.push({ id: baseId, title: 'Tarea vence hoy', body: t.title, channelId: NOTIF_CHANNEL_ID, schedule: { at: dueAt } });
         } else {
           idsToCancel.push({ id: baseId });
         }
-        if (dayBefore.getTime() > Date.now()){
-          notifications.push({ id: baseId + 1, title: 'Tarea vence mañana', body: t.title, channelId: NOTIF_CHANNEL_ID, schedule: { at: dayBefore } });
+        if (NOTIF_DIAS_ANTES > 0 && reminderAt.getTime() > Date.now()){
+          var label = NOTIF_DIAS_ANTES === 1 ? 'Tarea vence mañana' : ('Tarea vence en ' + NOTIF_DIAS_ANTES + ' días');
+          notifications.push({ id: baseId + 1, title: label, body: t.title, channelId: NOTIF_CHANNEL_ID, schedule: { at: reminderAt } });
         } else {
           idsToCancel.push({ id: baseId + 1 });
         }
@@ -2363,8 +2411,17 @@
         byDay[iso].push(t);
       });
     });
+    var healthByDay = {};
+    healthConsultas.forEach(function(c){
+      if (c.fecha >= monthStartIso && c.fecha <= monthEndIso){
+        if (!healthByDay[c.fecha]) healthByDay[c.fecha] = [];
+        healthByDay[c.fecha].push(c);
+      }
+    });
 
-    var html = '<div class="cal-header">' +
+    var html = '<div class="cal-layout"><div class="cal-grid-col">';
+
+    html += '<div class="cal-header">' +
       '<button class="cal-nav" id="cal-prev">‹</button>' +
       '<div class="cal-label">' + MONTH_NAMES[month] + ' ' + year + '</div>' +
       '<button class="cal-nav" id="cal-next">›</button>' +
@@ -2380,37 +2437,53 @@
     for (var d = 1; d <= daysInMonth; d++) {
       var key = dateToKey(year, month, d);
       var dayTasks = byDay[key] || [];
+      var dayHealth = healthByDay[key] || [];
       var dotCls = '';
-      if (dayTasks.length) {
+      if (dayTasks.length || dayHealth.length) {
         var hasOverdueActive = dayTasks.some(function(t){ return t.status === 'pending' && key < today; });
-        var hasActive = dayTasks.some(function(t){ return t.status !== 'done'; });
+        var hasActive = dayTasks.some(function(t){ return t.status !== 'done'; }) || dayHealth.some(function(c){ return c.estado === 'programada'; });
         dotCls = hasOverdueActive ? 'cal-dot-critical' : (hasActive ? 'cal-dot-active' : 'cal-dot-done');
       }
       var cls = 'cal-day';
       if (key === today) cls += ' cal-today';
       if (key === selectedCalDay) cls += ' cal-selected';
       html += '<div class="' + cls + '" data-key="' + key + '">' + d +
-        (dayTasks.length ? '<span class="cal-dot ' + dotCls + '"></span>' : '') +
+        ((dayTasks.length || dayHealth.length) ? '<span class="cal-dot ' + dotCls + '"></span>' : '') +
         '</div>';
     }
-    html += '</div>';
+    html += '</div>'; // /cal-grid
+    html += '</div>'; // /cal-grid-col
 
+    html += '<div class="cal-side-panel">';
     if (selectedCalDay) {
       var dayTasks2 = byDay[selectedCalDay] || [];
+      var dayHealth2 = healthByDay[selectedCalDay] || [];
       var parts = selectedCalDay.split('-');
       html += '<div class="cal-day-panel">' +
-        '<div class="cal-day-panel-title">' + parts[2] + '/' + parts[1] + '/' + parts[0] + '</div>' +
-        (dayTasks2.length === 0
-          ? '<div class="log-empty">Sin tareas ese día.</div>'
-          : sortTasks(dayTasks2).map(function(t){
-              return '<div class="cal-task-row' + (t.status === 'done' ? ' done' : '') + '">' +
-                '<span class="chip pri-' + t.priority + '">' + (PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
-                '<span class="chip type-' + t.type + '">' + typeChipInnerHtml(t.type) + '</span>' +
-                '<span class="cal-task-title">' + escapeHtml(t.title) + '</span>' +
-              '</div>';
-            }).join('')) +
-        '</div>';
+        '<div class="cal-day-panel-title">' + parts[2] + '/' + parts[1] + '/' + parts[0] + '</div>';
+      if (!dayTasks2.length && !dayHealth2.length) {
+        html += '<div class="log-empty">Sin tareas ni consultas ese día.</div>';
+      } else {
+        html += sortTasks(dayTasks2).map(function(t){
+          return '<div class="cal-task-row' + (t.status === 'done' ? ' done' : '') + '">' +
+            '<span class="chip pri-' + t.priority + '">' + (PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
+            '<span class="chip type-' + t.type + '">' + typeChipInnerHtml(t.type) + '</span>' +
+            '<span class="cal-task-title">' + escapeHtml(t.title) + '</span>' +
+          '</div>';
+        }).join('');
+        html += dayHealth2.map(function(c){
+          return '<div class="cal-task-row' + (c.estado !== 'programada' ? ' done' : '') + '">' +
+            '<span class="chip neutral">🩺' + (c.hora ? ' ' + c.hora.slice(0,5) : '') + '</span>' +
+            '<span class="cal-task-title">' + escapeHtml(c.especialidad) + (c.medico ? ' · ' + escapeHtml(c.medico) : '') + '</span>' +
+          '</div>';
+        }).join('');
+      }
+      html += '</div>';
+    } else {
+      html += '<div class="cal-day-panel-placeholder">Tocá un día para ver sus tareas y consultas.</div>';
     }
+    html += '</div>'; // /cal-side-panel
+    html += '</div>'; // /cal-layout
 
     el.innerHTML = html;
 
@@ -2475,6 +2548,20 @@
   applyTypeVisibility(captureEl, $('type-input').value);
 
   wireChipGroup($('period-chips'), $('period-input'), function(val){ activePeriod = val; renderList(); });
+
+  setChipGroupValue($('notif-dias-chips'), String(NOTIF_DIAS_ANTES));
+  $('notif-dias-input').value = String(NOTIF_DIAS_ANTES);
+  $('notif-hora-input').value = String(NOTIF_HOUR);
+  wireChipGroup($('notif-dias-chips'), $('notif-dias-input'), function(val){
+    NOTIF_DIAS_ANTES = Number(val);
+    localStorage.setItem('tareasNotifDiasAntes', String(NOTIF_DIAS_ANTES));
+    scheduleTaskDueNotifications();
+  });
+  $('notif-hora-input').addEventListener('change', function(){
+    NOTIF_HOUR = Number(this.value);
+    localStorage.setItem('tareasNotifHora', String(NOTIF_HOUR));
+    scheduleTaskDueNotifications();
+  });
 
   wirePendenciaLinkBtn($('pendencia-link-btn'), $('planes-pendencia-input'));
   $('pendenciaClose').addEventListener('click', closePendenciaPicker);
@@ -2551,6 +2638,7 @@
     if (session && session.user){
       setConnectedUI(true, session.user.email);
       loadAndRender();
+      loadHealthAndRender();
     } else {
       setConnectedUI(false, "");
     }
