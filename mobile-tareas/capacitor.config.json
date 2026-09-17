@@ -5,5 +5,11 @@
   "server": {
     "url": "https://beowulfinho.github.io/FacheTools/Tareas/",
     "cleartext": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#3D5A80"
+    }
   }
 }

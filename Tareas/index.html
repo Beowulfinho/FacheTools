@@ -994,6 +994,8 @@
   var openEditId = null;
   var openLogId = null;
   var openSubtasksId = null;
+  var NOTIF_CHANNEL_ID = "tareas_alerts";
+  var NOTIF_HOUR = 9; // hora local en la que suenan los recordatorios de vencimiento
 
   // ---------- Supabase client (mesmo projeto/anon key do Finanças e Planes) ----------
   var SUPABASE_URL = "https://qdetwdneqncblxwylpyw.supabase.co";
@@ -1574,9 +1576,55 @@
     });
   }
 
+  // Turns a task's uuid into a stable 31-bit int id: LocalNotifications ids must be plain
+  // integers, but tareas_tasks rows use uuid primary keys — hashing the string deterministically
+  // means the same task always re-schedules onto (and cancels) the same notification id instead
+  // of stacking duplicates every time loadAndRender() runs. baseId is even so id+1 (the "vence
+  // mañana" reminder) never collides with another task's baseId.
+  function taskNotifId(uuid){
+    var h = 0;
+    for (var i = 0; i < uuid.length; i++){ h = (h * 31 + uuid.charCodeAt(i)) | 0; }
+    return 700000000 + (Math.abs(h) % 100000000) * 2;
+  }
+  // Solo las tareas puntuales tienen un vencimiento real (las recurrentes solo guardan la fecha
+  // de inicio de la repetición, y las de seguimiento no tienen fecha) — a esas se les programa un
+  // aviso el día que vencen y otro el día anterior, ambos a NOTIF_HOUR.
+  function scheduleTaskDueNotifications(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if (!LocalNotifications) return;
+    LocalNotifications.requestPermissions().then(function(perm){
+      if (perm.display !== "granted") return;
+      var notifications = [];
+      var idsToCancel = [];
+      tasks.forEach(function(t){
+        var baseId = taskNotifId(t.id);
+        if (t.type !== 'puntual' || t.status === 'done' || !t.dueDate){
+          idsToCancel.push({ id: baseId }, { id: baseId + 1 });
+          return;
+        }
+        var due = parseIsoDate(t.dueDate);
+        var dueAt = new Date(due.getFullYear(), due.getMonth(), due.getDate(), NOTIF_HOUR, 0, 0, 0);
+        var dayBefore = new Date(dueAt.getTime() - 24*60*60*1000);
+        if (dueAt.getTime() > Date.now()){
+          notifications.push({ id: baseId, title: 'Tarea vence hoy', body: t.title, channelId: NOTIF_CHANNEL_ID, schedule: { at: dueAt } });
+        } else {
+          idsToCancel.push({ id: baseId });
+        }
+        if (dayBefore.getTime() > Date.now()){
+          notifications.push({ id: baseId + 1, title: 'Tarea vence mañana', body: t.title, channelId: NOTIF_CHANNEL_ID, schedule: { at: dayBefore } });
+        } else {
+          idsToCancel.push({ id: baseId + 1 });
+        }
+      });
+      if (idsToCancel.length) LocalNotifications.cancel({ notifications: idsToCancel }).catch(function(){});
+      if (notifications.length) LocalNotifications.schedule({ notifications: notifications });
+    }).catch(function(){ /* las notificaciones nativas son un plus, nunca deben bloquear la app */ });
+  }
+
   function loadAndRender() {
     clearError();
-    return loadTasks().then(renderAll).catch(function(err){
+    return loadTasks().then(renderAll).then(scheduleTaskDueNotifications).catch(function(err){
       showError('No se pudo cargar tus tareas: ' + err.message);
     });
   }
@@ -2292,6 +2340,24 @@
       setConnectedUI(false, "");
     }
   });
+
+  // Android 8+ solo muestra un banner emergente para notificaciones publicadas en un canal cuya
+  // importancia es HIGH — el canal por defecto al que cae LocalNotifications cuando no se indica
+  // ninguno es NORMAL, que llega silenciosa a la bandeja pero nunca interrumpe la pantalla. La
+  // importancia queda fija al crear el canal, así que esto debe correr antes de programar nada.
+  (function ensureNotificationChannel(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if (!LocalNotifications) return;
+    LocalNotifications.createChannel({
+      id: NOTIF_CHANNEL_ID,
+      name: "Alertas de Tareas",
+      description: "Avisos de tareas que vencen hoy o mañana",
+      importance: 5,
+      visibility: 1,
+      vibration: true
+    }).catch(function(){});
+  })();
 
   // Android 15+ (API 35) desenha o WebView atrás da status bar por padrão — sem isso a barra
   // superior do app renderiza embaixo da faixa de notificações do telefone. Ver Planes/index.html.
