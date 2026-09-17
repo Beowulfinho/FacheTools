@@ -714,9 +714,17 @@
   .cal-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .cal-nav-group {
+    display: flex;
+    align-items: center;
     justify-content: center;
     gap: 14px;
-    margin-bottom: 10px;
+    flex: 1;
   }
 
   .cal-label {
@@ -740,6 +748,30 @@
   }
 
   .cal-nav:hover { background: var(--accent-soft); color: var(--accent); }
+
+  .cal-today-btn {
+    background: var(--paper-3);
+    border: none;
+    color: var(--ink-soft);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .cal-today-btn:hover { color: var(--accent); background: var(--accent-soft); }
+
+  .cal-view-tabs, .cal-jump-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .cal-jump-row .chip-field-label { font-size: 10.5px; margin-right: 2px; }
 
   .cal-grid {
     display: grid;
@@ -1082,6 +1114,8 @@
   var openEditId = null;
   var openLogId = null;
   var openSubtasksId = null;
+  var openHealthEditId = null;
+  var calViewMode = 'mes'; // 'mes' | 'semana'
   var NOTIF_CHANNEL_ID = "tareas_alerts";
   // Preferencia del usuario de cuándo avisar antes del vencimiento — persistida en localStorage
   // porque es una configuración por dispositivo (cada celular programa sus propias notificaciones
@@ -1732,6 +1766,23 @@
         .catch(function(err){ showError('No se pudo eliminar la consulta: ' + err.message); });
     });
   }
+  function saveHealthEdit(id, form){
+    var especialidad = form.querySelector('.edit-h-especialidad').value.trim();
+    var fecha = form.querySelector('.edit-h-fecha').value;
+    if (!especialidad || !fecha) return;
+    supabaseClient.from('tareas_health_consultas').update({
+      especialidad: especialidad,
+      fecha: fecha,
+      hora: form.querySelector('.edit-h-hora').value || null,
+      medico: form.querySelector('.edit-h-medico').value.trim() || null,
+      lugar: form.querySelector('.edit-h-lugar').value.trim() || null,
+      notas: form.querySelector('.edit-h-notas').value.trim() || null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id).then(throwIfError).then(function(){
+      openHealthEditId = null;
+      return loadHealthAndRender();
+    }).catch(function(err){ showError('No se pudo guardar la consulta: ' + err.message); });
+  }
   function formatHealthDate(iso, hora){
     var parts = iso.split('-');
     var out = parts[2] + '/' + parts[1] + '/' + parts[0];
@@ -1808,6 +1859,12 @@
           reopenBtn.onclick = function(){ setHealthEstado(c.id, 'programada'); };
           actions.appendChild(reopenBtn);
         }
+        var editBtn = document.createElement('button');
+        editBtn.className = 'icon-btn';
+        editBtn.textContent = '✎';
+        editBtn.title = 'Editar';
+        editBtn.onclick = function(){ openHealthEditId = openHealthEditId === c.id ? null : c.id; renderHealthList(); };
+        actions.appendChild(editBtn);
         var delBtn = document.createElement('button');
         delBtn.className = 'icon-btn';
         delBtn.textContent = '✕';
@@ -1816,6 +1873,25 @@
         actions.appendChild(delBtn);
         row.appendChild(actions);
         card.appendChild(row);
+
+        if (openHealthEditId === c.id){
+          var form = document.createElement('div');
+          form.className = 'edit-form';
+          form.innerHTML =
+            '<input type="text" class="edit-h-especialidad" value="' + c.especialidad.replace(/"/g,'&quot;') + '">' +
+            '<div class="row">' +
+              '<input type="date" class="edit-h-fecha" value="' + c.fecha + '">' +
+              '<input type="time" class="edit-h-hora" value="' + (c.hora ? c.hora.slice(0,5) : '') + '">' +
+            '</div>' +
+            '<input type="text" class="edit-h-medico" placeholder="Médico" value="' + (c.medico || '').replace(/"/g,'&quot;') + '">' +
+            '<input type="text" class="edit-h-lugar" placeholder="Lugar" value="' + (c.lugar || '').replace(/"/g,'&quot;') + '">' +
+            '<textarea class="edit-h-notas" placeholder="Notas">' + (c.notas || '') + '</textarea>' +
+            '<button class="save-btn">Guardar</button>';
+          enhanceDateInput(form.querySelector('.edit-h-fecha'));
+          form.querySelector('.save-btn').onclick = function(){ saveHealthEdit(c.id, form); };
+          card.appendChild(form);
+        }
+
         el.appendChild(card);
       });
     }
@@ -2383,37 +2459,125 @@
   }
 
   var MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   var WEEKDAY_LABELS = ['D','L','M','M','J','V','S'];
 
   function dateToKey(y, m, d) {
     return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
   }
 
+  // Junta tareas (próxima ocurrencia dentro de los próximos 120 días) y consultas de Health
+  // programadas, ordenadas por fecha — usado tanto para el panel lateral sin día seleccionado
+  // como implícitamente por jumpToNext().
+  function buildUpcomingItems(limit){
+    var today = todayStr();
+    var horizonEnd = isoFromDate(new Date(Date.now() + 120*86400000));
+    var items = [];
+    tasks.forEach(function(t){
+      if (t.status === 'done' || t.type === 'seguimiento') return;
+      var dates = occurrenceDatesInRange(t, today, horizonEnd);
+      if (dates.length) items.push({ date: dates[0], kind: 'task', task: t });
+    });
+    healthConsultas.forEach(function(c){
+      if (c.estado === 'programada' && c.fecha >= today) items.push({ date: c.fecha, kind: 'health', health: c });
+    });
+    items.sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    return items.slice(0, limit || 8);
+  }
+
+  function renderUpcomingPanel(){
+    var items = buildUpcomingItems(8);
+    if (!items.length) return '<div class="cal-day-panel-placeholder">No hay tareas ni consultas próximas.</div>';
+    var html = '<div class="cal-day-panel"><div class="cal-day-panel-title">Próximas</div>';
+    html += items.map(function(it){
+      var parts = it.date.split('-');
+      var dateLabel = parts[2] + '/' + parts[1];
+      if (it.kind === 'task') {
+        var t = it.task;
+        return '<div class="cal-task-row">' +
+          '<span class="chip neutral">' + dateLabel + '</span>' +
+          '<span class="chip pri-' + t.priority + '">' + (PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
+          '<span class="chip type-' + t.type + '">' + typeChipInnerHtml(t.type) + '</span>' +
+          '<span class="cal-task-title">' + escapeHtml(t.title) + '</span>' +
+        '</div>';
+      }
+      var c = it.health;
+      return '<div class="cal-task-row">' +
+        '<span class="chip neutral">' + dateLabel + '</span>' +
+        '<span class="chip neutral">🩺' + (c.hora ? ' ' + c.hora.slice(0,5) : '') + '</span>' +
+        '<span class="cal-task-title">' + escapeHtml(c.especialidad) + (c.medico ? ' · ' + escapeHtml(c.medico) : '') + '</span>' +
+      '</div>';
+    }).join('');
+    html += '</div>';
+    return html;
+  }
+
+  // Mueve el calendario a la próxima ocurrencia de un tipo (consulta de Health, tarea puntual
+  // o recurrente) y la selecciona. No hace nada si no hay ninguna próxima de ese tipo.
+  function jumpToNext(kind){
+    var today = todayStr();
+    var horizonEnd = isoFromDate(new Date(Date.now() + 366*86400000));
+    var bestIso = null;
+    if (kind === 'health'){
+      healthConsultas.forEach(function(c){
+        if (c.estado === 'programada' && c.fecha >= today && (!bestIso || c.fecha < bestIso)) bestIso = c.fecha;
+      });
+    } else {
+      tasks.forEach(function(t){
+        if (t.status === 'done' || t.type !== kind) return;
+        var dates = occurrenceDatesInRange(t, today, horizonEnd);
+        if (dates.length && (!bestIso || dates[0] < bestIso)) bestIso = dates[0];
+      });
+    }
+    if (!bestIso) return;
+    var d = parseIsoDate(bestIso);
+    calMonth = calViewMode === 'semana' ? d : new Date(d.getFullYear(), d.getMonth(), 1);
+    selectedCalDay = bestIso;
+    renderCalendar();
+  }
+
   function renderCalendar() {
     var el = $('calendar');
     if (activeSection !== 'calendario') return;
 
-    var year = calMonth.getFullYear();
-    var month = calMonth.getMonth();
     var today = todayStr();
+    var cells = [];
+    var rangeStartIso, rangeEndIso, label;
 
-    var firstDow = new Date(year, month, 1).getDay();
-    var daysInMonth = new Date(year, month + 1, 0).getDate();
-    var monthStartIso = dateToKey(year, month, 1);
-    var monthEndIso = dateToKey(year, month, daysInMonth);
+    if (calViewMode === 'semana') {
+      var weekStart = startOfWeek(calMonth);
+      for (var i = 0; i < 7; i++) {
+        var wd = new Date(weekStart); wd.setDate(wd.getDate() + i);
+        cells.push({ date: wd, iso: isoFromDate(wd) });
+      }
+      rangeStartIso = cells[0].iso;
+      rangeEndIso = cells[6].iso;
+      var ws = cells[0].date, we = cells[6].date;
+      label = ws.getDate() + ' ' + MONTH_SHORT[ws.getMonth()] + ' – ' + we.getDate() + ' ' + MONTH_SHORT[we.getMonth()] + ' ' + we.getFullYear();
+    } else {
+      var year = calMonth.getFullYear();
+      var month = calMonth.getMonth();
+      var firstDow = new Date(year, month, 1).getDay();
+      var daysInMonth = new Date(year, month + 1, 0).getDate();
+      rangeStartIso = dateToKey(year, month, 1);
+      rangeEndIso = dateToKey(year, month, daysInMonth);
+      label = MONTH_NAMES[month] + ' ' + year;
+      for (var b = 0; b < firstDow; b++) cells.push(null);
+      for (var d = 1; d <= daysInMonth; d++) cells.push({ date: new Date(year, month, d), iso: dateToKey(year, month, d) });
+    }
 
-    // Una tarea recurrente aparece como un punto en cada día del mes en que repite,
+    // Una tarea recurrente aparece como un punto en cada día del rango en que repite,
     // no solo en su fecha de inicio.
     var byDay = {};
     tasks.forEach(function(t){
-      occurrenceDatesInRange(t, monthStartIso, monthEndIso).forEach(function(iso){
+      occurrenceDatesInRange(t, rangeStartIso, rangeEndIso).forEach(function(iso){
         if (!byDay[iso]) byDay[iso] = [];
         byDay[iso].push(t);
       });
     });
     var healthByDay = {};
     healthConsultas.forEach(function(c){
-      if (c.fecha >= monthStartIso && c.fecha <= monthEndIso){
+      if (c.fecha >= rangeStartIso && c.fecha <= rangeEndIso){
         if (!healthByDay[c.fecha]) healthByDay[c.fecha] = [];
         healthByDay[c.fecha].push(c);
       }
@@ -2422,20 +2586,32 @@
     var html = '<div class="cal-layout"><div class="cal-grid-col">';
 
     html += '<div class="cal-header">' +
-      '<button class="cal-nav" id="cal-prev">‹</button>' +
-      '<div class="cal-label">' + MONTH_NAMES[month] + ' ' + year + '</div>' +
-      '<button class="cal-nav" id="cal-next">›</button>' +
+      '<div class="cal-nav-group">' +
+        '<button class="cal-nav" id="cal-prev">‹</button>' +
+        '<div class="cal-label">' + label + '</div>' +
+        '<button class="cal-nav" id="cal-next">›</button>' +
+      '</div>' +
+      '<button class="cal-today-btn" id="cal-today-btn">Hoy</button>' +
+      '</div>';
+
+    html += '<div class="cal-view-tabs">' +
+      '<button type="button" class="chip chip-btn neutral' + (calViewMode === 'mes' ? ' active' : '') + '" data-view="mes">Mes</button>' +
+      '<button type="button" class="chip chip-btn neutral' + (calViewMode === 'semana' ? ' active' : '') + '" data-view="semana">Semana</button>' +
+      '</div>';
+
+    html += '<div class="cal-jump-row">' +
+      '<span class="chip-field-label" style="margin:0;">Ir a próximo</span>' +
+      '<button type="button" class="chip chip-btn neutral" data-jump="health">🩺 Consulta</button>' +
+      '<button type="button" class="chip chip-btn neutral" data-jump="puntual">● Puntual</button>' +
+      '<button type="button" class="chip chip-btn neutral" data-jump="recurrente">↻ Recurrente</button>' +
       '</div>';
 
     html += '<div class="cal-grid">';
     WEEKDAY_LABELS.forEach(function(w){ html += '<div class="cal-weekday">' + w + '</div>'; });
 
-    for (var i = 0; i < firstDow; i++) {
-      html += '<div class="cal-day cal-blank"></div>';
-    }
-
-    for (var d = 1; d <= daysInMonth; d++) {
-      var key = dateToKey(year, month, d);
+    cells.forEach(function(cell){
+      if (!cell) { html += '<div class="cal-day cal-blank"></div>'; return; }
+      var key = cell.iso;
       var dayTasks = byDay[key] || [];
       var dayHealth = healthByDay[key] || [];
       var dotCls = '';
@@ -2447,10 +2623,10 @@
       var cls = 'cal-day';
       if (key === today) cls += ' cal-today';
       if (key === selectedCalDay) cls += ' cal-selected';
-      html += '<div class="' + cls + '" data-key="' + key + '">' + d +
+      html += '<div class="' + cls + '" data-key="' + key + '">' + cell.date.getDate() +
         ((dayTasks.length || dayHealth.length) ? '<span class="cal-dot ' + dotCls + '"></span>' : '') +
         '</div>';
-    }
+    });
     html += '</div>'; // /cal-grid
     html += '</div>'; // /cal-grid-col
 
@@ -2480,7 +2656,7 @@
       }
       html += '</div>';
     } else {
-      html += '<div class="cal-day-panel-placeholder">Tocá un día para ver sus tareas y consultas.</div>';
+      html += renderUpcomingPanel();
     }
     html += '</div>'; // /cal-side-panel
     html += '</div>'; // /cal-layout
@@ -2489,8 +2665,24 @@
 
     var prevBtn = $('cal-prev');
     var nextBtn = $('cal-next');
-    if (prevBtn) prevBtn.onclick = function(){ calMonth = new Date(year, month - 1, 1); selectedCalDay = null; renderCalendar(); };
-    if (nextBtn) nextBtn.onclick = function(){ calMonth = new Date(year, month + 1, 1); selectedCalDay = null; renderCalendar(); };
+    if (prevBtn) prevBtn.onclick = function(){
+      if (calViewMode === 'semana') { var pd = new Date(calMonth); pd.setDate(pd.getDate() - 7); calMonth = pd; }
+      else { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); }
+      selectedCalDay = null; renderCalendar();
+    };
+    if (nextBtn) nextBtn.onclick = function(){
+      if (calViewMode === 'semana') { var nd = new Date(calMonth); nd.setDate(nd.getDate() + 7); calMonth = nd; }
+      else { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); }
+      selectedCalDay = null; renderCalendar();
+    };
+    var todayBtn = $('cal-today-btn');
+    if (todayBtn) todayBtn.onclick = function(){ calMonth = new Date(); selectedCalDay = todayStr(); renderCalendar(); };
+    el.querySelectorAll('.cal-view-tabs .chip-btn').forEach(function(btn){
+      btn.onclick = function(){ calViewMode = btn.getAttribute('data-view'); renderCalendar(); };
+    });
+    el.querySelectorAll('.cal-jump-row .chip-btn').forEach(function(btn){
+      btn.onclick = function(){ jumpToNext(btn.getAttribute('data-jump')); };
+    });
     el.querySelectorAll('.cal-day[data-key]').forEach(function(dayEl){
       dayEl.onclick = function(){
         var key = dayEl.getAttribute('data-key');
