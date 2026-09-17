@@ -497,6 +497,8 @@
   }
   .dsel-trigger .dsel-label.ph { color: var(--ink-faint); font-family: 'IBM Plex Sans', sans-serif; }
   .dsel-trigger svg { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
+  .dsel-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
+  select:disabled, input:disabled { opacity: 0.5; cursor: not-allowed; }
   .dsel-panel {
     display: none; position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; min-width: 260px;
     max-width: calc(100vw - 24px); box-sizing: border-box;
@@ -1087,8 +1089,7 @@
 
       <div class="capture" id="health-capture" hidden>
         <div class="capture-row" style="flex-wrap:wrap; gap:8px;">
-          <input type="text" id="health-especialidad-input" placeholder="Especialidad / motivo (ej: Cardiología)" maxlength="120" style="flex:2; min-width:180px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--paper-raised);">
-          <input type="date" id="health-fecha-input" style="flex:1; min-width:140px;">
+          <input type="text" id="health-especialidad-input" placeholder="Especialidad / motivo (ej: Cardiología)" maxlength="120" style="flex:1; min-width:220px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--paper-raised);">
         </div>
         <div class="capture-opts" style="flex-direction: column; align-items: stretch;">
           <div class="chip-field">
@@ -1098,6 +1099,10 @@
               <button type="button" class="chip chip-btn neutral active" data-value="programada">Confirmada</button>
             </div>
             <input type="hidden" id="health-estado-input" value="programada">
+          </div>
+          <div class="chip-field">
+            <span class="chip-field-label">Fecha</span>
+            <input type="date" id="health-fecha-input">
           </div>
           <div class="chip-field">
             <span class="chip-field-label">Hora</span>
@@ -1853,6 +1858,7 @@
       $('health-recordatorio-input').value = '1440';
       $('health-estado-input').value = 'programada';
       setChipGroupValue($('health-estado-chips'), 'programada');
+      updateHealthFieldsForEstado();
       $('health-add-btn').disabled = true;
       $('health-capture').hidden = true;
       $('health-toggle-add-btn').textContent = '+ Nueva consulta';
@@ -2042,9 +2048,27 @@
     var fecha = $('health-fecha-input').value;
     $('health-add-btn').disabled = !(especialidad && (estado !== 'programada' || fecha));
   }
+  // Una consulta "en proceso" todavía no tiene fecha/hora reales ni sentido de avisar con
+  // anticipación — se deshabilitan esos campos en vez de solo ocultarlos, para que quede claro
+  // que se habilitan de nuevo al confirmarla (no que la info se perdió).
+  function updateHealthFieldsForEstado(){
+    var disabled = $('health-estado-input').value === 'en_proceso';
+    $('health-hora-input').disabled = disabled;
+    $('health-recordatorio-input').disabled = disabled;
+    var dateWrap = $('health-fecha-input').closest('.dsel');
+    var trigger = dateWrap && dateWrap.querySelector('.dsel-trigger');
+    if (trigger) trigger.disabled = disabled;
+    if (disabled){
+      $('health-fecha-input').value = '';
+      $('health-hora-input').value = '';
+    }
+  }
   $('health-especialidad-input').addEventListener('input', refreshHealthAddBtn);
   $('health-fecha-input').addEventListener('change', refreshHealthAddBtn);
-  wireChipGroup($('health-estado-chips'), $('health-estado-input'), refreshHealthAddBtn);
+  wireChipGroup($('health-estado-chips'), $('health-estado-input'), function(){
+    updateHealthFieldsForEstado();
+    refreshHealthAddBtn();
+  });
   enhanceDateInput($('health-fecha-input'));
 
   // Turns a task's uuid into a stable 31-bit int id: LocalNotifications ids must be plain
