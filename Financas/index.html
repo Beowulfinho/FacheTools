@@ -303,7 +303,6 @@
   table.calendar td.cell-antecipado{ color:var(--accent); font-weight:600; }
   table.calendar td.cell-antecipacao{ color:var(--accent); font-weight:600; box-shadow:inset 0 0 0 1px var(--accent); }
   .cal-reembolso-icon{ color:var(--warn); margin-left:4px; font-weight:700; }
-  .cal-reembolso-icon.ignored{ opacity:.4; }
   table.calendar tr.calendar-row-editable{ cursor:pointer; }
   table.calendar tr.calendar-row-editable:hover td{ background:var(--accent-soft); }
   table.calendar tr.calendar-row-editable:hover td.current-month{ filter:brightness(0.97); }
@@ -564,12 +563,12 @@
   .tipo-badge.estorno{ background:var(--danger-soft); color:var(--danger); }
   .tipo-badge.assinatura{ background:var(--warn-soft); color:var(--warn); }
   .tag-auto{ font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:600; margin-left:8px; }
-  .tx-desc .reembolso-toggle{ display:inline-flex; font-size:9.5px; text-transform:uppercase; letter-spacing:.04em; margin-left:8px; vertical-align:middle; }
-  .tx-desc .reembolso-toggle .out-label{ font-size:9.5px; }
   .tx-row-inherited{ opacity:.7; font-style:italic; }
   .tx-row-inherited .tx-desc{ font-style:italic; }
   .tx-row-antecipacao{ background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent); }
   .tx-row-antecipacao .f-pvalor, .tx-row-antecipacao .f-parcela{ color:var(--accent); font-weight:600; }
+  .tx-row-reembolso{ background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent); }
+  .tx-row-reembolso .f-pvalor, .tx-row-reembolso .f-parcela{ color:var(--accent); font-weight:600; }
   .antecip-parcelas-list{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; max-height:180px; overflow-y:auto; }
   .antecip-parcela-chip{
     display:inline-flex; align-items:center; gap:6px; padding:6px 10px;
@@ -1300,6 +1299,10 @@
           <span class="cur">R$</span>
           <input type="text" inputmode="decimal" id="fReembolsoValor" placeholder="0,00">
         </div>
+      </div>
+      <div class="field" id="fReembolsoMesWrap" style="display:none;">
+        <label for="fReembolsoMes">Mês do crédito <span class="opt">(fatura em que o reembolso entra como negativo — as parcelas continuam cobrando normalmente)</span></label>
+        <input type="month" id="fReembolsoMes">
       </div>
 
       <div class="field-error" id="txError"></div>
@@ -2148,7 +2151,8 @@
           out: !!rec.out,
           comerciante: rec.comerciante || null,
           reembolso_valor: (rec.reembolsoValor && rec.reembolsoValor > 0) ? rec.reembolsoValor : null,
-          reembolso_out: !!rec.reembolsoOut
+          reembolso_out: !!rec.reembolsoOut,
+          reembolso_mes: (rec.reembolsoValor && rec.reembolsoValor > 0) ? (rec.reembolsoMes || null) : null
         };
       case "debito":
         return {
@@ -2321,7 +2325,8 @@
           out: r.out ? 1 : 0,
           comerciante: r.comerciante || "",
           reembolsoValor: (r.reembolso_valor===null || r.reembolso_valor===undefined) ? null : Number(r.reembolso_valor),
-          reembolsoOut: r.reembolso_out ? 1 : 0
+          reembolsoOut: r.reembolso_out ? 1 : 0,
+          reembolsoMes: r.reembolso_mes || null
         };
       });
 
@@ -2621,23 +2626,38 @@
     for (var i=firstFutureIdx; i<=total; i++){ if (!skippedMap[i]) available.push(i); }
     return {available: available, total: total, currentIdx: currentIdx};
   }
-  // A reembolso (money received back for a purchase, possibly partial) reduces what that
-  // purchase actually cost — everywhere an installment/limit/balance amount is computed, the
-  // reembolso_valor comes off r.valorTotal first. reembolsoOut is a second, independent
-  // Inside/Out flag (same convention as r.out and an antecipação's own out) that lets a
-  // reembolso be registered without yet affecting the numbers — "Out" here means "ignore this
-  // reembolso for now", not "exclude the purchase".
+  // A reembolso (money received back for a purchase, possibly partial) does NOT change what any
+  // individual installment/assinatura charge costs — in real life the card keeps billing every
+  // parcela in full every month. What it changes is the LIFETIME total the purchase actually
+  // cost, which is the only thing this helper still computes (used by the "Todos os meses"
+  // aggregate view). The month-by-month schedule instead gets a one-time credit entry — see
+  // appendReembolsoCreditEntry below, same "lump sum tied to one mês" pattern as antecipações.
+  // reembolsoOut is a second, independent Inside/Out flag (same convention as r.out and an
+  // antecipação's own out) that lets a reembolso be registered without yet affecting the
+  // numbers — "Out" here means "ignore this reembolso for now", not "exclude the purchase".
   function getReembolsoEffectiveValorTotal(r){
     var total = r.valorTotal||0;
     if (!r.reembolsoValor || r.reembolsoOut) return total;
     return Math.max(0, total - r.reembolsoValor);
   }
-  // Returns 0, 1 or 2 schedule entries for purchase r in month ym ({year,month}):
-  //  - a "normal" entry, unless this month's natural installment was anticipated away earlier
+  // A reembolso lands as a single negative (credit) entry in the specific fatura month it was
+  // registered for (r.reembolsoMes, fixed at the moment "Recebeu reembolso" was checked/saved —
+  // see openEditModal/txSave) — never spread across installments. Skipped when reembolsoOut is
+  // set (ignored for now) or reembolsoMes doesn't match this month.
+  function appendReembolsoCreditEntry(r, ymKey, entries){
+    if (r.reembolsoValor && !r.reembolsoOut && r.reembolsoMes && r.reembolsoMes === ymKey){
+      entries.push({effectiveValor: -r.reembolsoValor, parcelaAtual: null, parcelaTotal: r.parcelas||1, antecipacao: null, reembolsoCredito: true});
+    }
+  }
+  // Returns 0-3 schedule entries for purchase r in month ym ({year,month}):
+  //  - a "normal" entry (full parcela/assinatura value), unless this month's natural installment
+  //    was anticipated away earlier
   //  - an "antecipacao" entry if an antecipação lump sum was registered exactly in this month
+  //  - a "reembolsoCredito" entry if a reembolso lands exactly in this month
   function getCompraScheduleForMonth(r, ym){
     if (!r.dataSerial) return [];
     var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
+    var ymKey = monthKey(ym);
 
     // Assinaturas ("Assinatura...") recur every month from their start until cancelled (or
     // indefinitely, if never cancelled) — unlike an installment purchase they have no fixed
@@ -2648,7 +2668,9 @@
         var cancelYM = addMonths(startYM, monthsElapsedByDay(r.dataSerial, r.cancelSerial));
         if (monthsBetween(cancelYM, ym) > 0) return [];
       }
-      return [{effectiveValor: getReembolsoEffectiveValorTotal(r), parcelaAtual: null, parcelaTotal: 1, antecipacao: null}];
+      var assinaturaEntries = [{effectiveValor: r.valorTotal||0, parcelaAtual: null, parcelaTotal: 1, antecipacao: null}];
+      appendReembolsoCreditEntry(r, ymKey, assinaturaEntries);
+      return assinaturaEntries;
     }
 
     var total = r.parcelas || 1;
@@ -2656,9 +2678,8 @@
     var skippedMap = getAntecipatedIndexMap(r);
     var entries = [];
     if (idx >= 1 && idx <= total && !skippedMap[idx]){
-      entries.push({effectiveValor: getReembolsoEffectiveValorTotal(r)/total, parcelaAtual: idx, parcelaTotal: total, antecipacao:null});
+      entries.push({effectiveValor: (r.valorTotal||0)/total, parcelaAtual: idx, parcelaTotal: total, antecipacao:null});
     }
-    var ymKey = monthKey(ym);
     getAntecipacoesForCompra(r.row).forEach(function(a){
       if (a.mes === ymKey){
         var indices = (a.indices||[]).slice();
@@ -2669,6 +2690,7 @@
         });
       }
     });
+    appendReembolsoCreditEntry(r, ymKey, entries);
     return entries;
   }
 
@@ -2689,6 +2711,10 @@
         out.parcelaAtual = null;
         out.parcelaTotal = r.parcelas||1;
         out.antecipacao = null;
+        out.reembolsoCredito = false;
+        // Informational only here (the lifetime total above already nets it out) — the editable
+        // Inside/Out toggle for a reembolso lives on its actual credit-month row, not this one.
+        out.reembolsoInfo = (r.reembolsoValor && !r.reembolsoOut) ? r.reembolsoValor : null;
         // cartaoEfetivo is the card to actually display/group by for this row — kept separate
         // from r.cartao (the purchase's ORIGINAL card, untouched here) so the edit modal keeps
         // showing/saving the original card rather than silently overwriting it with whatever a
@@ -2705,9 +2731,12 @@
         rec.parcelaAtual = e.parcelaAtual;
         rec.parcelaTotal = e.parcelaTotal;
         rec.antecipacao = e.antecipacao;
-        // An antecipação lump sum has its own Inside/Out flag, independent from the purchase
-        // it belongs to — don't let it inherit the purchase's own r.out here.
+        rec.reembolsoCredito = !!e.reembolsoCredito;
+        rec.reembolsoInfo = null; // only shown on the "Todos os meses" aggregate row, not here
+        // An antecipação lump sum, and a reembolso credit, each carry their own Inside/Out flag,
+        // independent from the purchase they belong to — don't let either inherit r.out here.
         if (e.antecipacao) rec.out = e.outOverride ? 1 : 0;
+        else if (e.reembolsoCredito) rec.out = r.reembolsoOut ? 1 : 0;
         rec.cartaoEfetivo = getEffectiveCartaoNome(r, filterMonth);
         out.push(rec);
       });
@@ -2763,11 +2792,11 @@
       });
     });
 
-    // Antecipação lump-sum rows reuse the underlying compra's own r.row (there's no separate id
-    // to select by), so they're excluded from bulk-select entirely — checking that box and bulk-
-    // deleting would delete the COMPRA (and, via cascade, every antecipação on it), not just
-    // "cancel" this one antecipação the way the dedicated "Excluir antecipação" button does.
-    var visibleRows = filtered.filter(function(r){ return !r.antecipacao; }).map(function(r){ return r.row; });
+    // Antecipação and reembolso-credit rows both reuse the underlying compra's own r.row (there's
+    // no separate id to select by), so they're excluded from bulk-select entirely — checking that
+    // box and bulk-deleting would delete the COMPRA itself, not just "cancel" the antecipação/
+    // reembolso the way opening the row (or "Excluir antecipação") does.
+    var visibleRows = filtered.filter(function(r){ return !r.antecipacao && !r.reembolsoCredito; }).map(function(r){ return r.row; });
     lastVisibleComprasRows = visibleRows;
     Array.from(selectedCompras).forEach(function(rn){ if (visibleRows.indexOf(rn)===-1) selectedCompras.delete(rn); });
     updateComprasBulkBar();
@@ -2780,19 +2809,25 @@
     }
     filtered.forEach(function(r){
       var row = document.createElement("div");
-      row.className = "tx-row" + (r.antecipacao ? " tx-row-antecipacao" : "");
+      var isSpecialRow = r.antecipacao || r.reembolsoCredito;
+      row.className = "tx-row" + (r.antecipacao ? " tx-row-antecipacao" : "") + (r.reembolsoCredito ? " tx-row-reembolso" : "");
       row.tabIndex = 0;
       row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr";
       var badgeClass = r.tipo === "Estorno" ? "estorno" : (isAssinaturaTipo(r.tipo) ? "assinatura" : "");
       var parcelaLabel = r.antecipacao
         ? ("antecip. " + r.antecipacao.count + "x")
-        : (r.parcelaAtual === null)
-          ? (r.parcelaTotal||1) + "x"
-          : (r.parcelaAtual < 1 ? "futura" : (r.parcelaAtual > r.parcelaTotal ? "concluída" : r.parcelaAtual + "/" + r.parcelaTotal));
+        : r.reembolsoCredito
+          ? "reembolso"
+          : (r.parcelaAtual === null)
+            ? (r.parcelaTotal||1) + "x"
+            : (r.parcelaAtual < 1 ? "futura" : (r.parcelaAtual > r.parcelaTotal ? "concluída" : r.parcelaAtual + "/" + r.parcelaTotal));
+      var selectDisabledTitle = r.antecipacao
+        ? "Antecipações não podem ser selecionadas em massa — abra a linha e use Excluir antecipação"
+        : "Créditos de reembolso não podem ser selecionados em massa — abra a compra para editar/remover o reembolso";
       row.innerHTML =
-        '<input type="checkbox" class="row-select f-select" '+(r.antecipacao ? 'disabled title="Antecipações não podem ser selecionadas em massa — abra a linha e use Excluir antecipação"' : (selectedCompras.has(r.row)?"checked":""))+'>'+
+        '<input type="checkbox" class="row-select f-select" '+(isSpecialRow ? 'disabled title="'+selectDisabledTitle+'"' : (selectedCompras.has(r.row)?"checked":""))+'>'+
         '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
-        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+(r.antecipacao?'<span class="tag-auto">antecipação</span>':'')+((r.reembolsoValor!==null&&r.reembolsoValor!==undefined)?'<span class="tag-auto" title="Reembolso recebido">reemb. '+fmtBRL(r.reembolsoValor)+'</span>':'')+((r.reembolsoValor!==null&&r.reembolsoValor!==undefined&&!r.antecipacao)?'<label class="out-check reembolso-toggle" title="Desmarque para ignorar este reembolso nos balances/limite (mantém a compra pelo valor cheio)"><input type="checkbox" class="reembolso-out-toggle" '+(r.reembolsoOut?"":"checked")+'><span class="out-label">'+(r.reembolsoOut?"Reemb. Out":"Reemb. Inside")+'</span></label>':'')+'</span>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+(r.antecipacao?'<span class="tag-auto">antecipação</span>':'')+(r.reembolsoCredito?'<span class="tag-auto" title="Crédito de reembolso recebido">reembolso</span>':'')+((r.reembolsoInfo!==null&&r.reembolsoInfo!==undefined)?'<span class="tag-auto" title="Reembolso recebido, já refletido no total">reemb. '+fmtBRL(r.reembolsoInfo)+'</span>':'')+'</span>'+
         '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
         '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartaoEfetivo)+(r.cartaoEfetivo!==r.cartao?'<span class="tag-auto" title="Cartão original: '+escapeHtml(r.cartao)+'">trocado</span>':'')+'</span>'+
         '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
@@ -2825,24 +2860,22 @@
           });
           return;
         }
+        if (r.reembolsoCredito){
+          // This row is the reembolso's own one-time credit entry, not the purchase itself —
+          // Inside/Out here toggles reembolsoOut, independent from the purchase's own r.out.
+          var recR = {}; for (var k in r) recR[k] = r[k];
+          recR.reembolsoOut = checkbox.checked ? 0 : 1;
+          saveTableRow("compras", "update", r.row, recR).then(loadAndRender).catch(function(err){
+            showError("Não foi possível salvar: " + err.message);
+          });
+          return;
+        }
         var rec = {}; for (var k in r) rec[k] = r[k];
         rec.out = checkbox.checked ? 0 : 1;
         saveTableRow("compras", "update", r.row, rec).then(loadAndRender).catch(function(err){
           showError("Não foi possível salvar: " + err.message);
         });
       });
-      var reembolsoCheckbox = row.querySelector(".reembolso-out-toggle");
-      if (reembolsoCheckbox){
-        reembolsoCheckbox.addEventListener("click", function(e){ e.stopPropagation(); });
-        reembolsoCheckbox.addEventListener("change", function(e){
-          e.stopPropagation();
-          var rec = {}; for (var k in r) rec[k] = r[k];
-          rec.reembolsoOut = reembolsoCheckbox.checked ? 0 : 1;
-          saveTableRow("compras", "update", r.row, rec).then(loadAndRender).catch(function(err){
-            showError("Não foi possível salvar: " + err.message);
-          });
-        });
-      }
       row.addEventListener("click", function(){
         if (r.antecipacao) openAntecipModalForExisting(r.antecipacao.row);
         else openEditModal(r);
@@ -3171,11 +3204,11 @@
   }
 
   // ---------- Calendário de parcelas: every purchase, month by month, independent of any filter ----------
-  // Small yellow "money back" arrow shown on every installment cell of a purchase that has a
-  // reembolso registered — dimmed when reembolsoOut is set (reembolso ignored for now), same
-  // way the value tag on the Compras table row stays visible either way.
+  // Small "money back" arrow shown on the one cell where a reembolso's credit actually lands
+  // (see appendReembolsoCreditEntry) — never called for an ignored (reembolsoOut) reembolso,
+  // since that never produces a credit entry to begin with.
   function reembolsoCalIcon(r){
-    return '<span class="cal-reembolso-icon'+(r.reembolsoOut?' ignored':'')+'">↩</span>';
+    return '<span class="cal-reembolso-icon">↩</span>';
   }
   function addMonths(ym, n){
     var total = ym.year*12 + (ym.month-1) + n;
@@ -3335,25 +3368,24 @@
             // This installment's number fell in range, but it was already paid off earlier
             // via antecipação — nothing is due this month.
             classes.push("empty-cell", "cell-antecipado");
-            var antecipReembolsoIcon = (r.reembolsoValor!==null&&r.reembolsoValor!==undefined) ? reembolsoCalIcon(r) : "";
-            bodyHtml += '<td class="'+classes.join(" ")+'" title="Parcela antecipada">✓'+antecipReembolsoIcon+'</td>';
+            bodyHtml += '<td class="'+classes.join(" ")+'" title="Parcela antecipada">✓</td>';
           }
           return;
         }
         if (!d.isAssinatura && offset === d.total-1) classes.push("last-installment");
-        var cellValue = 0, hasAntecipacao = false;
+        var cellValue = 0, hasAntecipacao = false, hasReembolsoCredito = false;
         entries.forEach(function(e){
           if (e.antecipacao && e.outOverride) return; // antecipação set "Out" on its own
           cellValue += e.effectiveValor;
           if (e.antecipacao) hasAntecipacao = true;
+          if (e.reembolsoCredito) hasReembolsoCredito = true;
         });
         if (hasAntecipacao) classes.push("cell-antecipacao");
-        var hasReembolso = r.reembolsoValor!==null && r.reembolsoValor!==undefined;
         var titleParts = [];
         if (hasAntecipacao) titleParts.push("Inclui antecipação de parcelas");
-        if (hasReembolso) titleParts.push(r.reembolsoOut ? "Reembolso registrado, mas ignorado (Out)" : "Reembolso de "+fmtBRL(r.reembolsoValor)+" já descontado");
+        if (hasReembolsoCredito) titleParts.push("Crédito de reembolso de "+fmtBRL(r.reembolsoValor)+" recebido este mês");
         var title = titleParts.length ? ' title="'+titleParts.join(" · ")+'"' : "";
-        bodyHtml += '<td class="'+classes.join(" ")+'"'+title+'>'+fmtBRL(cellValue)+(hasReembolso ? reembolsoCalIcon(r) : "")+'</td>';
+        bodyHtml += '<td class="'+classes.join(" ")+'"'+title+'>'+fmtBRL(cellValue)+(hasReembolsoCredito ? reembolsoCalIcon(r) : "")+'</td>';
       });
       bodyHtml += '</tr>';
     });
@@ -3406,6 +3438,7 @@
   // for temporal what-if simulations) never count here.
   function getLimiteUsageByCartaoForMonth(ym){
     var usage = {};
+    var ymKey = monthKey(ym);
     state.compras.records.forEach(function(r){
       if (r.out) return;
       if (!r.dataSerial || !r.cartao) return;
@@ -3413,17 +3446,23 @@
       var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
       var idxAtYM = monthsBetween(startYM, ym) + 1;
       var firstRemainingIdx = Math.max(idxAtYM, 1);
-      var remainingCount = total - firstRemainingIdx + 1;
-      if (remainingCount <= 0) return;
-      if (remainingCount > total) remainingCount = total;
-      var parcelaValor = getReembolsoEffectiveValorTotal(r) / total;
+      var parcelaValor = (r.valorTotal||0) / total;
       // Anticipated installments were already paid off earlier — they no longer tie up any of
       // the card's future limit, so they're excluded from the remaining sum below.
       var skippedMap = getAntecipatedIndexMap(r);
       var remainingSum = 0;
-      for (var i = firstRemainingIdx; i <= total; i++){
-        if (!skippedMap[i]) remainingSum += parcelaValor;
+      if (firstRemainingIdx <= total){
+        for (var i = firstRemainingIdx; i <= total; i++){
+          if (!skippedMap[i]) remainingSum += parcelaValor;
+        }
       }
+      // A reembolso not yet "spent" as of ym (its credit month is this one or a later one) frees
+      // up limit the same way a remaining installment ties it up — subtract it once, right here,
+      // instead of shrinking every parcelaValor above (parcelas keep billing at full price).
+      if (r.reembolsoValor && !r.reembolsoOut && r.reembolsoMes && r.reembolsoMes >= ymKey){
+        remainingSum -= r.reembolsoValor;
+      }
+      if (!remainingSum) return;
       usage[r.cartao] = (usage[r.cartao]||0) + remainingSum;
     });
     return usage;
@@ -4569,7 +4608,16 @@
   function updateReembolsoVisibility(){
     var show = $("fReembolsado").checked;
     $("fReembolsoValorWrap").style.display = show ? "flex" : "none";
-    if (show) setTimeout(function(){ $("fReembolsoValor").focus(); }, 30);
+    $("fReembolsoMesWrap").style.display = show ? "flex" : "none";
+    if (show){
+      // Defaults to the fatura open right now for the selected card — same "fixed at
+      // registration time" convention as an antecipação's own mes — but only the first time;
+      // never overwrites a month the user (or a previous edit) already set.
+      if (!$("fReembolsoMes").value){
+        $("fReembolsoMes").value = monthKey(getCurrentOpenFaturaYM($("fCartaoSel").value));
+      }
+      setTimeout(function(){ $("fReembolsoValor").focus(); }, 30);
+    }
   }
   $("fReembolsado").addEventListener("change", updateReembolsoVisibility);
   // Keep the tipo in sync with the parcelas count while the user hasn't deliberately picked
@@ -4613,6 +4661,7 @@
     updateCancelacaoVisibility();
     $("fReembolsado").checked = false;
     $("fReembolsoValor").value = "";
+    $("fReembolsoMes").value = "";
     updateReembolsoVisibility();
     txOverlay.classList.add("show");
     setTimeout(function(){ $("fDescricao").focus(); }, 30);
@@ -4643,6 +4692,7 @@
     $("fCancelacao").value = serialToInputValue(r.cancelSerial);
     $("fReembolsado").checked = r.reembolsoValor !== null && r.reembolsoValor !== undefined;
     $("fReembolsoValor").value = $("fReembolsado").checked ? String(r.reembolsoValor).replace(".", ",") : "";
+    $("fReembolsoMes").value = r.reembolsoMes || "";
     updateReembolsoVisibility();
     txOverlay.classList.add("show");
   }
@@ -4675,6 +4725,10 @@
     if (reembolsado && (!isFinite(reembolsoValor) || reembolsoValor<=0)){
       errEl.textContent = "Informe o valor reembolsado."; errEl.style.display="block"; return;
     }
+    var reembolsoMes = reembolsado ? ($("fReembolsoMes").value || monthKey(getCurrentOpenFaturaYM($("fCartaoSel").value))) : null;
+    if (reembolsado && !reembolsoMes){
+      errEl.textContent = "Informe o mês em que o reembolso entra como crédito."; errEl.style.display="block"; return;
+    }
     errEl.style.display = "none";
 
     var comercianteInput = $("fComerciante").value.trim();
@@ -4692,7 +4746,8 @@
       out: editingRowOut,
       comerciante: comerciante,
       reembolsoValor: reembolsado ? Math.round(reembolsoValor*100)/100 : null,
-      reembolsoOut: reembolsado ? editingRowReembolsoOut : 0
+      reembolsoOut: reembolsado ? editingRowReembolsoOut : 0,
+      reembolsoMes: reembolsoMes
     };
 
     var action = editingRow ? "update" : "insert";
