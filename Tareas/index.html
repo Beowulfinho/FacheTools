@@ -340,6 +340,35 @@
     margin-left: 4px;
   }
 
+  .section-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .section-tab {
+    flex: 1;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 10px 8px;
+    border-radius: 10px;
+    text-align: center;
+  }
+
+  .section-tab:hover { color: var(--ink); background: var(--paper-3); }
+
+  .section-tab.active {
+    color: var(--accent-ink);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .app-section[hidden] { display: none; }
+
   .list {
     display: flex;
     flex-direction: column;
@@ -671,27 +700,11 @@
 
   .log-add-btn:hover { background: var(--accent-soft); }
 
-  .cal-toggle-row { margin: -6px 0 16px; }
-
-  .cal-toggle-btn {
-    background: var(--paper-2);
-    border: 1px solid var(--line);
-    color: var(--ink-soft);
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-weight: 600;
-    font-size: 13px;
-    padding: 8px 14px;
-    border-radius: 8px;
-  }
-
-  .cal-toggle-btn:hover { color: var(--ink); background: var(--paper-3); }
-
   .calendar {
     background: var(--paper-2);
     border: 1px solid var(--line);
     border-radius: 12px;
     padding: 14px;
-    margin: -6px 0 22px;
     box-shadow: var(--shadow);
   }
 
@@ -844,6 +857,13 @@
 
     <div class="banner danger" id="errorBanner"></div>
 
+    <div class="section-tabs" id="section-tabs">
+      <button type="button" class="section-tab active" data-section="tareas">✅ Tareas</button>
+      <button type="button" class="section-tab" data-section="calendario">📅 Calendario</button>
+      <button type="button" class="section-tab" data-section="health">🩺 Health</button>
+    </div>
+
+    <div class="app-section" id="section-tareas">
     <div class="stats">
       <div class="stat">
         <div class="n" id="stat-pending">–</div>
@@ -858,11 +878,6 @@
         <div class="label">Hechas hoy</div>
       </div>
     </div>
-
-    <div class="cal-toggle-row">
-      <button class="cal-toggle-btn" id="cal-toggle-btn">📅 Ver calendario</button>
-    </div>
-    <div class="calendar" id="calendar" hidden></div>
 
     <div class="capture">
       <div class="capture-row">
@@ -936,6 +951,38 @@
 
     <div class="tabs" id="tabs"></div>
     <div class="list" id="list"></div>
+    </div><!-- /section-tareas -->
+
+    <div class="app-section" id="section-calendario" hidden>
+      <div class="calendar" id="calendar"></div>
+    </div>
+
+    <div class="app-section" id="section-health" hidden>
+      <div class="capture">
+        <div class="capture-row" style="flex-wrap:wrap; gap:8px;">
+          <input type="text" id="health-especialidad-input" placeholder="Especialidad / motivo (ej: Cardiología)" maxlength="120" style="flex:2; min-width:180px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--paper-raised);">
+          <input type="date" id="health-fecha-input" style="flex:1; min-width:140px;">
+        </div>
+        <div class="capture-opts" style="flex-direction: column; align-items: stretch;">
+          <div class="chip-field">
+            <span class="chip-field-label">Hora</span>
+            <input type="time" id="health-hora-input">
+          </div>
+          <div class="chip-field">
+            <span class="chip-field-label">Médico</span>
+            <input type="text" id="health-medico-input" placeholder="Nombre del médico (opcional)" maxlength="120">
+          </div>
+          <div class="chip-field">
+            <span class="chip-field-label">Lugar</span>
+            <input type="text" id="health-lugar-input" placeholder="Clínica / hospital (opcional)" maxlength="160">
+          </div>
+          <textarea id="health-notas-input" placeholder="Notas (opcional)"></textarea>
+          <button class="btn btn-primary" id="health-add-btn" type="button" disabled>Agregar consulta</button>
+        </div>
+      </div>
+
+      <div class="list" id="health-list"></div>
+    </div>
 
   </div>
 </div>
@@ -989,7 +1036,8 @@
   ];
   var activeTab = 'todas';
   var tasks = [];
-  var showCalendar = false;
+  var activeSection = 'tareas';
+  var healthConsultas = [];
   var calMonth = new Date();
   var selectedCalDay = null;
   var openEditId = null;
@@ -1577,6 +1625,164 @@
     });
   }
 
+  // ---------- Health (Supabase: tabela tareas_health_consultas, RLS por user_id) ----------
+  function mapHealthRow(r){
+    return {
+      id: r.id,
+      fecha: r.fecha,
+      hora: r.hora,
+      especialidad: r.especialidad,
+      medico: r.medico || '',
+      lugar: r.lugar || '',
+      motivo: r.motivo || '',
+      notas: r.notas || '',
+      estado: r.estado,
+    };
+  }
+  function loadHealth(){
+    return supabaseClient.from('tareas_health_consultas').select('*').order('fecha', { ascending: true }).then(function(res){
+      throwIfError(res);
+      healthConsultas = (res.data || []).map(mapHealthRow);
+    });
+  }
+  function loadHealthAndRender(){
+    return loadHealth().then(renderHealthList).catch(function(err){
+      showError('No se pudo cargar Health: ' + err.message);
+    });
+  }
+  function addHealthConsulta(){
+    var especialidad = $('health-especialidad-input').value.trim();
+    var fecha = $('health-fecha-input').value;
+    if (!especialidad || !fecha) return;
+    supabaseClient.from('tareas_health_consultas').insert({
+      especialidad: especialidad,
+      fecha: fecha,
+      hora: $('health-hora-input').value || null,
+      medico: $('health-medico-input').value.trim() || null,
+      lugar: $('health-lugar-input').value.trim() || null,
+      notas: $('health-notas-input').value.trim() || null,
+      estado: 'programada',
+    }).select().then(throwIfError).then(function(){
+      $('health-especialidad-input').value = '';
+      $('health-fecha-input').value = '';
+      $('health-hora-input').value = '';
+      $('health-medico-input').value = '';
+      $('health-lugar-input').value = '';
+      $('health-notas-input').value = '';
+      $('health-add-btn').disabled = true;
+      loadHealthAndRender();
+    }).catch(function(err){ showError('No se pudo agregar la consulta: ' + err.message); });
+  }
+  function setHealthEstado(id, estado){
+    supabaseClient.from('tareas_health_consultas').update({ estado: estado, updated_at: new Date().toISOString() }).eq('id', id)
+      .then(throwIfError).then(loadHealthAndRender)
+      .catch(function(err){ showError('No se pudo actualizar la consulta: ' + err.message); });
+  }
+  function deleteHealthConsulta(id){
+    showConfirm('¿Eliminar esta consulta?', 'Esta acción no se puede deshacer.').then(function(ok){
+      if (!ok) return;
+      supabaseClient.from('tareas_health_consultas').delete().eq('id', id).then(throwIfError).then(loadHealthAndRender)
+        .catch(function(err){ showError('No se pudo eliminar la consulta: ' + err.message); });
+    });
+  }
+  function formatHealthDate(iso, hora){
+    var parts = iso.split('-');
+    var out = parts[2] + '/' + parts[1] + '/' + parts[0];
+    if (hora) out += ' ' + hora.slice(0,5);
+    return out;
+  }
+  function renderHealthList(){
+    var el = $('health-list');
+    el.innerHTML = '';
+    if (!healthConsultas.length){
+      el.innerHTML = '<div class="log-empty">Todavía no hay consultas registradas.</div>';
+      return;
+    }
+    var today = todayStr();
+    var proximas = healthConsultas.filter(function(c){ return c.estado === 'programada' && c.fecha >= today; })
+      .sort(function(a,b){ return a.fecha < b.fecha ? -1 : 1; });
+    var pasadas = healthConsultas.filter(function(c){ return !(c.estado === 'programada' && c.fecha >= today); })
+      .sort(function(a,b){ return a.fecha > b.fecha ? -1 : 1; });
+
+    function renderGroup(title, list){
+      if (!list.length) return;
+      var h = document.createElement('div');
+      h.className = 'chip-field-label';
+      h.style.margin = '14px 0 6px';
+      h.textContent = title;
+      el.appendChild(h);
+      list.forEach(function(c){
+        var card = document.createElement('div');
+        card.className = 'task' + (c.estado !== 'programada' ? ' done' : '');
+        var row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.flexDirection = 'column';
+        row.style.gap = '4px';
+        var title1 = document.createElement('div');
+        title1.style.fontWeight = '600';
+        title1.textContent = c.especialidad + ' — ' + formatHealthDate(c.fecha, c.hora);
+        row.appendChild(title1);
+        var sub = [c.medico, c.lugar].filter(Boolean).join(' · ');
+        if (sub){
+          var subEl = document.createElement('div');
+          subEl.style.fontSize = '13px';
+          subEl.style.color = 'var(--ink-soft)';
+          subEl.textContent = sub;
+          row.appendChild(subEl);
+        }
+        if (c.notas){
+          var notasEl = document.createElement('div');
+          notasEl.style.fontSize = '13px';
+          notasEl.style.color = 'var(--ink-soft)';
+          notasEl.textContent = c.notas;
+          row.appendChild(notasEl);
+        }
+        var actions = document.createElement('div');
+        actions.className = 'task-actions';
+        actions.style.marginTop = '6px';
+        if (c.estado === 'programada'){
+          var doneBtn = document.createElement('button');
+          doneBtn.className = 'icon-btn';
+          doneBtn.textContent = '✓';
+          doneBtn.title = 'Marcar como realizada';
+          doneBtn.onclick = function(){ setHealthEstado(c.id, 'realizada'); };
+          actions.appendChild(doneBtn);
+          var cancelBtn = document.createElement('button');
+          cancelBtn.className = 'icon-btn';
+          cancelBtn.textContent = '⊘';
+          cancelBtn.title = 'Cancelar';
+          cancelBtn.onclick = function(){ setHealthEstado(c.id, 'cancelada'); };
+          actions.appendChild(cancelBtn);
+        } else {
+          var reopenBtn = document.createElement('button');
+          reopenBtn.className = 'icon-btn';
+          reopenBtn.textContent = '↺';
+          reopenBtn.title = 'Reabrir';
+          reopenBtn.onclick = function(){ setHealthEstado(c.id, 'programada'); };
+          actions.appendChild(reopenBtn);
+        }
+        var delBtn = document.createElement('button');
+        delBtn.className = 'icon-btn';
+        delBtn.textContent = '✕';
+        delBtn.title = 'Eliminar';
+        delBtn.onclick = function(){ deleteHealthConsulta(c.id); };
+        actions.appendChild(delBtn);
+        row.appendChild(actions);
+        card.appendChild(row);
+        el.appendChild(card);
+      });
+    }
+    renderGroup('Próximas', proximas);
+    renderGroup('Pasadas', pasadas);
+  }
+  $('health-add-btn').addEventListener('click', addHealthConsulta);
+  function refreshHealthAddBtn(){
+    $('health-add-btn').disabled = !($('health-especialidad-input').value.trim() && $('health-fecha-input').value);
+  }
+  $('health-especialidad-input').addEventListener('input', refreshHealthAddBtn);
+  $('health-fecha-input').addEventListener('change', refreshHealthAddBtn);
+  enhanceDateInput($('health-fecha-input'));
+
   // Turns a task's uuid into a stable 31-bit int id: LocalNotifications ids must be plain
   // integers, but tareas_tasks rows use uuid primary keys — hashing the string deterministically
   // means the same task always re-schedules onto (and cancels) the same notification id instead
@@ -2137,8 +2343,7 @@
 
   function renderCalendar() {
     var el = $('calendar');
-    if (!showCalendar) { el.hidden = true; return; }
-    el.hidden = false;
+    if (activeSection !== 'calendario') return;
 
     var year = calMonth.getFullYear();
     var month = calMonth.getMonth();
@@ -2222,17 +2427,26 @@
     });
   }
 
-  $('cal-toggle-btn').addEventListener('click', function(){
-    showCalendar = !showCalendar;
-    $('cal-toggle-btn').textContent = showCalendar ? '📅 Ocultar calendario' : '📅 Ver calendario';
-    renderCalendar();
+  function switchSection(section){
+    activeSection = section;
+    ['tareas','calendario','health'].forEach(function(s){
+      $('section-' + s).hidden = s !== section;
+    });
+    $('section-tabs').querySelectorAll('.section-tab').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-section') === section);
+    });
+    if (section === 'calendario') renderCalendar();
+    if (section === 'health') loadHealthAndRender();
+  }
+  $('section-tabs').querySelectorAll('.section-tab').forEach(function(btn){
+    btn.addEventListener('click', function(){ switchSection(btn.getAttribute('data-section')); });
   });
 
   function renderAll() {
     renderTabs();
     renderStats();
     renderList();
-    if (showCalendar) renderCalendar();
+    if (activeSection === 'calendario') renderCalendar();
   }
 
   var captureEl = document.querySelector('.capture');
