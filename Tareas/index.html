@@ -1006,7 +1006,9 @@
       </select>
     </div>
 
-    <div class="capture">
+    <button type="button" class="btn btn-primary" id="tareas-toggle-add-btn" style="margin-bottom:14px;">+ Nueva tarea</button>
+
+    <div class="capture" id="tareas-capture" hidden>
       <div class="capture-row">
         <span class="prompt">＋</span>
         <input type="text" id="title-input" placeholder="Anotar una tarea nueva..." maxlength="200">
@@ -1193,6 +1195,7 @@
   var healthConsultas = [];
   var calMonth = new Date();
   var selectedCalDay = null;
+  var calDayDoneExpanded = false;
   var openEditId = null;
   var openLogId = null;
   var openSubtasksId = null;
@@ -2201,7 +2204,8 @@
       updatePendenciaLinkBtn($('pendencia-link-btn'), '');
       applyTypeVisibility(document, 'puntual');
       $('add-btn').disabled = true;
-      titleInput.focus();
+      $('tareas-capture').hidden = true;
+      $('tareas-toggle-add-btn').textContent = '+ Nueva tarea';
       return loadAndRender();
     }).catch(function(err){ showError('No se pudo agregar la tarea: ' + err.message); });
   }
@@ -2793,6 +2797,7 @@
     var d = parseIsoDate(bestIso);
     calMonth = calViewMode === 'semana' ? d : new Date(d.getFullYear(), d.getMonth(), 1);
     selectedCalDay = bestIso;
+    calDayDoneExpanded = false;
     renderCalendar();
   }
 
@@ -2909,13 +2914,23 @@
         if (!dayTasks2.length && !dayHealth2.length) {
           html += '<div class="log-empty">Sin tareas ni consultas ese día.</div>';
         } else {
-          html += sortTasks(dayTasks2).map(function(t){
+          var dayTaskRowHtml = function(t){
             return '<div class="cal-task-row' + (t.status === 'done' ? ' done' : '') + '" data-kind="task" data-id="' + t.id + '">' +
               '<span class="chip pri-' + t.priority + '">' + (PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
               '<span class="chip type-' + t.type + '">' + typeChipInnerHtml(t.type) + '</span>' +
               '<span class="cal-task-title">' + escapeHtml(t.title) + '</span>' +
             '</div>';
-          }).join('');
+          };
+          // Mismo criterio que la pestaña "Todas" de Tareas: las terminadas no se mezclan con las
+          // pendientes, quedan agrupadas y colapsadas al final.
+          var openDayTasks = sortTasks(dayTasks2.filter(function(t){ return t.status !== 'done'; }));
+          var doneDayTasks = sortTasks(dayTasks2.filter(function(t){ return t.status === 'done'; }));
+          html += openDayTasks.map(dayTaskRowHtml).join('');
+          if (doneDayTasks.length) {
+            html += '<button type="button" class="log-toggle done-group-toggle" id="cal-day-done-toggle">' +
+              (calDayDoneExpanded ? '▾' : '▸') + ' Completadas (' + doneDayTasks.length + ')</button>';
+            if (calDayDoneExpanded) html += doneDayTasks.map(dayTaskRowHtml).join('');
+          }
           html += dayHealth2.map(function(c){
             return '<div class="cal-task-row' + (c.estado !== 'programada' ? ' done' : '') + '" data-kind="health" data-id="' + c.id + '">' +
               '<span class="chip neutral">🩺' + (c.hora ? ' ' + c.hora.slice(0,5) : '') + '</span>' +
@@ -2946,7 +2961,7 @@
       selectedCalDay = null; renderCalendar();
     };
     var todayBtn = $('cal-today-btn');
-    if (todayBtn) todayBtn.onclick = function(){ calMonth = new Date(); selectedCalDay = todayStr(); renderCalendar(); };
+    if (todayBtn) todayBtn.onclick = function(){ calMonth = new Date(); selectedCalDay = todayStr(); calDayDoneExpanded = false; renderCalendar(); };
     el.querySelectorAll('.cal-view-tabs .chip-btn').forEach(function(btn){
       btn.onclick = function(){ calViewMode = btn.getAttribute('data-view'); renderCalendar(); };
     });
@@ -2957,9 +2972,12 @@
       dayEl.onclick = function(){
         var key = dayEl.getAttribute('data-key');
         selectedCalDay = selectedCalDay === key ? null : key;
+        calDayDoneExpanded = false;
         renderCalendar();
       };
     });
+    var dayDoneToggle = $('cal-day-done-toggle');
+    if (dayDoneToggle) dayDoneToggle.onclick = function(){ calDayDoneExpanded = !calDayDoneExpanded; renderCalendar(); };
     // Tocar una tarea/consulta puntual (panel lateral, "Próximas" o columna de la semana) la abre
     // directo en su formulario de edición, en vez de solo mostrarla.
     el.querySelectorAll('[data-kind]').forEach(function(itemEl){
@@ -3047,6 +3065,13 @@
   });
   $('title-input').addEventListener('keydown', function(e){
     if (e.key === 'Enter') addTask();
+  });
+  $('tareas-toggle-add-btn').addEventListener('click', function(){
+    var capture = $('tareas-capture');
+    var willShow = capture.hidden;
+    capture.hidden = !willShow;
+    this.textContent = willShow ? 'Cancelar' : '+ Nueva tarea';
+    if (willShow) $('title-input').focus();
   });
 
   // ---------- Auth flow (Supabase email/password, mesmo padrão do Finanças/Planes) ----------
