@@ -636,6 +636,16 @@
 
   .log-toggle:hover { color: var(--ink-soft); }
 
+  .done-group-toggle {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    padding: 10px 2px 4px;
+    margin-top: 4px;
+    border-top: 1px solid var(--line);
+  }
+  .done-group-toggle:hover { color: var(--ink); }
+
   .task-log {
     margin-top: 5px;
     padding-left: 10px;
@@ -814,7 +824,7 @@
   .cal-dot-active { background: var(--accent); }
   .cal-dot-done { background: var(--ink-faint); }
 
-  .cal-health-mark { position: absolute; top: 1px; right: 2px; font-size: 8px; line-height: 1; }
+  .cal-health-mark { position: absolute; top: 1px; right: 1px; font-size: 16px; line-height: 1; }
 
   .cal-week-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .cal-week-grid { display: flex; gap: 6px; width: max-content; min-width: 100%; }
@@ -1162,6 +1172,7 @@
     { id: 'done', label: 'Hechas' },
   ];
   var activeTab = 'todas';
+  var doneGroupExpanded = false;
   var tasks = [];
   var activeSection = 'tareas';
   var healthConsultas = [];
@@ -2325,7 +2336,7 @@
       return;
     }
 
-    sorted.forEach(function(t){
+    function buildTaskCard(t){
       var card = document.createElement('div');
       card.className = 'task' + (t.status === 'done' ? ' done' : '');
 
@@ -2573,8 +2584,28 @@
       row.appendChild(actions);
 
       card.appendChild(row);
-      el.appendChild(card);
-    });
+      return card;
+    }
+
+    if (activeTab === 'todas') {
+      // Con el filtro "Todas" las tareas hechas quedan agrupadas al final, colapsadas por
+      // defecto, para no tapar las pendientes con el historial de todo lo ya resuelto.
+      var openTasks = sorted.filter(function(t){ return t.status !== 'done'; });
+      var doneTasks = sorted.filter(function(t){ return t.status === 'done'; });
+      openTasks.forEach(function(t){ el.appendChild(buildTaskCard(t)); });
+      if (doneTasks.length) {
+        var doneHeader = document.createElement('button');
+        doneHeader.className = 'log-toggle done-group-toggle';
+        doneHeader.textContent = (doneGroupExpanded ? '▾' : '▸') + ' Completadas (' + doneTasks.length + ')';
+        doneHeader.onclick = function(){ doneGroupExpanded = !doneGroupExpanded; renderList(); };
+        el.appendChild(doneHeader);
+        if (doneGroupExpanded) {
+          doneTasks.forEach(function(t){ el.appendChild(buildTaskCard(t)); });
+        }
+      }
+    } else {
+      sorted.forEach(function(t){ el.appendChild(buildTaskCard(t)); });
+    }
   }
 
   var MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
