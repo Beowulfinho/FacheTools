@@ -1083,12 +1083,22 @@
     </div>
 
     <div class="app-section" id="section-health" hidden>
-      <div class="capture">
+      <button type="button" class="btn btn-primary" id="health-toggle-add-btn" style="margin-bottom:14px;">+ Nueva consulta</button>
+
+      <div class="capture" id="health-capture" hidden>
         <div class="capture-row" style="flex-wrap:wrap; gap:8px;">
           <input type="text" id="health-especialidad-input" placeholder="Especialidad / motivo (ej: Cardiología)" maxlength="120" style="flex:2; min-width:180px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; background:var(--paper-raised);">
           <input type="date" id="health-fecha-input" style="flex:1; min-width:140px;">
         </div>
         <div class="capture-opts" style="flex-direction: column; align-items: stretch;">
+          <div class="chip-field">
+            <span class="chip-field-label">Estado</span>
+            <div class="chip-group" id="health-estado-chips">
+              <button type="button" class="chip chip-btn neutral" data-value="en_proceso">En proceso (todavía sin agendar)</button>
+              <button type="button" class="chip chip-btn neutral active" data-value="programada">Confirmada</button>
+            </div>
+            <input type="hidden" id="health-estado-input" value="programada">
+          </div>
           <div class="chip-field">
             <span class="chip-field-label">Hora</span>
             <input type="time" id="health-hora-input">
@@ -1817,8 +1827,12 @@
   }
   function addHealthConsulta(){
     var especialidad = $('health-especialidad-input').value.trim();
-    var fecha = $('health-fecha-input').value;
-    if (!especialidad || !fecha) return;
+    var estado = $('health-estado-input').value || 'programada';
+    var fecha = $('health-fecha-input').value || null;
+    if (!especialidad) return;
+    // Confirmada exige fecha; "en proceso" existe justamente para poder anotar una consulta que
+    // todavía se está tratando de agendar y no tiene fecha firme aún.
+    if (estado === 'programada' && !fecha) return;
     var recordatorioVal = $('health-recordatorio-input').value;
     supabaseClient.from('tareas_health_consultas').insert({
       especialidad: especialidad,
@@ -1827,7 +1841,7 @@
       medico: $('health-medico-input').value.trim() || null,
       lugar: $('health-lugar-input').value.trim() || null,
       notas: $('health-notas-input').value.trim() || null,
-      estado: 'programada',
+      estado: estado,
       recordatorio_minutos: recordatorioVal ? Number(recordatorioVal) : null,
     }).select().then(throwIfError).then(function(){
       $('health-especialidad-input').value = '';
@@ -1837,11 +1851,19 @@
       $('health-lugar-input').value = '';
       $('health-notas-input').value = '';
       $('health-recordatorio-input').value = '1440';
+      $('health-estado-input').value = 'programada';
+      setChipGroupValue($('health-estado-chips'), 'programada');
       $('health-add-btn').disabled = true;
+      $('health-capture').hidden = true;
+      $('health-toggle-add-btn').textContent = '+ Nueva consulta';
       loadHealthAndRender();
     }).catch(function(err){ showError('No se pudo agregar la consulta: ' + err.message); });
   }
   function setHealthEstado(id, estado){
+    if (estado === 'programada'){
+      var c = healthConsultas.filter(function(x){ return x.id === id; })[0];
+      if (c && !c.fecha){ showError('Definí una fecha (editando la consulta) antes de confirmarla.'); return; }
+    }
     supabaseClient.from('tareas_health_consultas').update({ estado: estado, updated_at: new Date().toISOString() }).eq('id', id)
       .then(throwIfError).then(loadHealthAndRender)
       .catch(function(err){ showError('No se pudo actualizar la consulta: ' + err.message); });
@@ -1855,8 +1877,8 @@
   }
   function saveHealthEdit(id, form){
     var especialidad = form.querySelector('.edit-h-especialidad').value.trim();
-    var fecha = form.querySelector('.edit-h-fecha').value;
-    if (!especialidad || !fecha) return;
+    var fecha = form.querySelector('.edit-h-fecha').value || null;
+    if (!especialidad) return;
     supabaseClient.from('tareas_health_consultas').update({
       especialidad: especialidad,
       fecha: fecha,
@@ -1872,6 +1894,7 @@
     }).catch(function(err){ showError('No se pudo guardar la consulta: ' + err.message); });
   }
   function formatHealthDate(iso, hora){
+    if (!iso) return 'Sin fecha definida';
     var parts = iso.split('-');
     var out = parts[2] + '/' + parts[1] + '/' + parts[0];
     if (hora) out += ' ' + hora.slice(0,5);
@@ -1885,10 +1908,12 @@
       return;
     }
     var today = todayStr();
+    var enProceso = healthConsultas.filter(function(c){ return c.estado === 'en_proceso'; })
+      .sort(function(a,b){ return (a.fecha || '') < (b.fecha || '') ? -1 : 1; });
     var proximas = healthConsultas.filter(function(c){ return c.estado === 'programada' && c.fecha >= today; })
       .sort(function(a,b){ return a.fecha < b.fecha ? -1 : 1; });
-    var pasadas = healthConsultas.filter(function(c){ return !(c.estado === 'programada' && c.fecha >= today); })
-      .sort(function(a,b){ return a.fecha > b.fecha ? -1 : 1; });
+    var pasadas = healthConsultas.filter(function(c){ return c.estado !== 'en_proceso' && !(c.estado === 'programada' && c.fecha >= today); })
+      .sort(function(a,b){ return (a.fecha || '') > (b.fecha || '') ? -1 : 1; });
 
     function renderGroup(title, list){
       if (!list.length) return;
@@ -1899,7 +1924,7 @@
       el.appendChild(h);
       list.forEach(function(c){
         var card = document.createElement('div');
-        card.className = 'task' + (c.estado !== 'programada' ? ' done' : '');
+        card.className = 'task' + (c.estado === 'realizada' || c.estado === 'cancelada' ? ' done' : '');
         var row = document.createElement('div');
         row.style.display = 'flex';
         row.style.flexDirection = 'column';
@@ -1926,7 +1951,20 @@
         var actions = document.createElement('div');
         actions.className = 'task-actions';
         actions.style.marginTop = '6px';
-        if (c.estado === 'programada'){
+        if (c.estado === 'en_proceso'){
+          var confirmBtn = document.createElement('button');
+          confirmBtn.className = 'icon-btn';
+          confirmBtn.textContent = '✓';
+          confirmBtn.title = 'Confirmar (necesita fecha)';
+          confirmBtn.onclick = function(){ setHealthEstado(c.id, 'programada'); };
+          actions.appendChild(confirmBtn);
+          var dropBtn = document.createElement('button');
+          dropBtn.className = 'icon-btn';
+          dropBtn.textContent = '⊘';
+          dropBtn.title = 'Cancelar';
+          dropBtn.onclick = function(){ setHealthEstado(c.id, 'cancelada'); };
+          actions.appendChild(dropBtn);
+        } else if (c.estado === 'programada'){
           var doneBtn = document.createElement('button');
           doneBtn.className = 'icon-btn';
           doneBtn.textContent = '✓';
@@ -1987,15 +2025,26 @@
         el.appendChild(card);
       });
     }
+    renderGroup('En proceso', enProceso);
     renderGroup('Próximas', proximas);
     renderGroup('Pasadas', pasadas);
   }
+  $('health-toggle-add-btn').addEventListener('click', function(){
+    var capture = $('health-capture');
+    var willShow = capture.hidden;
+    capture.hidden = !willShow;
+    this.textContent = willShow ? 'Cancelar' : '+ Nueva consulta';
+  });
   $('health-add-btn').addEventListener('click', addHealthConsulta);
   function refreshHealthAddBtn(){
-    $('health-add-btn').disabled = !($('health-especialidad-input').value.trim() && $('health-fecha-input').value);
+    var especialidad = $('health-especialidad-input').value.trim();
+    var estado = $('health-estado-input').value;
+    var fecha = $('health-fecha-input').value;
+    $('health-add-btn').disabled = !(especialidad && (estado !== 'programada' || fecha));
   }
   $('health-especialidad-input').addEventListener('input', refreshHealthAddBtn);
   $('health-fecha-input').addEventListener('change', refreshHealthAddBtn);
+  wireChipGroup($('health-estado-chips'), $('health-estado-input'), refreshHealthAddBtn);
   enhanceDateInput($('health-fecha-input'));
 
   // Turns a task's uuid into a stable 31-bit int id: LocalNotifications ids must be plain
