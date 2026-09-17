@@ -789,6 +789,7 @@
   }
 
   .cal-day {
+    position: relative;
     aspect-ratio: 1;
     background: var(--paper);
     border: 1px solid var(--line);
@@ -812,6 +813,49 @@
   .cal-dot-critical { background: var(--critical); }
   .cal-dot-active { background: var(--accent); }
   .cal-dot-done { background: var(--ink-faint); }
+
+  .cal-health-mark { position: absolute; top: 1px; right: 2px; font-size: 8px; line-height: 1; }
+
+  .cal-week-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .cal-week-grid { display: flex; gap: 6px; width: max-content; min-width: 100%; }
+  .cal-week-day {
+    width: 128px;
+    min-height: 60vh;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cal-week-day.cal-today { border-color: var(--accent); border-width: 2px; }
+  .cal-week-day-head {
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .cal-week-day-head .num { display: block; font-weight: 700; color: var(--ink); font-size: 15px; font-family: 'Archivo', sans-serif; }
+  .cal-week-day.cal-today .cal-week-day-head .num { color: var(--accent); }
+  .cal-week-item {
+    font-size: 11.5px;
+    background: var(--paper-2);
+    border-radius: 6px;
+    padding: 4px 6px;
+    cursor: pointer;
+  }
+  .cal-week-item:hover { background: var(--paper-3); }
+  .cal-week-item .time { display: block; font-family: 'IBM Plex Mono', monospace; color: var(--ink-faint); font-size: 10px; }
+  .cal-week-item.done { opacity: 0.55; text-decoration: line-through; }
+  .cal-week-empty { font-size: 10.5px; color: var(--ink-faint); text-align: center; padding-top: 6px; }
+
+  .cal-task-row[data-kind], .cal-week-item[data-kind] { cursor: pointer; border-radius: 6px; }
+  .cal-task-row[data-kind] { padding: 2px 4px; margin: -2px -4px; }
+  .cal-task-row[data-kind]:hover { background: var(--paper-3); }
 
   .cal-layout { display: flex; gap: 16px; align-items: flex-start; }
   .cal-grid-col { flex: 1 1 auto; min-width: 0; }
@@ -1046,6 +1090,18 @@
           <div class="chip-field">
             <span class="chip-field-label">Lugar</span>
             <input type="text" id="health-lugar-input" placeholder="Clínica / hospital (opcional)" maxlength="160">
+          </div>
+          <div class="chip-field">
+            <span class="chip-field-label">🔔 Recordatorio</span>
+            <select id="health-recordatorio-input">
+              <option value="">Sin recordatorio</option>
+              <option value="30">30 minutos antes</option>
+              <option value="60">1 hora antes</option>
+              <option value="120">2 horas antes</option>
+              <option value="1440" selected>1 día antes</option>
+              <option value="2880">2 días antes</option>
+              <option value="10080">1 semana antes</option>
+            </select>
           </div>
           <textarea id="health-notas-input" placeholder="Notas (opcional)"></textarea>
           <button class="btn btn-primary" id="health-add-btn" type="button" disabled>Agregar consulta</button>
@@ -1704,6 +1760,21 @@
   }
 
   // ---------- Health (Supabase: tabela tareas_health_consultas, RLS por user_id) ----------
+  var HEALTH_RECORDATORIO_OPTIONS = [
+    ['', 'Sin recordatorio'],
+    ['30', '30 minutos antes'],
+    ['60', '1 hora antes'],
+    ['120', '2 horas antes'],
+    ['1440', '1 día antes'],
+    ['2880', '2 días antes'],
+    ['10080', '1 semana antes'],
+  ];
+  function healthRecordatorioOptionsHtml(selectedMinutos){
+    var selVal = selectedMinutos ? String(selectedMinutos) : '';
+    return HEALTH_RECORDATORIO_OPTIONS.map(function(opt){
+      return '<option value="' + opt[0] + '"' + (opt[0] === selVal ? ' selected' : '') + '>' + opt[1] + '</option>';
+    }).join('');
+  }
   function mapHealthRow(r){
     return {
       id: r.id,
@@ -1715,6 +1786,7 @@
       motivo: r.motivo || '',
       notas: r.notas || '',
       estado: r.estado,
+      recordatorioMinutos: r.recordatorio_minutos || null,
     };
   }
   function loadHealth(){
@@ -1727,6 +1799,7 @@
     return loadHealth().then(function(){
       renderHealthList();
       renderCalendar(); // no-op si la sección activa no es "calendario"
+      scheduleHealthNotifications();
     }).catch(function(err){
       showError('No se pudo cargar Health: ' + err.message);
     });
@@ -1735,6 +1808,7 @@
     var especialidad = $('health-especialidad-input').value.trim();
     var fecha = $('health-fecha-input').value;
     if (!especialidad || !fecha) return;
+    var recordatorioVal = $('health-recordatorio-input').value;
     supabaseClient.from('tareas_health_consultas').insert({
       especialidad: especialidad,
       fecha: fecha,
@@ -1743,6 +1817,7 @@
       lugar: $('health-lugar-input').value.trim() || null,
       notas: $('health-notas-input').value.trim() || null,
       estado: 'programada',
+      recordatorio_minutos: recordatorioVal ? Number(recordatorioVal) : null,
     }).select().then(throwIfError).then(function(){
       $('health-especialidad-input').value = '';
       $('health-fecha-input').value = '';
@@ -1750,6 +1825,7 @@
       $('health-medico-input').value = '';
       $('health-lugar-input').value = '';
       $('health-notas-input').value = '';
+      $('health-recordatorio-input').value = '1440';
       $('health-add-btn').disabled = true;
       loadHealthAndRender();
     }).catch(function(err){ showError('No se pudo agregar la consulta: ' + err.message); });
@@ -1777,6 +1853,7 @@
       medico: form.querySelector('.edit-h-medico').value.trim() || null,
       lugar: form.querySelector('.edit-h-lugar').value.trim() || null,
       notas: form.querySelector('.edit-h-notas').value.trim() || null,
+      recordatorio_minutos: form.querySelector('.edit-h-recordatorio').value ? Number(form.querySelector('.edit-h-recordatorio').value) : null,
       updated_at: new Date().toISOString(),
     }).eq('id', id).then(throwIfError).then(function(){
       openHealthEditId = null;
@@ -1885,6 +1962,10 @@
             '</div>' +
             '<input type="text" class="edit-h-medico" placeholder="Médico" value="' + (c.medico || '').replace(/"/g,'&quot;') + '">' +
             '<input type="text" class="edit-h-lugar" placeholder="Lugar" value="' + (c.lugar || '').replace(/"/g,'&quot;') + '">' +
+            '<div class="chip-field">' +
+              '<span class="chip-field-label">🔔 Recordatorio</span>' +
+              '<select class="edit-h-recordatorio">' + healthRecordatorioOptionsHtml(c.recordatorioMinutos) + '</select>' +
+            '</div>' +
             '<textarea class="edit-h-notas" placeholder="Notas">' + (c.notas || '') + '</textarea>' +
             '<button class="save-btn">Guardar</button>';
           enhanceDateInput(form.querySelector('.edit-h-fecha'));
@@ -1915,6 +1996,44 @@
     var h = 0;
     for (var i = 0; i < uuid.length; i++){ h = (h * 31 + uuid.charCodeAt(i)) | 0; }
     return 700000000 + (Math.abs(h) % 100000000) * 2;
+  }
+  // Mismo hash que taskNotifId pero desplazado a otro rango de ids para no pisar los de tareas.
+  function healthNotifId(uuid){
+    var h = 0;
+    for (var i = 0; i < uuid.length; i++){ h = (h * 31 + uuid.charCodeAt(i)) | 0; }
+    return 900000000 + (Math.abs(h) % 90000000);
+  }
+  // Cada consulta programa a lo sumo un recordatorio, en el offset (recordatorio_minutos) elegido
+  // al crearla o editarla — a diferencia de las tareas, acá no hay un "hoy vence" fijo porque una
+  // consulta ya tiene hora propia.
+  function scheduleHealthNotifications(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform()) return;
+    var LocalNotifications = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if (!LocalNotifications) return;
+    LocalNotifications.requestPermissions().then(function(perm){
+      if (perm.display !== "granted") return;
+      var notifications = [];
+      var idsToCancel = [];
+      healthConsultas.forEach(function(c){
+        var id = healthNotifId(c.id);
+        if (c.estado !== 'programada' || !c.recordatorioMinutos){
+          idsToCancel.push({ id: id });
+          return;
+        }
+        var due = parseIsoDate(c.fecha);
+        var hh = NOTIF_HOUR, mm = 0;
+        if (c.hora){ var parts = c.hora.split(':'); hh = Number(parts[0]); mm = Number(parts[1]); }
+        var dueAt = new Date(due.getFullYear(), due.getMonth(), due.getDate(), hh, mm, 0, 0);
+        var remindAt = new Date(dueAt.getTime() - c.recordatorioMinutos * 60000);
+        if (remindAt.getTime() > Date.now()){
+          notifications.push({ id: id, title: 'Consulta: ' + c.especialidad, body: formatHealthDate(c.fecha, c.hora), channelId: NOTIF_CHANNEL_ID, schedule: { at: remindAt } });
+        } else {
+          idsToCancel.push({ id: id });
+        }
+      });
+      if (idsToCancel.length) LocalNotifications.cancel({ notifications: idsToCancel }).catch(function(){});
+      if (notifications.length) LocalNotifications.schedule({ notifications: notifications });
+    }).catch(function(){ /* las notificaciones nativas son un plus, nunca deben bloquear la app */ });
   }
   // Solo las tareas puntuales tienen un vencimiento real (las recurrentes solo guardan la fecha
   // de inicio de la repetición, y las de seguimiento no tienen fecha) — a esas se les programa un
@@ -2494,7 +2613,7 @@
       var dateLabel = parts[2] + '/' + parts[1];
       if (it.kind === 'task') {
         var t = it.task;
-        return '<div class="cal-task-row">' +
+        return '<div class="cal-task-row" data-kind="task" data-id="' + t.id + '">' +
           '<span class="chip neutral">' + dateLabel + '</span>' +
           '<span class="chip pri-' + t.priority + '">' + (PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
           '<span class="chip type-' + t.type + '">' + typeChipInnerHtml(t.type) + '</span>' +
@@ -2502,7 +2621,7 @@
         '</div>';
       }
       var c = it.health;
-      return '<div class="cal-task-row">' +
+      return '<div class="cal-task-row" data-kind="health" data-id="' + c.id + '">' +
         '<span class="chip neutral">' + dateLabel + '</span>' +
         '<span class="chip neutral">🩺' + (c.hora ? ' ' + c.hora.slice(0,5) : '') + '</span>' +
         '<span class="cal-task-title">' + escapeHtml(c.especialidad) + (c.medico ? ' · ' + escapeHtml(c.medico) : '') + '</span>' +
@@ -2510,6 +2629,43 @@
     }).join('');
     html += '</div>';
     return html;
+  }
+
+  // Abre el registro tocado en el calendario (tarea o consulta) directamente en su formulario de
+  // edición — "seleccionarlo" significa poder editarlo/actuarlo de una, no solo verlo.
+  function selectCalItem(kind, id){
+    if (kind === 'health'){
+      openHealthEditId = id;
+      switchSection('health');
+      renderHealthList();
+    } else {
+      openEditId = id;
+      switchSection('tareas');
+      renderList();
+    }
+  }
+
+  function weekItemHtml(kind, id, timeLabel, text, extraCls){
+    return '<div class="cal-week-item' + (extraCls ? ' ' + extraCls : '') + '" data-kind="' + kind + '" data-id="' + id + '">' +
+      (timeLabel ? '<span class="time">' + timeLabel + '</span>' : '') +
+      '<span class="txt">' + text + '</span>' +
+    '</div>';
+  }
+
+  function renderWeekDayColumn(cell, dayTasks, dayHealth, today){
+    var cls = 'cal-week-day';
+    if (cell.iso === today) cls += ' cal-today';
+    var head = '<div class="cal-week-day-head">' + WEEKDAY_LABELS[cell.date.getDay()] + '<span class="num">' + cell.date.getDate() + '</span></div>';
+    var itemsHtml = '';
+    sortTasks(dayTasks).forEach(function(t){
+      var icon = t.type === 'recurrente' ? '↻' : (t.type === 'seguimiento' ? '👁' : '●');
+      itemsHtml += weekItemHtml('task', t.id, '', icon + ' ' + escapeHtml(t.title), t.status === 'done' ? 'done' : '');
+    });
+    dayHealth.slice().sort(function(a,b){ return (a.hora || '') < (b.hora || '') ? -1 : 1; }).forEach(function(c){
+      itemsHtml += weekItemHtml('health', c.id, c.hora ? c.hora.slice(0,5) : '', '🩺 ' + escapeHtml(c.especialidad), c.estado !== 'programada' ? 'done' : '');
+    });
+    if (!itemsHtml) itemsHtml = '<div class="cal-week-empty">–</div>';
+    return '<div class="' + cls + '">' + head + itemsHtml + '</div>';
   }
 
   // Mueve el calendario a la próxima ocurrencia de un tipo (consulta de Health, tarea puntual
@@ -2583,9 +2739,7 @@
       }
     });
 
-    var html = '<div class="cal-layout"><div class="cal-grid-col">';
-
-    html += '<div class="cal-header">' +
+    var html = '<div class="cal-header">' +
       '<div class="cal-nav-group">' +
         '<button class="cal-nav" id="cal-prev">‹</button>' +
         '<div class="cal-label">' + label + '</div>' +
@@ -2606,60 +2760,72 @@
       '<button type="button" class="chip chip-btn neutral" data-jump="recurrente">↻ Recurrente</button>' +
       '</div>';
 
-    html += '<div class="cal-grid">';
-    WEEKDAY_LABELS.forEach(function(w){ html += '<div class="cal-weekday">' + w + '</div>'; });
-
-    cells.forEach(function(cell){
-      if (!cell) { html += '<div class="cal-day cal-blank"></div>'; return; }
-      var key = cell.iso;
-      var dayTasks = byDay[key] || [];
-      var dayHealth = healthByDay[key] || [];
-      var dotCls = '';
-      if (dayTasks.length || dayHealth.length) {
-        var hasOverdueActive = dayTasks.some(function(t){ return t.status === 'pending' && key < today; });
-        var hasActive = dayTasks.some(function(t){ return t.status !== 'done'; }) || dayHealth.some(function(c){ return c.estado === 'programada'; });
-        dotCls = hasOverdueActive ? 'cal-dot-critical' : (hasActive ? 'cal-dot-active' : 'cal-dot-done');
-      }
-      var cls = 'cal-day';
-      if (key === today) cls += ' cal-today';
-      if (key === selectedCalDay) cls += ' cal-selected';
-      html += '<div class="' + cls + '" data-key="' + key + '">' + cell.date.getDate() +
-        ((dayTasks.length || dayHealth.length) ? '<span class="cal-dot ' + dotCls + '"></span>' : '') +
-        '</div>';
-    });
-    html += '</div>'; // /cal-grid
-    html += '</div>'; // /cal-grid-col
-
-    html += '<div class="cal-side-panel">';
-    if (selectedCalDay) {
-      var dayTasks2 = byDay[selectedCalDay] || [];
-      var dayHealth2 = healthByDay[selectedCalDay] || [];
-      var parts = selectedCalDay.split('-');
-      html += '<div class="cal-day-panel">' +
-        '<div class="cal-day-panel-title">' + parts[2] + '/' + parts[1] + '/' + parts[0] + '</div>';
-      if (!dayTasks2.length && !dayHealth2.length) {
-        html += '<div class="log-empty">Sin tareas ni consultas ese día.</div>';
-      } else {
-        html += sortTasks(dayTasks2).map(function(t){
-          return '<div class="cal-task-row' + (t.status === 'done' ? ' done' : '') + '">' +
-            '<span class="chip pri-' + t.priority + '">' + (PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
-            '<span class="chip type-' + t.type + '">' + typeChipInnerHtml(t.type) + '</span>' +
-            '<span class="cal-task-title">' + escapeHtml(t.title) + '</span>' +
-          '</div>';
-        }).join('');
-        html += dayHealth2.map(function(c){
-          return '<div class="cal-task-row' + (c.estado !== 'programada' ? ' done' : '') + '">' +
-            '<span class="chip neutral">🩺' + (c.hora ? ' ' + c.hora.slice(0,5) : '') + '</span>' +
-            '<span class="cal-task-title">' + escapeHtml(c.especialidad) + (c.medico ? ' · ' + escapeHtml(c.medico) : '') + '</span>' +
-          '</div>';
-        }).join('');
-      }
-      html += '</div>';
+    if (calViewMode === 'semana') {
+      // Vista semana: cada día es una columna a pantalla completa con sus tareas/consultas
+      // adentro (con hora, si la tienen) — sin panel lateral, porque acá ya se ve todo de una.
+      html += '<div class="cal-week-scroll"><div class="cal-week-grid">';
+      cells.forEach(function(cell){
+        html += renderWeekDayColumn(cell, byDay[cell.iso] || [], healthByDay[cell.iso] || [], today);
+      });
+      html += '</div></div>';
     } else {
-      html += renderUpcomingPanel();
+      html += '<div class="cal-layout"><div class="cal-grid-col">';
+      html += '<div class="cal-grid">';
+      WEEKDAY_LABELS.forEach(function(w){ html += '<div class="cal-weekday">' + w + '</div>'; });
+
+      cells.forEach(function(cell){
+        if (!cell) { html += '<div class="cal-day cal-blank"></div>'; return; }
+        var key = cell.iso;
+        var dayTasks = byDay[key] || [];
+        var dayHealth = healthByDay[key] || [];
+        var dotCls = '';
+        if (dayTasks.length) {
+          var hasOverdueActive = dayTasks.some(function(t){ return t.status === 'pending' && key < today; });
+          var hasActive = dayTasks.some(function(t){ return t.status !== 'done'; });
+          dotCls = hasOverdueActive ? 'cal-dot-critical' : (hasActive ? 'cal-dot-active' : 'cal-dot-done');
+        }
+        var cls = 'cal-day';
+        if (key === today) cls += ' cal-today';
+        if (key === selectedCalDay) cls += ' cal-selected';
+        html += '<div class="' + cls + '" data-key="' + key + '">' + cell.date.getDate() +
+          (dayTasks.length ? '<span class="cal-dot ' + dotCls + '"></span>' : '') +
+          (dayHealth.length ? '<span class="cal-health-mark" title="Consulta médica">🩺</span>' : '') +
+          '</div>';
+      });
+      html += '</div>'; // /cal-grid
+      html += '</div>'; // /cal-grid-col
+
+      html += '<div class="cal-side-panel">';
+      if (selectedCalDay) {
+        var dayTasks2 = byDay[selectedCalDay] || [];
+        var dayHealth2 = healthByDay[selectedCalDay] || [];
+        var parts = selectedCalDay.split('-');
+        html += '<div class="cal-day-panel">' +
+          '<div class="cal-day-panel-title">' + parts[2] + '/' + parts[1] + '/' + parts[0] + '</div>';
+        if (!dayTasks2.length && !dayHealth2.length) {
+          html += '<div class="log-empty">Sin tareas ni consultas ese día.</div>';
+        } else {
+          html += sortTasks(dayTasks2).map(function(t){
+            return '<div class="cal-task-row' + (t.status === 'done' ? ' done' : '') + '" data-kind="task" data-id="' + t.id + '">' +
+              '<span class="chip pri-' + t.priority + '">' + (PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
+              '<span class="chip type-' + t.type + '">' + typeChipInnerHtml(t.type) + '</span>' +
+              '<span class="cal-task-title">' + escapeHtml(t.title) + '</span>' +
+            '</div>';
+          }).join('');
+          html += dayHealth2.map(function(c){
+            return '<div class="cal-task-row' + (c.estado !== 'programada' ? ' done' : '') + '" data-kind="health" data-id="' + c.id + '">' +
+              '<span class="chip neutral">🩺' + (c.hora ? ' ' + c.hora.slice(0,5) : '') + '</span>' +
+              '<span class="cal-task-title">' + escapeHtml(c.especialidad) + (c.medico ? ' · ' + escapeHtml(c.medico) : '') + '</span>' +
+            '</div>';
+          }).join('');
+        }
+        html += '</div>';
+      } else {
+        html += renderUpcomingPanel();
+      }
+      html += '</div>'; // /cal-side-panel
+      html += '</div>'; // /cal-layout
     }
-    html += '</div>'; // /cal-side-panel
-    html += '</div>'; // /cal-layout
 
     el.innerHTML = html;
 
@@ -2688,6 +2854,14 @@
         var key = dayEl.getAttribute('data-key');
         selectedCalDay = selectedCalDay === key ? null : key;
         renderCalendar();
+      };
+    });
+    // Tocar una tarea/consulta puntual (panel lateral, "Próximas" o columna de la semana) la abre
+    // directo en su formulario de edición, en vez de solo mostrarla.
+    el.querySelectorAll('[data-kind]').forEach(function(itemEl){
+      itemEl.onclick = function(e){
+        e.stopPropagation();
+        selectCalItem(itemEl.getAttribute('data-kind'), itemEl.getAttribute('data-id'));
       };
     });
   }
