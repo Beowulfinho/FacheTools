@@ -302,7 +302,9 @@
   table.calendar td.over-limit{ color:var(--danger); font-weight:600; }
   table.calendar td.cell-antecipado{ color:var(--accent); font-weight:600; }
   table.calendar td.cell-antecipacao{ color:var(--accent); font-weight:600; box-shadow:inset 0 0 0 1px var(--accent); }
+  table.calendar td.negative{ color:var(--accent); font-weight:600; }
   .cal-reembolso-icon{ color:var(--warn); margin-left:4px; font-weight:700; }
+  .cal-reembolso-icon.ignored{ opacity:.4; }
   table.calendar tr.calendar-row-editable{ cursor:pointer; }
   table.calendar tr.calendar-row-editable:hover td{ background:var(--accent-soft); }
   table.calendar tr.calendar-row-editable:hover td.current-month{ filter:brightness(0.97); }
@@ -313,6 +315,7 @@
     border-bottom:2px solid var(--line-strong); position:sticky; z-index:2;
   }
   table.calendar tr.totals-row td:first-child{ background:var(--paper); z-index:3; }
+  table.calendar tr.totals-row td.negative{ color:var(--accent); }
 
   /* ---------- Filters ---------- */
   .filters{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
@@ -2642,11 +2645,15 @@
   }
   // A reembolso lands as a single negative (credit) entry in the specific fatura month it was
   // registered for (r.reembolsoMes, fixed at the moment "Recebeu reembolso" was checked/saved —
-  // see openEditModal/txSave) — never spread across installments. Skipped when reembolsoOut is
-  // set (ignored for now) or reembolsoMes doesn't match this month.
+  // see openEditModal/txSave) — never spread across installments. The entry is still created even
+  // when reembolsoOut is set (outOverride carries that instead, exactly like an antecipação's own
+  // out flag) — every sum that must ignore an "Out" reembolso already checks outOverride, and this
+  // way the row stays visible/clickable in the Compras table so it can be turned back "Inside".
+  // An earlier version skipped creating the entry at all when reembolsoOut was set, which made the
+  // row vanish with no way to re-enable it once ignored — see commit fixing that bug.
   function appendReembolsoCreditEntry(r, ymKey, entries){
-    if (r.reembolsoValor && !r.reembolsoOut && r.reembolsoMes && r.reembolsoMes === ymKey){
-      entries.push({effectiveValor: -r.reembolsoValor, parcelaAtual: null, parcelaTotal: r.parcelas||1, antecipacao: null, reembolsoCredito: true});
+    if (r.reembolsoValor && r.reembolsoMes && r.reembolsoMes === ymKey){
+      entries.push({effectiveValor: -r.reembolsoValor, parcelaAtual: null, parcelaTotal: r.parcelas||1, antecipacao: null, reembolsoCredito: true, outOverride: !!r.reembolsoOut});
     }
   }
   // Returns 0-3 schedule entries for purchase r in month ym ({year,month}):
@@ -2735,8 +2742,7 @@
         rec.reembolsoInfo = null; // only shown on the "Todos os meses" aggregate row, not here
         // An antecipação lump sum, and a reembolso credit, each carry their own Inside/Out flag,
         // independent from the purchase they belong to — don't let either inherit r.out here.
-        if (e.antecipacao) rec.out = e.outOverride ? 1 : 0;
-        else if (e.reembolsoCredito) rec.out = r.reembolsoOut ? 1 : 0;
+        if (e.antecipacao || e.reembolsoCredito) rec.out = e.outOverride ? 1 : 0;
         rec.cartaoEfetivo = getEffectiveCartaoNome(r, filterMonth);
         out.push(rec);
       });
@@ -2862,8 +2868,13 @@
         }
         if (r.reembolsoCredito){
           // This row is the reembolso's own one-time credit entry, not the purchase itself —
-          // Inside/Out here toggles reembolsoOut, independent from the purchase's own r.out.
-          var recR = {}; for (var k in r) recR[k] = r[k];
+          // Inside/Out here toggles reembolsoOut, independent from the purchase's own out. Must
+          // start from the ORIGINAL compra record (not r, whose .out was overridden above to
+          // display reembolsoOut) — copying r.out here would silently overwrite the purchase's
+          // real Inside/Out flag with the reembolso's, which is exactly the bug this fixes.
+          var origCompra = state.compras.records.filter(function(x){ return x.row === r.row; })[0];
+          if (!origCompra) return;
+          var recR = {}; for (var k in origCompra) recR[k] = origCompra[k];
           recR.reembolsoOut = checkbox.checked ? 0 : 1;
           saveTableRow("compras", "update", r.row, recR).then(loadAndRender).catch(function(err){
             showError("Não foi possível salvar: " + err.message);
@@ -2947,12 +2958,14 @@
   }
   // Subtracts each cartão's own adiantamentos (targeting monthStr) from its bar in the "Fatura
   // por cartão" breakdown — a cartão with an adiantamento but no purchases that month won't have
-  // a bar to reduce, which is fine: the grand total (renderCompFatura) still reflects it.
+  // a bar to reduce, which is fine: the grand total (renderCompFatura) still reflects it. Can go
+  // negative (e.g. a reembolso credit bigger than that card's charges that month) — a real credit
+  // card invoice can land negative too, so it's shown as-is, not clamped to zero.
   function applyAdiantamentosToCartaoGroups(groups, monthStr){
     if (!monthStr) return groups;
     return groups.map(function(g){
       var reduced = g.total - getAdiantamentosAbatimentoForMonthCartao(monthStr, g.name);
-      return {name: g.name, total: reduced < 0 ? 0 : reduced};
+      return {name: g.name, total: reduced};
     });
   }
 
@@ -3197,18 +3210,21 @@
     for (var i=0;i<monthRecs.length;i++) total += (monthRecs[i].effectiveValor||0);
     var refKey = monthKey(filterMonth);
     var abatimento = getAdiantamentosAbatimentoForMonthCartao(refKey, null);
-    total = Math.max(0, total - abatimento);
+    total = total - abatimento;
     $("compFaturaTotal").textContent = fmtBRL(total);
+    // A negative fatura total is the card owing money back (a reembolso credit bigger than
+    // what's charged this month) — favorable, so colored like a credit, not like overspending.
+    $("compFaturaTotal").classList.toggle("positive", total < 0);
     renderBarList("compFaturaPorPessoa", groupSum(monthRecs, "pessoa"));
     renderBarList("compFaturaPorCartao", applyAdiantamentosToCartaoGroups(groupSum(monthRecs, "cartaoEfetivo"), refKey));
   }
 
   // ---------- Calendário de parcelas: every purchase, month by month, independent of any filter ----------
-  // Small "money back" arrow shown on the one cell where a reembolso's credit actually lands
-  // (see appendReembolsoCreditEntry) — never called for an ignored (reembolsoOut) reembolso,
-  // since that never produces a credit entry to begin with.
+  // Small "money back" arrow shown on the one cell where a reembolso's credit lands (see
+  // appendReembolsoCreditEntry) — dimmed when reembolsoOut is set (credit registered but ignored
+  // for now, still shown so it stays discoverable/clickable to turn back "Inside").
   function reembolsoCalIcon(r){
-    return '<span class="cal-reembolso-icon">↩</span>';
+    return '<span class="cal-reembolso-icon'+(r.reembolsoOut?' ignored':'')+'">↩</span>';
   }
   function addMonths(ym, n){
     var total = ym.year*12 + (ym.month-1) + n;
@@ -3292,35 +3308,38 @@
     decorated.forEach(function(d){
       columns.forEach(function(ym, idx){
         getCompraScheduleForMonth(d.rec, ym).forEach(function(e){
-          // An antecipação lump sum can be marked "Out" on its own, independent from the
-          // purchase it belongs to — skip it here just like it's skipped in the tables.
-          if (e.antecipacao && e.outOverride) return;
+          // An antecipação lump sum, or a reembolso credit, can each be marked "Out" on their
+          // own, independent from the purchase they belong to — skip them here just like they're
+          // skipped in the tables.
+          if ((e.antecipacao || e.reembolsoCredito) && e.outOverride) return;
           colTotals[idx] += e.effectiveValor;
         });
       });
     });
 
     // Adiantamentos targeting a given column's month reduce its total directly (they already
-    // paid down part of whatever that month's fatura would otherwise show as due).
+    // paid down part of whatever that month's fatura would otherwise show as due). A reembolso
+    // credit can already make a column negative on its own (money back exceeding what's charged
+    // that month) — that's a real invoice credit, not clamped away.
     var colAbatimentos = columns.map(function(ym){ return getAdiantamentosAbatimentoForMonthCartao(monthKey(ym), null); });
-    colTotals = colTotals.map(function(t, idx){ return Math.max(0, t - colAbatimentos[idx]); });
+    colTotals = colTotals.map(function(t, idx){ return t - colAbatimentos[idx]; });
 
     var bodyHtml = '<tr class="totals-row"><td>Total do mês</td>';
     colTotals.forEach(function(t, idx){
       var isRef = (columns[idx].year===refYM.year && columns[idx].month===refYM.month);
       var title = colAbatimentos[idx] > 0 ? ' title="Já inclui adiantamento(s) de '+fmtBRL(colAbatimentos[idx])+'"' : "";
-      bodyHtml += '<td class="'+(isRef?"current-month":"")+'"'+title+'>'+(t>0?fmtBRL(t):"—")+'</td>';
+      bodyHtml += '<td class="'+(isRef?"current-month":"")+(t<0?" negative":"")+'"'+title+'>'+(t!==0?fmtBRL(t):"—")+'</td>';
     });
     bodyHtml += '</tr>';
 
     // Same sort keys as the Compras table, computed against the reference month: "valor"
-    // is what this row contributes to the reference month's fatura (antecipações marked
-    // "Out" on their own don't count, matching the cell totals above); "endsThisMonth" is
+    // is what this row contributes to the reference month's fatura (antecipações/reembolsos
+    // marked "Out" on their own don't count, matching the cell totals above); "endsThisMonth" is
     // true when the purchase's last installment falls exactly in the reference month.
     function calRowValor(d){
       var v = 0;
       getCompraScheduleForMonth(d.rec, refYM).forEach(function(e){
-        if (e.antecipacao && e.outOverride) return;
+        if ((e.antecipacao || e.reembolsoCredito) && e.outOverride) return;
         v += e.effectiveValor;
       });
       return v;
@@ -3375,15 +3394,16 @@
         if (!d.isAssinatura && offset === d.total-1) classes.push("last-installment");
         var cellValue = 0, hasAntecipacao = false, hasReembolsoCredito = false;
         entries.forEach(function(e){
-          if (e.antecipacao && e.outOverride) return; // antecipação set "Out" on its own
+          if ((e.antecipacao || e.reembolsoCredito) && e.outOverride) return; // set "Out" on its own
           cellValue += e.effectiveValor;
           if (e.antecipacao) hasAntecipacao = true;
           if (e.reembolsoCredito) hasReembolsoCredito = true;
         });
         if (hasAntecipacao) classes.push("cell-antecipacao");
+        if (cellValue < 0) classes.push("negative");
         var titleParts = [];
         if (hasAntecipacao) titleParts.push("Inclui antecipação de parcelas");
-        if (hasReembolsoCredito) titleParts.push("Crédito de reembolso de "+fmtBRL(r.reembolsoValor)+" recebido este mês");
+        if (hasReembolsoCredito) titleParts.push((r.reembolsoOut ? "Reembolso de " : "Crédito de reembolso de ")+fmtBRL(r.reembolsoValor)+(r.reembolsoOut ? " registrado, mas ignorado (Out)" : " recebido este mês"));
         var title = titleParts.length ? ' title="'+titleParts.join(" · ")+'"' : "";
         bodyHtml += '<td class="'+classes.join(" ")+'"'+title+'>'+fmtBRL(cellValue)+(hasReembolsoCredito ? reembolsoCalIcon(r) : "")+'</td>';
       });
@@ -3595,8 +3615,9 @@
     var refKey = monthKey(filterMonth); // "" for "Todos os meses" — reservas/adiantamentos are
     // tied to specific real months, so their effect is skipped in that lifetime-aggregate view.
     var adiantamentosAbatimento = getAdiantamentosAbatimentoForMonthCartao(refKey, null);
-    total = Math.max(0, total - adiantamentosAbatimento);
+    total = total - adiantamentosAbatimento;
     $("dashTotal").textContent = fmtBRL(total);
+    $("dashTotal").classList.toggle("positive", total < 0);
 
     var debRecs = getDebitoMonthFiltered().filter(function(r){ return !r.out; });
     var ingresos = 0, gastos = 0;
@@ -4676,7 +4697,7 @@
     $("txDelete").style.display = "inline-flex";
     var avail = getAntecipacaoAvailability(r);
     $("txAntecip").style.display = ((r.parcelas||1) > 1 && avail.available.length >= 1) ? "inline-flex" : "none";
-    $("txTrocarCartao").style.display = "inline-flex";
+    $("txTrocarCartao").style.display = isAssinaturaTipo(r.tipo) ? "inline-flex" : "none";
     $("txError").style.display = "none";
     $("fDescricao").value = r.descricao;
     $("fComerciante").value = r.comerciante || "";
