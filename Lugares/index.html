@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#3F7A5C">
+<meta name="theme-color" content="#A9791A">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,7 +11,7 @@
 <title>Lugares</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233F7A5C'/%3E%3Cpath d='M16 27s-9-9.4-9-16a9 9 0 1118 0c0 6.6-9 16-9 16z' fill='none' stroke='%23F5F1E8' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='11' r='3.2' fill='none' stroke='%23F5F1E8' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23A9791A'/%3E%3Cpath d='M16 27s-9-9.4-9-16a9 9 0 1118 0c0 6.6-9 16-9 16z' fill='none' stroke='%23F5F1E8' stroke-width='2' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='11' r='3.2' fill='none' stroke='%23F5F1E8' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -24,9 +24,9 @@
     --ink-faint:#96988C;
     --line:#DDD8C9;
     --line-strong:#C7C1AC;
-    --accent:#3F7A5C;
-    --accent-ink:#1F4531;
-    --accent-soft:#DCEBE1;
+    --accent:#A9791A;
+    --accent-ink:#4A3509;
+    --accent-soft:#F1E3B7;
     --warn:#9C7A1E;
     --warn-soft:#F1E6C4;
     --danger:#A8392C;
@@ -34,23 +34,23 @@
     --success:#2E7D4F;
     --success-soft:#DCEEE0;
     --shadow:rgba(35,36,32,0.10);
-    --focus:#3F7A5C;
+    --focus:#A9791A;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
-      --paper:#161A16; --paper-raised:#1F241E; --ink:#EDEEE8; --ink-soft:#AEB2A4; --ink-faint:#7A7D71;
-      --line:#2C332B; --line-strong:#3D453A; --accent:#6FBE93; --accent-ink:#D8F1E2; --accent-soft:#20362A;
+      --paper:#1A170F; --paper-raised:#241F14; --ink:#EDEEE8; --ink-soft:#AEB2A4; --ink-faint:#7A7D71;
+      --line:#332C1B; --line-strong:#453B24; --accent:#E8C468; --accent-ink:#F3E7C4; --accent-soft:#3A2E10;
       --warn:#D9B458; --warn-soft:#3A3018; --danger:#E08677; --danger-soft:#3B231F;
       --success:#5FBE84; --success-soft:#1D3324; --shadow:rgba(0,0,0,0.35);
-      --focus:#6FBE93;
+      --focus:#E8C468;
     }
   }
   :root[data-theme="dark"]{
-    --paper:#161A16; --paper-raised:#1F241E; --ink:#EDEEE8; --ink-soft:#AEB2A4; --ink-faint:#7A7D71;
-    --line:#2C332B; --line-strong:#3D453A; --accent:#6FBE93; --accent-ink:#D8F1E2; --accent-soft:#20362A;
+    --paper:#1A170F; --paper-raised:#241F14; --ink:#EDEEE8; --ink-soft:#AEB2A4; --ink-faint:#7A7D71;
+    --line:#332C1B; --line-strong:#453B24; --accent:#E8C468; --accent-ink:#F3E7C4; --accent-soft:#3A2E10;
     --warn:#D9B458; --warn-soft:#3A3018; --danger:#E08677; --danger-soft:#3B231F;
     --success:#5FBE84; --success-soft:#1D3324; --shadow:rgba(0,0,0,0.35);
-    --focus:#6FBE93;
+    --focus:#E8C468;
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; overflow-x:hidden; }
@@ -118,7 +118,7 @@
     background:var(--paper-raised); color:var(--ink); font-weight:600; font-size:13.5px; box-shadow:0 1px 2px var(--shadow);
   }
   .btn:hover{ border-color:var(--line-strong); }
-  .btn-primary{ background:var(--accent); border-color:var(--accent); color:#F5FBF7; }
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:#FBF6EA; }
   .btn-primary:hover{ filter:brightness(1.06); }
   .btn-danger{ color:var(--danger); }
   .btn-sm{ padding:6px 11px; font-size:12.5px; }
@@ -142,7 +142,7 @@
     color:var(--ink-soft); font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer;
   }
   .chip:hover{ border-color:var(--accent); }
-  .chip.active{ background:var(--accent); border-color:var(--accent); color:#F5FBF7; }
+  .chip.active{ background:var(--accent); border-color:var(--accent); color:#FBF6EA; }
   .chip.active.chip-success{ background:var(--success); border-color:var(--success); }
   .chip.active.chip-danger{ background:var(--danger); border-color:var(--danger); }
 

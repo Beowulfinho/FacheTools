@@ -10,7 +10,7 @@ $sizes = @{
     "icon-512.png" = 512
 }
 
-$bg = [System.Drawing.Color]::FromArgb(255, 0x3F, 0x7A, 0x5C)
+$bg = [System.Drawing.Color]::FromArgb(255, 0xA9, 0x79, 0x1A)
 $fg = [System.Drawing.Color]::FromArgb(255, 0xF5, 0xF1, 0xE8)
 
 $outDir = $PSScriptRoot | Split-Path -Parent
