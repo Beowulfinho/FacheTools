@@ -1,0 +1,9 @@
+{
+  "appId": "com.fachetools.lugares",
+  "appName": "Lugares",
+  "webDir": "../Lugares",
+  "server": {
+    "url": "https://beowulfinho.github.io/FacheTools/Lugares/",
+    "cleartext": false
+  }
+}
