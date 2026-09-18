@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3F7A5C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lugares">
+<title>Lugares</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233F7A5C'/%3E%3Cpath d='M10 6v9a3 3 0 003 3v8M10 6v0M10 9h0M13 6v9' fill='none' stroke='%23F5F1E8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M21 6c-2 0-3 2-3 5s1 5 3 5v10' fill='none' stroke='%23F5F1E8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --paper:#F1EEE6;
+    --paper-raised:#FBF9F3;
+    --ink:#232420;
+    --ink-soft:#63665D;
+    --ink-faint:#96988C;
+    --line:#DDD8C9;
+    --line-strong:#C7C1AC;
+    --accent:#3F7A5C;
+    --accent-ink:#1F4531;
+    --accent-soft:#DCEBE1;
+    --warn:#9C7A1E;
+    --warn-soft:#F1E6C4;
+    --danger:#A8392C;
+    --danger-soft:#F1D9D3;
+    --success:#2E7D4F;
+    --success-soft:#DCEEE0;
+    --shadow:rgba(35,36,32,0.10);
+    --focus:#3F7A5C;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#161A16; --paper-raised:#1F241E; --ink:#EDEEE8; --ink-soft:#AEB2A4; --ink-faint:#7A7D71;
+      --line:#2C332B; --line-strong:#3D453A; --accent:#6FBE93; --accent-ink:#D8F1E2; --accent-soft:#20362A;
+      --warn:#D9B458; --warn-soft:#3A3018; --danger:#E08677; --danger-soft:#3B231F;
+      --success:#5FBE84; --success-soft:#1D3324; --shadow:rgba(0,0,0,0.35);
+      --focus:#6FBE93;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#161A16; --paper-raised:#1F241E; --ink:#EDEEE8; --ink-soft:#AEB2A4; --ink-faint:#7A7D71;
+    --line:#2C332B; --line-strong:#3D453A; --accent:#6FBE93; --accent-ink:#D8F1E2; --accent-soft:#20362A;
+    --warn:#D9B458; --warn-soft:#3A3018; --danger:#E08677; --danger-soft:#3B231F;
+    --success:#5FBE84; --success-soft:#1D3324; --shadow:rgba(0,0,0,0.35);
+    --focus:#6FBE93;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; overflow-x:hidden; }
+  body{
+    background:var(--paper); color:var(--ink); font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size:15px; line-height:1.5; min-height:100vh;
+  }
+  h1,h2,h3{ font-family:"Fraunces", Georgia, "Times New Roman", serif; text-wrap:balance; margin:0; color:var(--ink); font-weight:600; }
+  button, input, select, textarea{ font-family:inherit; font-size:inherit; color:inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+  button{ cursor:pointer; }
+
+  .wrap{ max-width:760px; margin:0 auto; padding:calc(26px + env(safe-area-inset-top, 0px)) 20px 70px; }
+
+  .topbar{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  .eyebrow{ font-size:11.5px; letter-spacing:0.09em; text-transform:uppercase; color:var(--ink-faint); font-weight:600; }
+  .topbar h1{ font-size:26px; margin-top:4px; display:flex; align-items:center; gap:10px; }
+  .app-icon{ display:inline-flex; flex:none; width:26px; height:26px; color:var(--accent); }
+  .app-icon svg{ width:100%; height:100%; }
+
+  .conn-bar{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .conn-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--ink-faint); }
+  .conn-dot.on{ background:var(--success); }
+  .conn-label{ font-size:12.5px; color:var(--ink-soft); font-weight:600; }
+
+  .tab-groups{
+    display:flex; gap:4px; background:var(--paper-raised); border:1px solid var(--line); border-radius:9px;
+    padding:4px; margin-bottom:16px; flex-wrap:wrap;
+  }
+  .tab-groups button{
+    flex:1; min-width:90px; border:none; background:transparent; padding:9px 8px; border-radius:6px;
+    font-size:12.5px; font-weight:700; color:var(--ink-soft); white-space:nowrap;
+  }
+  .tab-groups button.active{ background:var(--accent-soft); color:var(--accent-ink); }
+
+  .panel{ background:var(--paper-raised); border:1px solid var(--line); border-radius:13px; box-shadow:0 1px 2px var(--shadow); overflow:hidden; margin-bottom:20px; }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px 12px; border-bottom:1px solid var(--line); gap:10px; flex-wrap:wrap; }
+  .panel-head h2{ font-size:17px; }
+  .item-row{
+    display:flex; gap:12px; align-items:flex-start; padding:14px 18px; border-bottom:1px solid var(--line);
+  }
+  .item-row:last-child{ border-bottom:none; }
+  .item-row:hover{ background:var(--paper); cursor:pointer; }
+  .item-row-main{ flex:1; min-width:0; }
+  .row-title{ font-weight:600; font-size:15px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .row-meta{ font-size:12.5px; color:var(--ink-soft); margin-top:3px; }
+  .row-comentario{ font-size:12.5px; color:var(--ink-soft); margin-top:5px; font-style:italic; }
+  .stars{ color:var(--warn); font-size:12.5px; letter-spacing:1px; white-space:nowrap; }
+  .tag{
+    display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px;
+    background:var(--accent-soft); color:var(--accent-ink); white-space:nowrap; width:fit-content;
+  }
+  .tag.tag-success{ background:var(--success-soft); color:var(--success); }
+  .tag.tag-danger{ background:var(--danger-soft); color:var(--danger); }
+  .tag.tag-warn{ background:var(--warn-soft); color:var(--warn); }
+  .btn-icon-danger{
+    border:none; background:var(--danger-soft); color:var(--danger); border-radius:8px;
+    width:34px; height:34px; display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .btn-icon-danger svg{ width:18px; height:18px; }
+  .empty{ padding:26px 18px; text-align:center; color:var(--ink-faint); font-size:13.5px; }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; padding:9px 15px; border-radius:9px; border:1px solid var(--line);
+    background:var(--paper-raised); color:var(--ink); font-weight:600; font-size:13.5px; box-shadow:0 1px 2px var(--shadow);
+  }
+  .btn:hover{ border-color:var(--line-strong); }
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:#F5FBF7; }
+  .btn-primary:hover{ filter:brightness(1.06); }
+  .btn-danger{ color:var(--danger); }
+  .btn-sm{ padding:6px 11px; font-size:12.5px; }
+  .btn-full{ width:100%; justify-content:center; }
+
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{ font-size:12.5px; font-weight:600; color:var(--ink-soft); }
+  .field input, .field select, .field textarea{
+    padding:9px 11px; border-radius:8px; border:1px solid var(--line-strong); background:var(--paper);
+    color:var(--ink); width:100%; font-family:inherit; font-size:inherit;
+  }
+  .field textarea{ resize:vertical; box-sizing:border-box; min-height:64px; }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:480px){ .field-row{ grid-template-columns:1fr; } }
+  .field-error{ display:none; color:var(--danger); font-size:12.5px; }
+  .field-error.show{ display:block; }
+
+  .chip-group{ display:flex; gap:6px; flex-wrap:wrap; }
+  .chip{
+    padding:8px 13px; border-radius:999px; border:1px solid var(--line-strong); background:var(--paper);
+    color:var(--ink-soft); font-size:12.5px; font-weight:600; font-family:inherit; cursor:pointer;
+  }
+  .chip:hover{ border-color:var(--accent); }
+  .chip.active{ background:var(--accent); border-color:var(--accent); color:#F5FBF7; }
+  .chip.active.chip-success{ background:var(--success); border-color:var(--success); }
+  .chip.active.chip-danger{ background:var(--danger); border-color:var(--danger); }
+
+  .star-picker{ display:flex; gap:4px; }
+  .star-picker button{ border:none; background:none; padding:2px; font-size:22px; line-height:1; color:var(--line-strong); }
+  .star-picker button.on{ color:var(--warn); }
+
+  #addForm{ display:none; padding:16px 18px; border-bottom:1px solid var(--line); flex-direction:column; gap:14px; }
+  #addForm.show{ display:flex; }
+  .form-actions{ display:flex; gap:8px; }
+
+  .footer-note{ text-align:center; color:var(--ink-faint); font-size:12px; margin-top:26px; }
+
+  .splash{
+    position:fixed; inset:0; background:var(--paper); z-index:200; display:flex; align-items:center; justify-content:center;
+    transition:opacity 0.25s ease;
+  }
+  .splash.hide{ opacity:0; pointer-events:none; }
+  .auth-hero{ max-width:380px; margin:60px auto; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; }
+  .auth-hero h2{ font-size:20px; }
+  .auth-hero p{ color:var(--ink-soft); font-size:13.5px; margin:0; }
+</style>
+</head>
+<body>
+
+<div class="splash" id="splashView">
+  <span class="app-icon" style="width:40px; height:40px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v7a2.5 2.5 0 005 0V3M10.5 10v11"/><path d="M17 3c-1.7 0-3 2-3 5.5S15.3 14 17 14v8"/></svg></span>
+</div>
+
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <div class="eyebrow">Restaurantes &amp; deliverys</div>
+      <h1><span class="app-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v7a2.5 2.5 0 005 0V3M10.5 10v11"/><path d="M17 3c-1.7 0-3 2-3 5.5S15.3 14 17 14v8"/></svg></span> Lugares</h1>
+    </div>
+  </div>
+
+  <div id="notConnectedView" style="display:none;">
+    <div class="auth-hero">
+      <h2>Entrar</h2>
+      <p>Tus lugares quedan guardados en la nube y compartidos con tu pareja — pueden usar la misma cuenta del hogar en cualquier dispositivo.</p>
+      <div class="field" style="width:100%; text-align:left;">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" autocomplete="username">
+      </div>
+      <div class="field" style="width:100%; text-align:left;">
+        <label for="authPassword">Contraseña</label>
+        <div style="position:relative;">
+          <input type="password" id="authPassword" autocomplete="current-password" style="width:100%; padding-right:38px;">
+          <button type="button" id="btnToggleSenha" aria-label="Mostrar contraseña" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; padding:4px; cursor:pointer; color:inherit; opacity:.65; display:flex;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="field-error" id="authError" style="display:none;"></div>
+      <div style="display:flex; gap:10px; width:100%;">
+        <button class="btn" id="btnSignUp" type="button" style="flex:1;">Crear cuenta</button>
+        <button class="btn btn-primary" id="btnSignIn" type="button" style="flex:1;">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="connectedView" style="display:none;">
+
+    <div class="conn-bar">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="conn-dot on" id="connDot"></span>
+        <span class="conn-label" id="connLabel">Conectado</span>
+      </div>
+      <button class="btn btn-sm" id="btnLogout" type="button">Salir</button>
+    </div>
+
+    <div class="tab-groups" id="filterTabs">
+      <button data-filter="todos" class="active" type="button">Todos</button>
+      <button data-filter="queremos_ir" type="button">Queremos ir</button>
+      <button data-filter="nos_gusto" type="button">Nos gustó</button>
+      <button data-filter="no_nos_gusto" type="button">No nos gustó</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="panelTitle">Lugares</h2>
+        <button class="btn btn-sm btn-primary" id="btnShowAdd" type="button">+ Agregar lugar</button>
+      </div>
+
+      <div id="addForm">
+        <input type="hidden" id="editId">
+        <div class="field">
+          <label for="fNombre">Nombre</label>
+          <input type="text" id="fNombre" placeholder="Ej: Trattoria Bella">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Tipo</label>
+            <div class="chip-group" id="tipoChips">
+              <button type="button" class="chip active" data-value="restaurante">Restaurante</button>
+              <button type="button" class="chip active" data-value="delivery">Delivery</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="fCiudad">Ciudad</label>
+            <input type="text" id="fCiudad" placeholder="Opcional">
+          </div>
+        </div>
+        <div class="field">
+          <label>Estado</label>
+          <div class="chip-group" id="estadoChips">
+            <button type="button" class="chip" data-value="queremos_ir">Queremos ir</button>
+            <button type="button" class="chip" data-value="nos_gusto">Nos gustó</button>
+            <button type="button" class="chip" data-value="no_nos_gusto">No nos gustó</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Calificación</label>
+          <div class="star-picker" id="starPicker">
+            <button type="button" data-n="1">★</button>
+            <button type="button" data-n="2">★</button>
+            <button type="button" data-n="3">★</button>
+            <button type="button" data-n="4">★</button>
+            <button type="button" data-n="5">★</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="fUbicacion">Dirección o link (Maps / Rappi / Uber Eats)</label>
+          <input type="text" id="fUbicacion" placeholder="Opcional">
+        </div>
+        <div class="field">
+          <label for="fComentario">Comentario</label>
+          <textarea id="fComentario" placeholder="Qué pedimos, cómo estuvo, algo para recordar..."></textarea>
+        </div>
+        <div class="field-error" id="formError"></div>
+        <div class="form-actions">
+          <button class="btn" id="btnCancelForm" type="button" style="flex:1;">Cancelar</button>
+          <button class="btn btn-danger" id="btnDeleteItem" type="button" style="display:none;">Eliminar</button>
+          <button class="btn btn-primary" id="btnSaveItem" type="button" style="flex:1;">Guardar</button>
+        </div>
+      </div>
+
+      <div id="listEl"></div>
+    </div>
+
+    <div class="footer-note">Lugares · datos compartidos con tu pareja</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  function $(id){ return document.getElementById(id); }
+
+  var SUPABASE_URL = "https://qdetwdneqncblxwylpyw.supabase.co";
+  var SUPABASE_ANON_KEY = "sb_publishable_CI3FY5MplWpHWaU25bewZg_l2YvjsmZ";
+  var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  var state = { items: [], filter: "todos", estado: "queremos_ir", tipo: "restaurante", nota: 0 };
+
+  function escapeHtml(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[c];
+    });
+  }
+
+  var ESTADO_LABEL = { queremos_ir:"Queremos ir", nos_gusto:"Nos gustó", no_nos_gusto:"No nos gustó" };
+  var ESTADO_TAG_CLASS = { queremos_ir:"tag-warn", nos_gusto:"tag-success", no_nos_gusto:"tag-danger" };
+  var TIPO_LABEL = { restaurante:"Restaurante", delivery:"Delivery" };
+
+  var TRASH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M6 7l1 13a2 2 0 002 2h6a2 2 0 002-2l1-13"/><path d="M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>';
+
+  // ---------- Filter tabs ----------
+  $("filterTabs").addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-filter]");
+    if (!btn) return;
+    state.filter = btn.getAttribute("data-filter");
+    Array.prototype.forEach.call($("filterTabs").querySelectorAll("button"), function(b){
+      b.classList.toggle("active", b === btn);
+    });
+    renderList();
+  });
+
+  // ---------- Add form: chips + stars ----------
+  function wireChips(containerId, key, defaultValue){
+    var container = $(containerId);
+    container.addEventListener("click", function(e){
+      var btn = e.target.closest("button[data-value]");
+      if (!btn) return;
+      state[key] = btn.getAttribute("data-value");
+      Array.prototype.forEach.call(container.querySelectorAll("button"), function(b){
+        b.classList.toggle("active", b === btn);
+      });
+      updateEstadoChipColors();
+    });
+  }
+  wireChips("tipoChips", "tipo", "restaurante");
+  wireChips("estadoChips", "estado", "queremos_ir");
+
+  function updateEstadoChipColors(){
+    Array.prototype.forEach.call($("estadoChips").querySelectorAll("button"), function(b){
+      b.classList.remove("chip-success", "chip-danger");
+      if (b.getAttribute("data-value") === "nos_gusto") b.classList.add("chip-success");
+      if (b.getAttribute("data-value") === "no_nos_gusto") b.classList.add("chip-danger");
+    });
+  }
+  updateEstadoChipColors();
+
+  $("starPicker").addEventListener("click", function(e){
+    var btn = e.target.closest("button[data-n]");
+    if (!btn) return;
+    var n = parseInt(btn.getAttribute("data-n"), 10);
+    state.nota = (state.nota === n) ? 0 : n;
+    renderStarPicker();
+  });
+  function renderStarPicker(){
+    Array.prototype.forEach.call($("starPicker").querySelectorAll("button"), function(b){
+      b.classList.toggle("on", parseInt(b.getAttribute("data-n"), 10) <= state.nota);
+    });
+  }
+
+  function setChipActive(containerId, value){
+    Array.prototype.forEach.call($(containerId).querySelectorAll("button"), function(b){
+      b.classList.toggle("active", b.getAttribute("data-value") === value);
+    });
+  }
+
+  function resetForm(){
+    $("editId").value = "";
+    $("fNombre").value = "";
+    $("fCiudad").value = "";
+    $("fUbicacion").value = "";
+    $("fComentario").value = "";
+    state.tipo = "restaurante";
+    state.estado = "queremos_ir";
+    state.nota = 0;
+    setChipActive("tipoChips", state.tipo);
+    setChipActive("estadoChips", state.estado);
+    renderStarPicker();
+    $("formError").textContent = "";
+    $("btnDeleteItem").style.display = "none";
+  }
+
+  function openForm(item){
+    resetForm();
+    $("addForm").classList.add("show");
+    if (item){
+      $("editId").value = item.id;
+      $("fNombre").value = item.nombre || "";
+      $("fCiudad").value = item.ciudad || "";
+      $("fUbicacion").value = item.ubicacion || "";
+      $("fComentario").value = item.comentario || "";
+      state.tipo = item.tipo;
+      state.estado = item.estado;
+      state.nota = item.nota || 0;
+      setChipActive("tipoChips", state.tipo);
+      setChipActive("estadoChips", state.estado);
+      renderStarPicker();
+      $("btnDeleteItem").style.display = "";
+      $("panelTitle").textContent = "Editar lugar";
+    } else {
+      $("panelTitle").textContent = "Agregar lugar";
+    }
+    $("fNombre").focus();
+  }
+  function closeForm(){
+    $("addForm").classList.remove("show");
+    $("panelTitle").textContent = "Lugares";
+    resetForm();
+  }
+
+  $("btnShowAdd").addEventListener("click", function(){ openForm(null); });
+  $("btnCancelForm").addEventListener("click", closeForm);
+
+  $("btnSaveItem").addEventListener("click", function(){
+    var nombre = $("fNombre").value.trim();
+    if (!nombre){ $("formError").textContent = "El nombre es obligatorio."; return; }
+    $("formError").textContent = "";
+    var payload = {
+      nombre: nombre,
+      tipo: state.tipo,
+      estado: state.estado,
+      nota: state.nota > 0 ? state.nota : null,
+      ciudad: $("fCiudad").value.trim() || null,
+      ubicacion: $("fUbicacion").value.trim() || null,
+      comentario: $("fComentario").value.trim() || null,
+      updated_at: new Date().toISOString()
+    };
+    var editId = $("editId").value;
+    $("btnSaveItem").disabled = true;
+    var op = editId
+      ? supabaseClient.from("lugares").update(payload).eq("id", editId)
+      : supabaseClient.from("lugares").insert(payload);
+    op.then(function(res){
+      $("btnSaveItem").disabled = false;
+      if (res.error){ $("formError").textContent = res.error.message; return; }
+      closeForm();
+      loadAndRender();
+    });
+  });
+
+  $("btnDeleteItem").addEventListener("click", function(){
+    var editId = $("editId").value;
+    if (!editId) return;
+    if (!confirm("¿Eliminar este lugar?")) return;
+    supabaseClient.from("lugares").delete().eq("id", editId).then(function(res){
+      if (res.error){ $("formError").textContent = res.error.message; return; }
+      closeForm();
+      loadAndRender();
+    });
+  });
+
+  // ---------- List ----------
+  function renderList(){
+    var listEl = $("listEl");
+    listEl.innerHTML = "";
+    var items = state.items.filter(function(it){
+      return state.filter === "todos" || it.estado === state.filter;
+    });
+    if (items.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "Todavía no hay lugares en esta lista.";
+      listEl.appendChild(empty);
+      return;
+    }
+    items.forEach(function(it){
+      var row = document.createElement("div");
+      row.className = "item-row";
+      var stars = it.nota ? ("★".repeat(it.nota) + "☆".repeat(5 - it.nota)) : "";
+      row.innerHTML =
+        '<div class="item-row-main">' +
+          '<div class="row-title">' + escapeHtml(it.nombre) +
+            '<span class="tag ' + ESTADO_TAG_CLASS[it.estado] + '">' + ESTADO_LABEL[it.estado] + '</span>' +
+          '</div>' +
+          '<div class="row-meta">' + TIPO_LABEL[it.tipo] + (it.ciudad ? (" · " + escapeHtml(it.ciudad)) : "") +
+            (stars ? (' · <span class="stars">' + stars + '</span>') : "") +
+          '</div>' +
+          (it.comentario ? ('<div class="row-comentario">' + escapeHtml(it.comentario) + '</div>') : "") +
+        '</div>';
+      var delBtn = document.createElement("button");
+      delBtn.className = "btn-icon-danger";
+      delBtn.type = "button";
+      delBtn.innerHTML = TRASH_ICON;
+      delBtn.addEventListener("click", function(e){
+        e.stopPropagation();
+        if (!confirm("¿Eliminar \"" + it.nombre + "\"?")) return;
+        supabaseClient.from("lugares").delete().eq("id", it.id).then(function(res){
+          if (!res.error) loadAndRender();
+        });
+      });
+      row.appendChild(delBtn);
+      row.addEventListener("click", function(){ openForm(it); });
+      listEl.appendChild(row);
+    });
+  }
+
+  function loadAndRender(){
+    supabaseClient.from("lugares").select("*").order("created_at", { ascending: false }).then(function(res){
+      if (res.error){ console.warn(res.error.message); return; }
+      state.items = res.data || [];
+      renderList();
+    });
+  }
+
+  // ---------- Auth flow (mismo patrón de Planes/Financas) ----------
+  function showAuthError(msg){ var e=$("authError"); e.textContent=msg; e.style.display="block"; }
+  function clearAuthError(){ $("authError").style.display="none"; }
+
+  function doSignIn(){
+    clearAuthError();
+    var email = $("authEmail").value.trim();
+    var password = $("authPassword").value;
+    if (!email || !password){ showAuthError("Ingresa email y contraseña."); return; }
+    supabaseClient.auth.signInWithPassword({email:email, password:password}).then(function(res){
+      if (res.error) showAuthError(res.error.message);
+    });
+  }
+  function doSignUp(){
+    clearAuthError();
+    var email = $("authEmail").value.trim();
+    var password = $("authPassword").value;
+    if (!email || !password){ showAuthError("Ingresa email y contraseña."); return; }
+    if (password.length < 6){ showAuthError("La contraseña debe tener al menos 6 caracteres."); return; }
+    supabaseClient.auth.signUp({email:email, password:password}).then(function(res){
+      if (res.error){ showAuthError(res.error.message); return; }
+      if (res.data && res.data.user && !res.data.session){
+        showAuthError("¡Cuenta creada! Revisa tu email para confirmar antes de entrar.");
+      }
+    });
+  }
+  $("btnSignIn").addEventListener("click", doSignIn);
+  $("btnSignUp").addEventListener("click", doSignUp);
+  $("btnLogout").addEventListener("click", function(){ supabaseClient.auth.signOut(); });
+  $("btnToggleSenha").addEventListener("click", function(){
+    var input = $("authPassword");
+    var showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    this.setAttribute("aria-label", showing ? "Mostrar contraseña" : "Ocultar contraseña");
+    this.innerHTML = showing
+      ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>'
+      : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a19.4 19.4 0 0 1 4.22-5.29M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a19.4 19.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  });
+  ["authEmail","authPassword"].forEach(function(id){
+    $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") doSignIn(); });
+  });
+
+  var splashHidden = false;
+  function hideSplash(){
+    if (splashHidden) return;
+    splashHidden = true;
+    var el = $("splashView");
+    if (!el) return;
+    el.classList.add("hide");
+    setTimeout(function(){ el.style.display = "none"; }, 250);
+  }
+  function setConnectedUI(connected, email){
+    $("connDot").className = "conn-dot " + (connected ? "on" : "off");
+    $("connLabel").textContent = connected ? ("Conectado como " + email) : "No conectado";
+    $("notConnectedView").style.display = connected ? "none" : "block";
+    $("connectedView").style.display = connected ? "block" : "none";
+    hideSplash();
+  }
+  supabaseClient.auth.onAuthStateChange(function(event, session){
+    if (session && session.user){
+      setConnectedUI(true, session.user.email);
+      loadAndRender();
+    } else {
+      setConnectedUI(false, "");
+    }
+  });
+})();
+</script>
+</body>
+</html>
