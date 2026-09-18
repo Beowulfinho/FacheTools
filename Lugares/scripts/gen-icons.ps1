@@ -1,8 +1,9 @@
 Add-Type -AssemblyName System.Drawing
 
 # App icons (favicon/manifest/apple-touch), not the Android status-bar notification icon.
-# Draws the same fork+plate mark used in Lugares/index.html's header, filled solid (not a
-# silhouette) on the accent background, at every size the manifest/apple-touch-icon expect.
+# Draws the same location-pin mark used in Lugares/index.html's header (a teardrop pin with a
+# hollow dot), filled solid on the accent background, at every size the manifest/apple-touch-icon
+# expect.
 $sizes = @{
     "icon-180.png" = 180
     "icon-192.png" = 192
@@ -25,19 +26,17 @@ foreach ($name in $sizes.Keys) {
     $pen = New-Object System.Drawing.Pen $fg, $stroke
     $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $pen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
 
     $u = $size / 24.0
-    # Fork: two tines + shaft (path "M8 3v7a2.5 2.5 0 005 0V3" + "M10.5 10v11")
-    $g.DrawLine($pen, 8*$u, 3*$u, 8*$u, 10*$u)
-    $g.DrawLine($pen, 13*$u, 3*$u, 13*$u, 10*$u)
-    $g.DrawArc($pen, (8*$u), (7.5*$u), (5*$u), (5*$u), 0, 180)
-    $g.DrawLine($pen, 10.5*$u, 10*$u, 10.5*$u, 21*$u)
-    # Spoon-ish knife: "M17 3c-1.7 0-3 2-3 5.5S15.3 14 17 14v8"
+    # Pin: "M12 21s-7-7.75-7-12.5A7 7 0 1119 8.5C19 13.25 12 21 12 21z" + circle at (12, 8.5) r=2.5
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $path.AddBezier(17*$u, 3*$u,  15.3*$u, 3*$u,  14*$u, 5*$u,  14*$u, 8.5*$u)
-    $path.AddBezier(14*$u, 8.5*$u, 14*$u, 12*$u, 15.3*$u, 14*$u, 17*$u, 14*$u)
+    $path.AddArc((5*$u), (1.5*$u), (14*$u), (14*$u), 180, 180)
+    $path.AddLine(19*$u, 8.5*$u, 12*$u, 21*$u)
+    $path.AddLine(12*$u, 21*$u, 5*$u, 8.5*$u)
+    $path.CloseFigure()
     $g.DrawPath($pen, $path)
-    $g.DrawLine($pen, 17*$u, 14*$u, 17*$u, 22*$u)
+    $g.DrawEllipse($pen, 9.5*$u, 6*$u, 5*$u, 5*$u)
 
     $bmp.Save((Join-Path $outDir $name), [System.Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose()
