@@ -1074,7 +1074,7 @@
     </div>
 
     <div class="page-section" id="pageDebito">
-      <div class="summary-group-label">Saldo hoje no débito</div>
+      <div class="summary-group-label" id="saldoGroupLabel">Saldo hoje no débito</div>
       <div class="summary">
         <div class="sum-card">
           <span class="k">Débito Fachera</span>
@@ -3688,20 +3688,21 @@
     var v = (it.rec && it.rec.valorReal !== null && it.rec.valorReal !== undefined) ? it.rec.valorReal : it.app;
     return Math.max(0, v);
   }
-  // Saldo de hoje nas contas do débito, por pessoa (Fachero = Andrés, Fachera = Gabriela): o mais recente de
-  // cada um. O antigo "saldo" único (total) só vale enquanto não houver o saldo por pessoa.
-  function latestSaldoRec(item){
+  // Saldo nas contas do débito por mês, por pessoa (Fachero = Andrés, Fachera = Gabriela): o mais recente
+  // informado dentro do mês. No mês corrente é o saldo de hoje; num mês passado, o do fechamento. O antigo
+  // "saldo" único (total) só vale enquanto não houver o saldo por pessoa.
+  function latestSaldoRec(item, mes){
     var best = null;
     state.cuentas.records.forEach(function(r){
-      if (r.item !== item) return;
+      if (r.item !== item || r.mes !== mes) return;
       if (!best || (r.pagoEm || "") > (best.pagoEm || "")) best = r;
     });
     return best;
   }
-  function getSaldoDebito(){
-    var fo = latestSaldoRec("saldo:fachero"), fa = latestSaldoRec("saldo:fachera");
+  function getSaldoDebito(mes){
+    var fo = latestSaldoRec("saldo:fachero", mes), fa = latestSaldoRec("saldo:fachera", mes);
     if (!fo && !fa){
-      var legacy = latestSaldoRec("saldo");
+      var legacy = latestSaldoRec("saldo", mes);
       return {fachero: null, fachera: null, total: legacy ? legacy.valorReal : null, asOf: legacy ? legacy.pagoEm : null};
     }
     var total = (fo ? (fo.valorReal || 0) : 0) + (fa ? (fa.valorReal || 0) : 0);
@@ -3853,7 +3854,7 @@
     });
 
     // Resumo: pendente, pago, saldo de hoje e quanto sobra depois de pagar o pendente
-    var sd = getSaldoDebito();
+    var sd = getSaldoDebito(mes);
     var saldo = sd.total;
     var queda = saldo === null ? null : saldo - pendiente;
     resumoEl.innerHTML =
@@ -3865,7 +3866,7 @@
           '<span>Saldo nas contas: <span class="num">'+(saldo===null?'—':fmtBRL(saldo))+'</span></span>'+
           '<span>Sobra após pagar o pendente: <span class="num">'+(queda===null?'—':fmtBRL(queda))+'</span></span>'+
         '</div>'+
-        '<p class="cfg-hint" style="margin:8px 0 0;">'+(sd.asOf ? 'Saldo informado em '+serialToDisplay(dateInputToSerial(sd.asOf))+'. ' : 'Informe o saldo em Ingresos/Salidas. ')+'O saldo já é posterior a tudo que está marcado como pago.</p>'+
+        '<p class="cfg-hint" style="margin:8px 0 0;">'+(sd.asOf ? 'Saldo informado em '+serialToDisplay(dateInputToSerial(sd.asOf))+'. ' : 'Sem saldo informado neste mês — informe em Ingresos/Salidas. ')+'O saldo já é posterior a tudo que está marcado como pago.</p>'+
         '<div class="cuentas-actions"><button class="btn btn-sm cu-saldo-go" type="button">Atualizar saldo</button></div>'+
       '</div>';
     resumoEl.querySelector(".cu-saldo-go").addEventListener("click", function(){ setActivePage("debito"); });
@@ -4288,45 +4289,54 @@
   // Duas listas: "Fijos y recurrentes" (Ingreso/Gasto Fijo, herdados cada mês, mais o espelho dos que
   // "geram ingresso") e "Movimientos" (o que realmente se move no débito: variáveis, retiradas e os
   // gastos itemizados dos extratos). Os totais do topo somam as duas.
-  // Saldo de hoje no débito de cada um (Fachera = Gabriela, Fachero = Andrés) e o total.
+  // Saldo no débito de cada um (Fachera = Gabriela, Fachero = Andrés) e o total, do mês que está sendo
+  // visto: no mês corrente é o saldo de hoje; em outro mês, o saldo informado para aquele mês.
+  function getSaldoMesVisto(){
+    var cur = getCurrentRealYM();
+    var ym = filterMonth || cur;
+    return {ym: ym, mes: monthKey(ym), isCurrent: monthsBetween(ym, cur) === 0};
+  }
   function renderSaldoDebitoCards(){
     if (!$("saldoFachera")) return;
-    var sd = getSaldoDebito();
-    var fmt = function(v){ return v === null || v === undefined ? "" : String(v).replace(".", ","); };
+    var v = getSaldoMesVisto();
+    var sd = getSaldoDebito(v.mes);
+    var fmt = function(x){ return x === null || x === undefined ? "" : String(x).replace(".", ","); };
+    $("saldoGroupLabel").textContent = v.isCurrent ? "Saldo hoje no débito" : "Saldo no débito — " + formatMonthLabel(v.ym);
     if (document.activeElement !== $("saldoFachera")) $("saldoFachera").value = fmt(sd.fachera);
     if (document.activeElement !== $("saldoFachero")) $("saldoFachero").value = fmt(sd.fachero);
     $("saldoTotal").textContent = sd.total === null ? "—" : fmtBRL(sd.total);
     $("saldoTotal").classList.toggle("negative", sd.total !== null && sd.total < 0);
     $("saldoHint").textContent = sd.asOf
       ? "Saldo informado em " + serialToDisplay(dateInputToSerial(sd.asOf)) + ", já descontando o que foi pago até então."
-      : "Informe a soma das contas de cada um hoje.";
+      : (v.isCurrent ? "Informe a soma das contas de cada um hoje."
+        : (monthsBetween(getCurrentRealYM(), v.ym) > 0 ? "Mês futuro: ainda não há saldo." : "Sem saldo informado para " + formatMonthLabel(v.ym) + ". Preencha como estava no fim do mês."));
 
-    // Ponte: o saldo de hoje contra o que falta pagar do mês que está sendo visto (sem filtro de mês,
-    // o mês corrente). Num mês já fechado, "a pagar" costuma ser zero: tudo foi pago.
+    // Ponte: o saldo do mês visto contra o que falta pagar desse mês. Num mês já fechado, "a pagar" costuma
+    // ser zero: tudo foi pago.
     var bar = $("saldoPuente");
     if (sd.total === null){ bar.style.display = "none"; return; }
-    var cur = getCurrentRealYM();
-    var ym = filterMonth || cur, mes = monthKey(ym);
-    var r = computeCuentasResumo(mes);
+    var r = computeCuentasResumo(v.mes);
     var sobra = sd.total - r.pendiente;
-    var semMarcas = r.nPagos === 0 && r.pendiente > 0 && monthsBetween(ym, cur) > 0;
+    var semMarcas = r.nPagos === 0 && r.pendiente > 0 && !v.isCurrent && monthsBetween(v.ym, getCurrentRealYM()) > 0;
     bar.className = "cuentas-banner " + (sobra < 0 ? "warn" : "ok");
-    bar.innerHTML = '<span>Saldo <b>' + fmtBRL(sd.total) + '</b> − a pagar de ' + escapeHtml(formatMonthLabel(ym)) + ' <b>' + fmtBRL(r.pendiente) +
+    bar.innerHTML = '<span>Saldo <b>' + fmtBRL(sd.total) + '</b> − a pagar de ' + escapeHtml(formatMonthLabel(v.ym)) + ' <b>' + fmtBRL(r.pendiente) +
       '</b> <small>(faturas + fixos pendentes; já pago ' + fmtBRL(r.pagado) + (semMarcas ? '; nenhum pagamento marcado neste mês' : '') + ')</small> = ' +
       (sobra < 0 ? '<b>faltam ' + fmtBRL(-sobra) + '</b>' : '<b>sobram ' + fmtBRL(sobra) + '</b>') + '</span>' +
       '<button class="btn btn-sm" id="saldoPuenteGo" type="button">Ver contas</button>';
     $("saldoPuenteGo").addEventListener("click", function(){
-      if (!filterMonth){ filterMonth = cur; onMonthChanged(); }
+      if (!filterMonth){ filterMonth = v.ym; onMonthChanged(); }
       setActivePage("cuentas");
     });
     bar.style.display = "flex";
   }
+  // Ao editar, o saldo fica no mês visto: hoje, se for o mês corrente; senão o último dia desse mês.
   function saveSaldoPessoa(item, inputEl){
     var txt = inputEl.value.trim();
-    var v = txt === "" ? null : parseAmountInput(txt);
-    if (v !== null && !isFinite(v)){ showError("Saldo inválido."); return; }
-    var hoje = todayInputValue();
-    saveCuenta(hoje.slice(0,7), "", {valorReal: v === null ? null : Math.round(v*100)/100, pagoEm: hoje}, item);
+    var val = txt === "" ? null : parseAmountInput(txt);
+    if (val !== null && !isFinite(val)){ showError("Saldo inválido."); return; }
+    var v = getSaldoMesVisto();
+    var quando = v.isCurrent ? todayInputValue() : (v.mes + "-" + String(new Date(v.ym.year, v.ym.month, 0).getDate()).padStart(2, "0"));
+    saveCuenta(v.mes, "", {valorReal: val === null ? null : Math.round(val*100)/100, pagoEm: quando}, item);
   }
   $("saldoFachera").addEventListener("change", function(){ saveSaldoPessoa("saldo:fachera", this); });
   $("saldoFachero").addEventListener("change", function(){ saveSaldoPessoa("saldo:fachero", this); });
