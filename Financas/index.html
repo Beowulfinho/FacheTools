@@ -1208,11 +1208,19 @@
     <div class="page-section" id="pageCuentas">
       <div id="cuentasBanner"></div>
       <div class="panel" style="margin-top:18px;">
-        <div class="panel-head"><h2>1 · Faturas dos cartões</h2></div>
+        <div class="panel-head"><h2>Resumo do mês</h2></div>
+        <div class="cuentas-list" id="cuentasResumen"></div>
+      </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head"><h2>Faturas dos cartões</h2></div>
         <div class="cuentas-list" id="cuentasCartoes"></div>
       </div>
       <div class="panel" style="margin-top:18px;">
-        <div class="panel-head"><h2>2 · Débito (ingressos e saídas)</h2></div>
+        <div class="panel-head"><h2>Gastos fixos a pagar</h2></div>
+        <div class="cuentas-list" id="cuentasFijos"></div>
+      </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head"><h2>Débito (ingressos e saídas)</h2></div>
         <div class="cuentas-list" id="cuentasDebito"></div>
       </div>
     </div>
@@ -2241,7 +2249,11 @@
           mes: rec.mes, cartao_id: rec.cartao ? idByName("cartoes", rec.cartao) : null,
           valor_real: (rec.valorReal===null || rec.valorReal===undefined) ? null : rec.valorReal,
           conferido: !!rec.conferido,
-          conferido_at: rec.conferido ? new Date().toISOString() : null
+          conferido_at: rec.conferido ? new Date().toISOString() : null,
+          item: rec.item || null,
+          pago: !!rec.pago,
+          valor_pago: (rec.valorPago === null || rec.valorPago === undefined) ? null : rec.valorPago,
+          pago_em: rec.pagoEm || null
         };
     }
   }
@@ -2438,7 +2450,8 @@
       });
 
       var cuentas = cuentasRows.map(function(r){
-        return {row:r.id, mes:r.mes, cartao: r.cartao_id ? (cartaoNameById[r.cartao_id] || "") : "", valorReal: (r.valor_real===null || r.valor_real===undefined) ? null : Number(r.valor_real), conferido: !!r.conferido};
+        return {row:r.id, mes:r.mes, cartao: r.cartao_id ? (cartaoNameById[r.cartao_id] || "") : "", valorReal: (r.valor_real===null || r.valor_real===undefined) ? null : Number(r.valor_real), conferido: !!r.conferido,
+          item: r.item || "", pago: !!r.pago, valorPago: (r.valor_pago === null || r.valor_pago === undefined) ? null : Number(r.valor_pago), pagoEm: r.pago_em || null};
       });
 
       // Linhas marcadas como previsão são hipotéticas: ficam fora do resto do app e só a página
@@ -3560,19 +3573,21 @@
     $("limiteCalendarBody").innerHTML = bodyHtml;
   }
 
-  // ---------- Cuentas (Hacer cuentas, paso 1: cargar todo) ----------
-  // Checklist por mês: cada cartão precisa ter a fatura do app batendo com a fatura real do banco
-  // (valor real digitado ou vindo do CSV) e o débito do mês precisa estar marcado como completo.
-  // Um mês "fechado" = todos os itens com movimento conferidos; editar dados dele avisa antes.
+  // ---------- Cuentas (Hacer cuentas) ----------
+  // Por mês: o que precisa ser pago (faturas dos cartões e gastos fixos), o que já foi pago, o saldo
+  // de hoje nas contas e quanto sobra depois de pagar o pendente. Cada fatura também se confere contra
+  // o valor real do banco, e o débito do mês se marca completo. Um mês "fechado" = tudo conferido;
+  // editar dados dele avisa antes.
   function ymFromKey(key){
     var p = String(key).split("-");
     return {year: parseInt(p[0],10), month: parseInt(p[1],10)};
   }
-  function findCuenta(mes, cartaoNome){
-    var cn = cartaoNome || "";
+  // item: "" = cartão ou o débito do mês; "fijo:<descrição>|<pessoa>" = gasto fixo; "saldo" = saldo informado.
+  function findCuenta(mes, cartaoNome, item){
+    var cn = cartaoNome || "", it = item || "";
     for (var i=0;i<state.cuentas.records.length;i++){
       var r = state.cuentas.records[i];
-      if (r.mes === mes && (r.cartao||"") === cn) return r;
+      if (r.mes === mes && (r.cartao||"") === cn && (r.item||"") === it) return r;
     }
     return null;
   }
@@ -3608,15 +3623,37 @@
     });
     return {count:count, ingresos:ingresos, gastos:gastos, lastSerial:last};
   }
-  // Itens do checklist de um mês: cartões com movimento (ou com registro) + o débito.
+  // Itens do checklist de um mês: cartões com movimento (ou com registro).
   function getCuentasItems(mes){
     var totals = getFaturaAppTotals(ymFromKey(mes));
-    var items = state.cartoes.records.slice().sort(function(a,b){ return a.nome.localeCompare(b.nome); }).map(function(c){
+    return state.cartoes.records.slice().sort(function(a,b){ return a.nome.localeCompare(b.nome); }).map(function(c){
       var rec = findCuenta(mes, c.nome);
       var app = totals[c.nome] || 0;
       return {kind:"cartao", nome:c.nome, app:app, rec:rec, active: Math.abs(app) >= 0.005 || !!rec};
     });
-    return items;
+  }
+  // Gastos fixos do mês (inclusive os herdados) que precisam ser pagos.
+  function getCuentasFijos(mes){
+    return getDebitoForMonthKey(mes).filter(function(r){ return r.tipo === "Gasto Fijo" && !r.out; }).map(function(r){
+      var key = "fijo:" + r.descricao + "|" + (r.pessoa || "");
+      return {key: key, descricao: r.descricao, pessoa: r.pessoa || "", valor: r.valor || 0, rec: findCuenta(mes, "", key)};
+    }).sort(function(a, b){ return b.valor - a.valor; });
+  }
+  function cuentaCardAmount(it){
+    var v = (it.rec && it.rec.valorReal !== null && it.rec.valorReal !== undefined) ? it.rec.valorReal : it.app;
+    return Math.max(0, v);
+  }
+  function getSaldoInformado(){
+    var best = null;
+    state.cuentas.records.forEach(function(r){
+      if (r.item !== "saldo") return;
+      if (!best || (r.pagoEm || "") > (best.pagoEm || "")) best = r;
+    });
+    return best;
+  }
+  function todayInputValue(){
+    var t = new Date();
+    return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
   }
   function isMesCerrado(mes){
     var deb = findCuenta(mes, "");
@@ -3625,7 +3662,7 @@
   }
   function getMesesCerradosAfetados(compraRecs){
     var meses = {};
-    state.cuentas.records.forEach(function(r){ meses[r.mes] = true; });
+    state.cuentas.records.forEach(function(r){ if (!r.item) meses[r.mes] = true; });
     return Object.keys(meses).sort().filter(function(mes){
       if (!isMesCerrado(mes)) return false;
       var ym = ymFromKey(mes);
@@ -3638,12 +3675,15 @@
     return window.confirm("Atenção: o mês " + labels + " já foi fechado em Cuentas (faturas e débito conferidos). Esta alteração muda os valores desse mês.\n\nSalvar mesmo assim?");
   }
 
-  function saveCuenta(mes, cartaoNome, patch){
-    var existing = findCuenta(mes, cartaoNome);
+  function saveCuenta(mes, cartaoNome, patch, item){
+    var existing = findCuenta(mes, cartaoNome, item);
     var rec = {
-      mes: mes, cartao: cartaoNome || "",
+      mes: mes, cartao: cartaoNome || "", item: item || "",
       valorReal: existing ? existing.valorReal : null,
-      conferido: existing ? existing.conferido : false
+      conferido: existing ? existing.conferido : false,
+      pago: existing ? existing.pago : false,
+      valorPago: existing ? existing.valorPago : null,
+      pagoEm: existing ? existing.pagoEm : null
     };
     Object.keys(patch).forEach(function(k){ rec[k] = patch[k]; });
     return saveTableRow("cuentas_mes", existing ? "update" : "insert", existing ? existing.row : null, rec)
@@ -3656,15 +3696,17 @@
   function renderCuentasPage(){
     var listEl = $("cuentasCartoes");
     if (!listEl) return;
-    var debEl = $("cuentasDebito"), banner = $("cuentasBanner");
+    var debEl = $("cuentasDebito"), banner = $("cuentasBanner"), resumoEl = $("cuentasResumen"), fijosEl = $("cuentasFijos");
     if (!filterMonth){
-      banner.innerHTML = '<div class="cuentas-banner">Selecione um mês específico (botão "Mês atual" acima) para fazer as contas.</div>';
-      listEl.innerHTML = ""; debEl.innerHTML = "";
+      banner.innerHTML = '<div class="cuentas-banner">Selecione um mês específico (botão "Mês atual" acima) para ver as contas do mês.</div>';
+      listEl.innerHTML = ""; debEl.innerHTML = ""; resumoEl.innerHTML = ""; fijosEl.innerHTML = "";
       return;
     }
     var mes = monthKey(filterMonth);
     var items = getCuentasItems(mes);
+    var fijos = getCuentasFijos(mes);
     var total = 0, done = 0, html = "";
+    var pendiente = 0, pagado = 0, nPagos = 0, nPagosTotal = 0;
 
     items.forEach(function(it, i){
       var rec = it.rec;
@@ -3672,14 +3714,22 @@
       var diff = (real === null || real === undefined) ? null : (it.app - real);
       var match = diff !== null && Math.abs(diff) < 0.01;
       var conferido = !!(rec && rec.conferido);
-      if (it.active){ total++; if (conferido) done++; }
+      var pago = !!(rec && rec.pago);
+      var amt = cuentaCardAmount(it);
+      if (it.active){
+        total++; if (conferido) done++;
+        nPagosTotal++;
+        if (pago){ nPagos++; pagado += (rec.valorPago !== null && rec.valorPago !== undefined) ? rec.valorPago : amt; }
+        else pendiente += amt;
+      }
       var cls = !it.active ? "idle" : (conferido ? "ok" : (diff !== null && !match ? "warn" : ""));
       var tag = !it.active ? "Sem movimento neste mês"
         : conferido ? "✔ Conferida"
         : diff === null ? "Falta a fatura real"
         : match ? "Bate — falta conferir" : "Não bate";
+      var pagoTag = !it.active ? "" : (pago ? '<span class="tag-auto">paga' + (rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(rec.pagoEm)) : '') + '</span>' : '<span class="tag-auto" style="background:var(--warn-soft);color:var(--warn);">a pagar</span>');
       html += '<div class="cuentas-card '+cls+'" data-i="'+i+'">'+
-        '<div class="cuentas-head"><span class="name">'+escapeHtml(it.nome)+'</span><span class="tag">'+tag+'</span></div>'+
+        '<div class="cuentas-head"><span class="name">'+escapeHtml(it.nome)+pagoTag+'</span><span class="tag">'+tag+'</span></div>'+
         '<div class="cuentas-figs">'+
           '<span>App: <span class="num">'+fmtBRL(it.app)+'</span></span>'+
           '<span>Fatura real: <input type="text" inputmode="decimal" class="cu-real" placeholder="0,00" value="'+(real===null||real===undefined?'':String(real).replace(".",","))+'"></span>'+
@@ -3688,6 +3738,7 @@
         '<div class="cuentas-actions">'+
           '<button class="btn btn-sm cu-import" type="button">Importar fatura (CSV)</button>'+
           '<button class="btn btn-sm '+(conferido?'':'btn-primary')+' cu-conf" type="button">'+(conferido?'Reabrir':'Marcar conferida')+'</button>'+
+          (it.active ? '<button class="btn btn-sm '+(pago?'':'btn-primary')+' cu-pago" type="button">'+(pago?'Desmarcar pago':'Marcar paga ('+fmtBRL(amt)+')')+'</button>' : '')+
         '</div></div>';
     });
     listEl.innerHTML = html;
@@ -3715,6 +3766,56 @@
         if (Math.abs(d) >= 0.01 && !window.confirm("A fatura do app difere da real em " + fmtBRL(d) + ". Marcar como conferida mesmo assim?")) return;
         saveCuenta(mes, it.nome, {conferido: true});
       });
+      var pagoBtn = cardEl.querySelector(".cu-pago");
+      if (pagoBtn) pagoBtn.addEventListener("click", function(){
+        if (it.rec && it.rec.pago) saveCuenta(mes, it.nome, {pago: false, valorPago: null, pagoEm: null});
+        else saveCuenta(mes, it.nome, {pago: true, valorPago: Math.round(cuentaCardAmount(it)*100)/100, pagoEm: todayInputValue()});
+      });
+    });
+
+    // Gastos fixos a pagar
+    var fhtml = "";
+    fijos.forEach(function(f, i){
+      var pago = !!(f.rec && f.rec.pago);
+      nPagosTotal++;
+      if (pago){ nPagos++; pagado += (f.rec.valorPago !== null && f.rec.valorPago !== undefined) ? f.rec.valorPago : f.valor; }
+      else pendiente += f.valor;
+      fhtml += '<div class="cuentas-card '+(pago?'ok':'')+'" data-f="'+i+'">'+
+        '<div class="cuentas-head"><span class="name">'+escapeHtml(f.descricao)+(f.pessoa ? ' <small style="color:var(--ink-faint);">· '+escapeHtml(f.pessoa)+'</small>' : '')+
+          (pago ? '<span class="tag-auto">paga' + (f.rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(f.rec.pagoEm)) : '') + '</span>' : '<span class="tag-auto" style="background:var(--warn-soft);color:var(--warn);">a pagar</span>')+'</span>'+
+          '<span class="num">'+fmtBRL(f.valor)+'</span></div>'+
+        '<div class="cuentas-actions"><button class="btn btn-sm '+(pago?'':'btn-primary')+' cu-fijo-pago" type="button">'+(pago?'Desmarcar pago':'Marcar paga')+'</button></div></div>';
+    });
+    fijosEl.innerHTML = fhtml || '<div class="empty" style="padding:20px 4px;">Nenhum gasto fixo neste mês.</div>';
+    fijosEl.querySelectorAll(".cuentas-card").forEach(function(cardEl){
+      var f = fijos[parseInt(cardEl.getAttribute("data-f"),10)];
+      cardEl.querySelector(".cu-fijo-pago").addEventListener("click", function(){
+        if (f.rec && f.rec.pago) saveCuenta(mes, "", {pago: false, valorPago: null, pagoEm: null}, f.key);
+        else saveCuenta(mes, "", {pago: true, valorPago: Math.round(f.valor*100)/100, pagoEm: todayInputValue()}, f.key);
+      });
+    });
+
+    // Resumo: pendente, pago, saldo de hoje e quanto sobra depois de pagar o pendente
+    var saldoRec = getSaldoInformado();
+    var saldo = saldoRec ? saldoRec.valorReal : null;
+    var queda = saldo === null ? null : saldo - pendiente;
+    resumoEl.innerHTML =
+      '<div class="cuentas-card '+(queda !== null && queda < 0 ? 'warn' : (queda !== null ? 'ok' : ''))+'">'+
+        '<div class="cuentas-head"><span class="name">Contas de '+escapeHtml(formatMonthLabel(filterMonth))+'</span><span class="tag">'+nPagos+' de '+nPagosTotal+' pagas</span></div>'+
+        '<div class="cuentas-figs">'+
+          '<span>A pagar: <span class="num">'+fmtBRL(pendiente)+'</span></span>'+
+          '<span>Já pago: <span class="num">'+fmtBRL(pagado)+'</span></span>'+
+          '<span>Saldo nas contas: <input type="text" inputmode="decimal" class="cu-saldo" placeholder="0,00" value="'+(saldo===null?'':String(saldo).replace(".",","))+'"></span>'+
+          '<span>Sobra após pagar o pendente: <span class="num">'+(queda===null?'—':fmtBRL(queda))+'</span></span>'+
+        '</div>'+
+        '<p class="cfg-hint" style="margin:8px 0 0;">'+(saldoRec && saldoRec.pagoEm ? 'Saldo informado em '+serialToDisplay(dateInputToSerial(saldoRec.pagoEm))+'. ' : 'Informe a soma das contas hoje. ')+'O saldo já é posterior a tudo que está marcado como pago.</p>'+
+      '</div>';
+    resumoEl.querySelector(".cu-saldo").addEventListener("change", function(){
+      var txt = this.value.trim();
+      var v = txt === "" ? null : parseAmountInput(txt);
+      if (v !== null && !isFinite(v)){ showError("Saldo inválido."); return; }
+      var hoje = todayInputValue();
+      saveCuenta(hoje.slice(0,7), "", {valorReal: v === null ? null : Math.round(v*100)/100, pagoEm: hoje}, "saldo");
     });
 
     var st = getDebitoStats(mes);

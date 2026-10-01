@@ -92,32 +92,31 @@ Por tarjeta: total app vs. total real; compras que faltan (nuevas); las que ya e
 `comerciante` + `data` + valor → no insertar); y lo que sobra en el app sin contraparte (posible
 duplicado o tarjeta equivocada: **avisar, no borrar**).
 
-### 4. Conciliar el saldo de débito de hoy
-Objetivo: que el app refleje si **ya se gastó plata del salario** que el app todavía cree intacta.
+### 4. Estado de pagos y saldo de hoy (página Cuentas)
+Los meses cerrados **no se comparan**: un mes cerrado ya se pagó entero y el saldo de hoy es **posterior** a esos
+pagos. Lo que importa es qué del mes que se está pagando ya se pagó y qué falta. La página **Cuentas** del app lo
+guarda en `cuentas_mes`:
+- **Facturas de tarjeta**: fila `(mes, cartao_id)` con `valor_real` (total del banco), `conferido`, `pago`, `valor_pago`
+  y `pago_em`. Un `pago = true` significa que ya salió la plata de las cuentas.
+- **Gastos fijos** (Aluguel, Servicios, Claro, PUC…): fila con `item = 'fijo:<descripción>|<persona>'` y `pago`.
+  Recordar: aluguel + servicios se pagan el **día 1** y la PUC el **día 10**.
+- **Saldo de hoy**: fila con `item = 'saldo'`, `valor_real` = suma de las cuentas y `pago_em` = fecha del saldo
+  (mes = mes calendario de hoy). Es el total de todas las cuentas (Nubank AJ, Nubank Gab, Bradesco de Gab…); un
+  número suelto que den es esto.
+- **Débito del mes completo**: fila `item` null y `cartao_id` null con `conferido`.
 
-1. Con la regla del calendario, calcular el **salario del mes siguiente ya recibido** (S): suma de las
-   filas de ingreso del mes *m+1* que ya cayeron según la fecha de hoy (40% el día 15, 60% el último día
-   útil). Los porcentajes "40%/60%" son solo el momento del pago, no una proporción real: los importes
-   son los de cada fila (Gabriela: R$ 1.400,00 el día 15 y R$ 1.736,42 el último día útil; Fachero:
-   R$ 960,00 y R$ 1.210,00). Si hay un extracto de la cuenta, **usar los depósitos reales**
-   ("TRANSF SALDO C/SAL P/CC" en Bradesco, transferencias desde Santander) y avisar si difieren del app.
-   Si una fila de salario no trae porcentaje, preguntar cómo se reparte. "Plata Padres" entra con el valor del app (mínimo 1.300) o con
-   el monto exacto si el usuario lo da. Mostrar S y confirmarlo.
-2. **Saldo del mes en curso** `L = saldo de hoy − S`: lo que queda de la plata del mes *m*.
-   (Si hoy aún no pasó el vencimiento de alguna factura de *m*, esa factura sigue saliendo de L.)
-3. Lo que el app espera de *m*: `restante(m)` de `renderDashboard`
-   (`balance − totalCompras − diario − investimento + adiantamentosNet`; las reservas ya no existen: ahora son Previsões). Con los extractos de débito ya
-   itemizados (4b), `restante` incluye el gasto real de débito, así que se compara `L` directamente
-   con `restante` (sin rango por el diario):
-   - `L ≈ restante` → **consistente**, no hay nada que registrar.
-   - `L < restante` → se gastó plata que el app no conoce (falta un extracto de otra cuenta o un gasto
-     en efectivo): **pedir el extracto de esa cuenta**; solo como último recurso, y con el "ok" del
-     usuario, una fila `Gasto Variable` "Gasto no identificado hasta DD/MM" por la diferencia.
-   - `L > restante` → sobra plata sin explicar (ingreso no registrado o arrastre de meses anteriores):
-     **no registrar nada**, mostrar el excedente y preguntar de dónde viene.
-4. Al terminar, marcar el débito de *m* como completo en `cuentas_mes`.
-- Esta regla es la primera versión: tras la primera ejecución real, ajustar aquí lo que haya
-  salido distinto (arrastre de meses anteriores, inversión, etc.).
+Procedimiento:
+1. Preguntar (o deducir de los extractos/mensajes) **qué ya se pagó del mes en curso** y marcarlo (`pago = true`,
+   `valor_pago`, `pago_em`). Lo pagado hasta la fecha del saldo ya está descontado del saldo.
+2. Guardar el **saldo de hoy** con su fecha.
+3. Calcular `A pagar` = suma de facturas (valor real si lo hay, si no el del app) y fijos **no pagados**; la
+   **sobra tras pagar lo pendiente** = saldo − A pagar. Esa sobra debe cubrir el diario del mes; si es negativa,
+   avisar cuánto falta y de qué mes sale (el salario que cae el día 15 financia el mes siguiente).
+4. No usar `restante(m)` del Dashboard como referencia del saldo: el saldo real manda. Si hay una inconsistencia
+   fuerte entre el app y los extractos, mostrar el detalle (facturas pagadas vs. valor del app, transferencias
+   internas) y preguntar, sin plugs.
+- El salario ya recibido del mes siguiente sigue en el saldo; no se resta, porque lo que se compara ahora es contra
+  lo pendiente del mes en curso (el salario de un mes financia el siguiente).
 
 ### 4b. Extractos de débito: cada gasto visible en el app
 Desde ahora los gastos de débito **no se resumen en un "gasto variable"**: cada movimiento del extracto
