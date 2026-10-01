@@ -984,6 +984,7 @@
           <span class="month-stepper-label" id="fMonthLabel">Todos os meses</span>
           <button class="btn btn-ghost btn-sm" id="fMonthNext" type="button" aria-label="Próximo mês">›</button>
         </div>
+        <span class="tag-auto" id="fMonthClosedTag" style="display:none;" title="O mês já terminou: tudo foi pago e o saldo é o do fechamento">fechado</span>
         <button class="btn btn-ghost btn-sm" id="fMonthToday" type="button">Mês atual</button>
         <button class="btn btn-ghost btn-sm" id="fMonthClear" type="button" style="display:none;">Todos os meses</button>
       </div>
@@ -1092,7 +1093,11 @@
       <p class="cfg-hint" id="saldoHint" style="margin:-8px 2px 10px;"></p>
       <div class="cuentas-banner" id="saldoPuente" style="margin:0 0 18px; display:none;"></div>
       <div class="summary-group-label">Movimentos do mês</div>
-      <div class="summary">
+      <div class="summary summary-4col">
+        <div class="sum-card">
+          <span class="k" id="debSobranteLabel">Sobrante do mês anterior (real)</span>
+          <div class="v num" id="debSobrante">—</div>
+        </div>
         <div class="sum-card">
           <span class="k">Ingresos do mês</span>
           <div class="v num" id="debIngresos">R$ 0,00</div>
@@ -1102,10 +1107,11 @@
           <div class="v num" id="debGastos">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Balance planejado do mês</span>
+          <span class="k">Balance do mês (com sobrante)</span>
           <div class="v num" id="debBalance">R$ 0,00</div>
         </div>
       </div>
+      <p class="cfg-hint" id="debSobranteHint" style="margin:-8px 2px 14px;"></p>
       <div class="bulk-bar" id="debitoBulkBar" style="display:none;">
         <span id="debitoBulkCount">0 selecionadas</span>
         <button class="btn btn-sm btn-danger" id="debitoBulkDelete" type="button">Excluir selecionadas</button>
@@ -2193,6 +2199,7 @@
   function renderMonthLabel(){
     $("fMonthLabel").textContent = formatMonthLabel(filterMonth);
     $("fMonthClear").style.display = filterMonth ? "inline-flex" : "none";
+    $("fMonthClosedTag").style.display = (filterMonth && monthsBetween(filterMonth, getCurrentRealYM()) > 0) ? "inline-flex" : "none";
   }
   function onMonthChanged(){
     renderMonthLabel();
@@ -3681,18 +3688,20 @@
   }
   // A pagar / já pago de um mês: faturas dos cartões (valor real se houver, senão o do app) e gastos fixos.
   function computeCuentasResumo(mes){
-    var pendCartoes = 0, pendFijos = 0, pagado = 0, nPagos = 0;
+    var pendCartoes = 0, pendFijos = 0, pagado = 0, nPagos = 0, fechado = isMesFechadoAuto(mes);
     getCuentasItems(mes).forEach(function(it){
       if (!it.active) return;
       var amt = cuentaCardAmount(it);
       if (it.rec && it.rec.pago){ nPagos++; pagado += (it.rec.valorPago !== null && it.rec.valorPago !== undefined) ? it.rec.valorPago : amt; }
+      else if (fechado){ nPagos++; pagado += amt; }
       else pendCartoes += amt;
     });
     getCuentasFijos(mes).forEach(function(f){
       if (f.rec && f.rec.pago){ nPagos++; pagado += (f.rec.valorPago !== null && f.rec.valorPago !== undefined) ? f.rec.valorPago : f.valor; }
+      else if (fechado){ nPagos++; pagado += f.valor; }
       else pendFijos += f.valor;
     });
-    return {pendiente: pendCartoes + pendFijos, pendCartoes: pendCartoes, pendFijos: pendFijos, pagado: pagado, nPagos: nPagos};
+    return {pendiente: pendCartoes + pendFijos, pendCartoes: pendCartoes, pendFijos: pendFijos, pagado: pagado, nPagos: nPagos, fechado: fechado};
   }
   function cuentaCardAmount(it){
     var v = (it.rec && it.rec.valorReal !== null && it.rec.valorReal !== undefined) ? it.rec.valorReal : it.app;
@@ -3723,24 +3732,47 @@
     var t = new Date();
     return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
   }
+  // Um mês que já terminou no calendário está fechado: tudo foi pago e o saldo é o do fechamento.
+  function isMesFechadoAuto(mes){
+    return monthsBetween(ymFromKey(mes), getCurrentRealYM()) > 0;
+  }
+  // O que sobrou DE VERDADE do mês anterior para este: o saldo do fim do mês anterior menos os ingressos deste mês que
+  // já tinham caído (esse salário é plata do mês, já contada nos ingressos dele; contá-la de novo seria duplicar).
+  function getSobranteReal(mes){
+    var prev = monthKey(addMonths(ymFromKey(mes), -1));
+    var sd = getSaldoDebito(prev);
+    if (sd.total === null) return null;
+    var ing = 0;
+    getDebitoForMonthKey(mes).forEach(function(r){
+      if (!r.out && INGRESO_TIPOS.indexOf(r.tipo) !== -1) ing += (r.valor || 0);
+    });
+    return {valor: sd.total - ing, saldoPrev: sd.total, ingresos: ing, prevKey: prev};
+  }
   function isMesCerrado(mes){
     var deb = findCuenta(mes, "");
     if (!deb || !deb.conferido) return false;
     return getCuentasItems(mes).every(function(it){ return !it.active || (it.rec && it.rec.conferido); });
   }
   function getMesesCerradosAfetados(compraRecs){
-    var meses = {};
-    state.cuentas.records.forEach(function(r){ if (!r.item) meses[r.mes] = true; });
-    return Object.keys(meses).sort().filter(function(mes){
-      if (!isMesCerrado(mes)) return false;
-      var ym = ymFromKey(mes);
-      return compraRecs.some(function(r){ return r && r.dataSerial && getCompraScheduleForMonth(r, ym).length > 0; });
+    var cur = getCurrentRealYM(), out = [];
+    var recs = compraRecs.filter(function(r){ return r && r.dataSerial; });
+    if (!recs.length) return out;
+    var first = null;
+    recs.forEach(function(r){
+      var st = getFaturaStartYM(r.dataSerial, r.cartao);
+      if (!first || monthsBetween(st, first) > 0) first = st;
     });
+    for (var ym = first; monthsBetween(ym, cur) > 0; ym = addMonths(ym, 1)){
+      var mes = monthKey(ym);
+      if (!(isMesCerrado(mes) || isMesFechadoAuto(mes))) continue;
+      if (recs.some(function(r){ return getCompraScheduleForMonth(r, ym).length > 0; })) out.push(mes);
+    }
+    return out;
   }
   function confirmEditMesesCerrados(meses){
     if (!meses.length) return true;
-    var labels = meses.map(function(m){ return formatMonthLabel(ymFromKey(m)); }).join(", ");
-    return window.confirm("Atenção: o mês " + labels + " já foi fechado em Cuentas (faturas e débito conferidos). Esta alteração muda os valores desse mês.\n\nSalvar mesmo assim?");
+    var labels = meses.slice(0, 3).map(function(m){ return formatMonthLabel(ymFromKey(m)); }).join(", ") + (meses.length > 3 ? " e mais " + (meses.length - 3) : "");
+    return window.confirm("Atenção: " + (meses.length > 1 ? "os meses" : "o mês") + " " + labels + " já " + (meses.length > 1 ? "estão fechados" : "está fechado") + ". Esta alteração muda os valores " + (meses.length > 1 ? "desses meses" : "desse mês") + ".\n\nSalvar mesmo assim?");
   }
 
   function saveCuenta(mes, cartaoNome, patch, item){
@@ -3771,6 +3803,7 @@
       return;
     }
     var mes = monthKey(filterMonth);
+    var fechado = isMesFechadoAuto(mes);
     var items = getCuentasItems(mes);
     var fijos = getCuentasFijos(mes);
     var total = 0, done = 0, html = "";
@@ -3782,12 +3815,13 @@
       var diff = (real === null || real === undefined) ? null : (it.app - real);
       var match = diff !== null && Math.abs(diff) < 0.01;
       var conferido = !!(rec && rec.conferido);
-      var pago = !!(rec && rec.pago);
+      var pagoReal = !!(rec && rec.pago);
+      var pago = fechado || pagoReal;
       var amt = cuentaCardAmount(it);
       if (it.active){
         total++; if (conferido) done++;
         nPagosTotal++;
-        if (pago){ nPagos++; pagado += (rec.valorPago !== null && rec.valorPago !== undefined) ? rec.valorPago : amt; }
+        if (pago){ nPagos++; pagado += (pagoReal && rec.valorPago !== null && rec.valorPago !== undefined) ? rec.valorPago : amt; }
         else pendiente += amt;
       }
       var cls = !it.active ? "idle" : (conferido ? "ok" : (diff !== null && !match ? "warn" : ""));
@@ -3795,7 +3829,7 @@
         : conferido ? "✔ Conferida"
         : diff === null ? "Falta a fatura real"
         : match ? "Bate — falta conferir" : "Não bate";
-      var pagoTag = !it.active ? "" : (pago ? '<span class="tag-auto">paga' + (rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(rec.pagoEm)) : '') + '</span>' : '<span class="tag-auto" style="background:var(--warn-soft);color:var(--warn);">a pagar</span>');
+      var pagoTag = !it.active ? "" : (pago ? '<span class="tag-auto">paga' + (rec && rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(rec.pagoEm)) : (fechado ? ' (mês fechado)' : '')) + '</span>' : '<span class="tag-auto" style="background:var(--warn-soft);color:var(--warn);">a pagar</span>');
       html += '<div class="cuentas-card '+cls+'" data-i="'+i+'">'+
         '<div class="cuentas-head"><span class="name">'+escapeHtml(it.nome)+pagoTag+'</span><span class="tag">'+tag+'</span></div>'+
         '<div class="cuentas-figs">'+
@@ -3806,7 +3840,7 @@
         '<div class="cuentas-actions">'+
           '<button class="btn btn-sm cu-import" type="button">Importar fatura (CSV)</button>'+
           '<button class="btn btn-sm '+(conferido?'':'btn-primary')+' cu-conf" type="button">'+(conferido?'Reabrir':'Marcar conferida')+'</button>'+
-          (it.active ? '<button class="btn btn-sm '+(pago?'':'btn-primary')+' cu-pago" type="button">'+(pago?'Desmarcar pago':'Marcar paga ('+fmtBRL(amt)+')')+'</button>' : '')+
+          (it.active && !fechado ? '<button class="btn btn-sm '+(pago?'':'btn-primary')+' cu-pago" type="button">'+(pago?'Desmarcar pago':'Marcar paga ('+fmtBRL(amt)+')')+'</button>' : '')+
         '</div></div>';
     });
     listEl.innerHTML = html;
@@ -3844,20 +3878,22 @@
     // Gastos fixos a pagar
     var fhtml = "";
     fijos.forEach(function(f, i){
-      var pago = !!(f.rec && f.rec.pago);
+      var pagoReal = !!(f.rec && f.rec.pago);
+      var pago = fechado || pagoReal;
       nPagosTotal++;
-      if (pago){ nPagos++; pagado += (f.rec.valorPago !== null && f.rec.valorPago !== undefined) ? f.rec.valorPago : f.valor; }
+      if (pago){ nPagos++; pagado += (pagoReal && f.rec.valorPago !== null && f.rec.valorPago !== undefined) ? f.rec.valorPago : f.valor; }
       else pendiente += f.valor;
       fhtml += '<div class="cuentas-card '+(pago?'ok':'')+'" data-f="'+i+'">'+
         '<div class="cuentas-head"><span class="name">'+escapeHtml(f.descricao)+(f.pessoa ? ' <small style="color:var(--ink-faint);">· '+escapeHtml(f.pessoa)+'</small>' : '')+
-          (pago ? '<span class="tag-auto">paga' + (f.rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(f.rec.pagoEm)) : '') + '</span>' : '<span class="tag-auto" style="background:var(--warn-soft);color:var(--warn);">a pagar</span>')+'</span>'+
+          (pago ? '<span class="tag-auto">paga' + (f.rec && f.rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(f.rec.pagoEm)) : (fechado ? ' (mês fechado)' : '')) + '</span>' : '<span class="tag-auto" style="background:var(--warn-soft);color:var(--warn);">a pagar</span>')+'</span>'+
           '<span class="num">'+fmtBRL(f.valor)+'</span></div>'+
-        '<div class="cuentas-actions"><button class="btn btn-sm '+(pago?'':'btn-primary')+' cu-fijo-pago" type="button">'+(pago?'Desmarcar pago':'Marcar paga')+'</button></div></div>';
+        (fechado ? '</div>' : '<div class="cuentas-actions"><button class="btn btn-sm '+(pago?'':'btn-primary')+' cu-fijo-pago" type="button">'+(pago?'Desmarcar pago':'Marcar paga')+'</button></div></div>');
     });
     fijosEl.innerHTML = fhtml || '<div class="empty" style="padding:20px 4px;">Nenhum gasto fixo neste mês.</div>';
     fijosEl.querySelectorAll(".cuentas-card").forEach(function(cardEl){
       var f = fijos[parseInt(cardEl.getAttribute("data-f"),10)];
-      cardEl.querySelector(".cu-fijo-pago").addEventListener("click", function(){
+      var fBtn = cardEl.querySelector(".cu-fijo-pago");
+      if (fBtn) fBtn.addEventListener("click", function(){
         if (f.rec && f.rec.pago) saveCuenta(mes, "", {pago: false, valorPago: null, pagoEm: null}, f.key);
         else saveCuenta(mes, "", {pago: true, valorPago: Math.round(f.valor*100)/100, pagoEm: todayInputValue()}, f.key);
       });
@@ -3902,7 +3938,8 @@
     debEl.querySelector(".cu-deb-conf").addEventListener("click", function(){ saveCuenta(mes, "", {conferido: !debOk}); });
 
     var all = total > 0 && done === total;
-    banner.innerHTML = '<div class="cuentas-banner '+(all?'ok':'')+'">'+
+    if (fechado) all = false;
+    banner.innerHTML = fechado ? '<div class="cuentas-banner ok"><span><b>Mês fechado</b> — terminou no calendário: tudo foi pago e o saldo é o do fechamento.</span></div>' : '<div class="cuentas-banner '+(all?'ok':'')+'">'+
       '<span>'+(all ? '<b>Mês completo</b> — tudo carregado e conferido. Pronto para dividir as contas.' : '<b>'+done+' de '+total+'</b> itens conferidos em '+escapeHtml(formatMonthLabel(filterMonth))+'.')+'</span>'+
       (all ? '<button class="btn btn-sm btn-primary" id="cuGoDash" type="button">Ver divisão no Dashboard</button>' : '')+
     '</div>';
@@ -4367,7 +4404,13 @@
     dynamicEntries.forEach(function(r){ ingresos += r.valor; espelho += r.valor; });
     $("debIngresos").textContent = fmtBRL(ingresos);
     $("debGastos").textContent = fmtBRL(gastos);
-    $("debBalance").textContent = fmtBRL(ingresos - gastos);
+    var sob = filterMonth ? getSobranteReal(monthKey(filterMonth)) : null;
+    $("debSobrante").textContent = sob ? fmtBRL(sob.valor) : "—";
+    $("debSobranteLabel").textContent = filterMonth ? "Sobrante de " + formatMonthLabel(addMonths(filterMonth, -1)) + " (real)" : "Sobrante do mês anterior (real)";
+    $("debBalance").textContent = fmtBRL((sob ? sob.valor : 0) + ingresos - gastos);
+    $("debSobranteHint").textContent = sob
+      ? "Sobrante real = saldo no fim de " + formatMonthLabel(addMonths(filterMonth, -1)) + " (" + fmtBRL(sob.saldoPrev) + ") − ingressos de " + formatMonthLabel(filterMonth) + " que já tinham caído (" + fmtBRL(sob.ingresos) + "). Esse salário já é plata de " + formatMonthLabel(filterMonth) + ", então não se conta duas vezes."
+      : "";
     $("debFijosSub").textContent = "Ingresos fijos " + fmtBRL(fIng) + " · Gastos fijos " + fmtBRL(fGas) + (espelho ? " · Espelho " + fmtBRL(espelho) : "");
     $("debMovSub").textContent = "Ingresos " + fmtBRL(mIng) + " · Gastos " + fmtBRL(mGas);
 
@@ -5236,7 +5279,7 @@
     if (!$("cajaBody")) return;
     var c = computeCajaProyectada();
     var head = '<th></th>';
-    var rows = [["Saldo inicial", "opening"], ["+ Salário e ingressos do mês seguinte", "salario"], ["+ Reembolsos (Mãe, Tchuka, Padres)", "reembolsos"],
+    var rows = [["Saldo inicial (já inclui os ingressos do próprio mês)", "opening"], ["+ Salário e ingressos do mês seguinte", "salario"], ["+ Reembolsos (Mãe, Tchuka, Padres)", "reembolsos"],
       ["− Faturas dos cartões", "faturas"], ["− Gastos fixos", "fijos"], ["− Diário e outros gastos", "outros"], ["± Previsões", "previsoes"], ["Saldo final → mês seguinte", "closing"]];
     var body = rows.map(function(){ return ""; });
     c.months.forEach(function(m, i){
@@ -6186,7 +6229,7 @@
       var oldDeb = state.debito.records.filter(function(x){ return x.row === editingDebRow; })[0];
       if (oldDeb) debMeses.push(serialToYearMonth(oldDeb.dataSerial));
     }
-    var debCerrados = rec.previsao ? [] : debMeses.filter(function(m, i){ return m && debMeses.indexOf(m) === i && isMesCerrado(m); });
+    var debCerrados = rec.previsao ? [] : debMeses.filter(function(m, i){ return m && debMeses.indexOf(m) === i && (isMesCerrado(m) || isMesFechadoAuto(m)); });
     if (!confirmEditMesesCerrados(debCerrados)) return;
     saveTableRow("debito", action, editingDebRow, rec).then(function(){
       closeDebModal();

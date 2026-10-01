@@ -29,6 +29,12 @@
   saldo inicial + entradas (salario/ingresos del mes siguiente, reembolsos del mes) − faturas − fijos − diario ± previsões.
   Supuestos *(a confirmar)*: los reembolsos de Mãe/Tchuka/Padres llegan en el mismo mes de la fatura; los ingresos del mes
   siguiente (incluida "Plata Padres") caen en el mes actual.
+- **Mes cerrado** *(confirmado)*: cuando un mes termina en el calendario queda cerrado automáticamente: todo se da por pagado,
+  el saldo es el del cierre y editar datos de ese mes pide confirmación.
+- **Sobrante real sin duplicar el salario** *(confirmado)*: el sobrante que pasa de un mes al siguiente es el saldo al cierre del
+  anterior **menos los ingresos del mes siguiente que ya habían caído** (ese salario es plata del mes siguiente y ya cuenta en sus
+  ingresos). Ej.: octubre = R$ 7.936,58 (cierre de septiembre) − R$ 6.606,42 = **R$ 1.330,16**. El balance del mes de Ingresos/Salidas
+  suma ese sobrante real, no el saldo completo.
 - **Inside/Out vs. Previsão**: Inside/Out (opción de los 3 puntos, oculta por defecto) sirve para **quitar** algo que ya
   existe y simular; Previsão sirve para **agregar** algo hipotético.
 - **Cuotas**: no hay criterio para decidir el número de cuotas. El "Parcelamento de Fatura" de agosto fue **por falta
