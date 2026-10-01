@@ -98,8 +98,10 @@ pagos. Lo que importa es qué del mes que se está pagando ya se pagó y qué fa
 guarda en `cuentas_mes`:
 - **Facturas de tarjeta**: fila `(mes, cartao_id)` con `valor_real` (total del banco), `conferido`, `pago`, `valor_pago`
   y `pago_em`. Un `pago = true` significa que ya salió la plata de las cuentas.
-- **Gastos fijos** (Aluguel, Servicios, Claro, PUC…): fila con `item = 'fijo:<descripción>|<persona>'` y `pago`.
-  Recordar: aluguel + servicios se pagan el **día 1** y la PUC el **día 10**.
+- **Gastos fijos** (Aluguel, Servicios, Claro, PUC…): fila con `item = 'fijo:<descripción>'` y `pago`. Las líneas con la
+  misma descripción de personas distintas son **un solo pago** (la PUC: R$ 831,99 de una vez, con la parte de la Mãe
+  reembolsada aparte). Recordar: aluguel + servicios se pagan el **día 1** y la PUC el **día 10**. El valor de
+  servicios varía cada mes (se registra como variación del mes).
 - **Saldo de hoy**: fila con `item = 'saldo'`, `valor_real` = suma de las cuentas y `pago_em` = fecha del saldo
   (mes = mes calendario de hoy). Es el total de todas las cuentas (Nubank AJ, Nubank Gab, Bradesco de Gab…); un
   número suelto que den es esto.

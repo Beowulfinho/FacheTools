@@ -3632,11 +3632,21 @@
       return {kind:"cartao", nome:c.nome, app:app, rec:rec, active: Math.abs(app) >= 0.005 || !!rec};
     });
   }
-  // Gastos fixos do mês (inclusive os herdados) que precisam ser pagos.
+  // Gastos fixos do mês (inclusive os herdados) que precisam ser pagos. Linhas com a mesma descrição de
+  // pessoas diferentes são UM só pagamento (ex.: a PUC é paga inteira, com a parte da Mãe reembolsada).
   function getCuentasFijos(mes){
-    return getDebitoForMonthKey(mes).filter(function(r){ return r.tipo === "Gasto Fijo" && !r.out; }).map(function(r){
-      var key = "fijo:" + r.descricao + "|" + (r.pessoa || "");
-      return {key: key, descricao: r.descricao, pessoa: r.pessoa || "", valor: r.valor || 0, rec: findCuenta(mes, "", key)};
+    var groups = {}, order = [];
+    getDebitoForMonthKey(mes).filter(function(r){ return r.tipo === "Gasto Fijo" && !r.out; }).forEach(function(r){
+      var key = "fijo:" + r.descricao;
+      if (!groups[key]){ groups[key] = {key: key, descricao: r.descricao, pessoas: [], valor: 0}; order.push(key); }
+      groups[key].valor += (r.valor || 0);
+      if (r.pessoa && groups[key].pessoas.indexOf(r.pessoa) === -1) groups[key].pessoas.push(r.pessoa);
+    });
+    return order.map(function(k){
+      var g = groups[k];
+      g.pessoa = g.pessoas.join(" + ");
+      g.rec = findCuenta(mes, "", k);
+      return g;
     }).sort(function(a, b){ return b.valor - a.valor; });
   }
   function cuentaCardAmount(it){

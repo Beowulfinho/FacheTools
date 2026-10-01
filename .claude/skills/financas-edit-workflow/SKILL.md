@@ -1,7 +1,7 @@
 ---
 name: financas-edit-workflow
 description: >
-  Safe end-to-end workflow for making real changes to the FacheTools apps (Financas, Planes) —
+  Safe end-to-end workflow for making real changes to the FacheAssistant apps (Financas, Planes) —
   both the static frontend hosted on GitHub (Beowulfinho/FacheTools) and the shared Supabase
   backend (project qdetwdneqncblxwylpyw). Use this skill whenever asked to edit, fix, add a
   feature to, deploy, or push changes to Financas/index.html or Planes/index.html, or to change
@@ -12,7 +12,7 @@ description: >
   go-ahead before they happen.
 ---
 
-# Editing FacheTools safely (frontend + Supabase)
+# Editing FacheAssistant safely (frontend + Supabase)
 
 This project has two moving parts that change independently: the **frontend** (static HTML/JS on
 GitHub Pages-style hosting, no build) and the **backend** (Supabase Postgres). Most feature work
@@ -20,7 +20,7 @@ touches only one of them — know which before you start.
 
 ## Where things live
 
-- Local clone: `C:\Users\andre\Documents\GitHub\FacheTools` (git remote → `Beowulfinho/FacheTools`
+- Local clone: `C:\Users\andre\Documents\GitHub\FacheAssistant` (git remote → `Beowulfinho/FacheTools`, repo name on GitHub unchanged
   on GitHub, `gh` CLI already authenticated as that user).
 - Frontend files: `Financas/index.html`, `Planes/index.html` — each fully self-contained (HTML +
   CSS + JS inline). There is no `npm install`, no bundler, no transpile step. Editing the file *is*

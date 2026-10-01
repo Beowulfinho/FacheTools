@@ -1,11 +1,11 @@
 ---
 name: financas-app-context
 description: >
-  Provides deep context on the "Financas" app (Control de Cuentas) inside the FacheTools repo —
+  Provides deep context on the "Financas" app (Control de Cuentas) inside the FacheAssistant project —
   a single-file vanilla-JS PWA backed by Supabase for tracking credit-card purchases (with
   installments), income/expenses, subscriptions, and shared-card reimbursements in a Brazilian
   household. Use this skill whenever the user asks about Financas/Finanças, "Control de Cuentas",
-  FacheTools, or anything touching Financas/index.html, its Supabase tables (pessoas, cartoes,
+  FacheTools/FacheAssistant, or anything touching Financas/index.html, its Supabase tables (pessoas, cartoes,
   tipos, compras, debito, diario, antecipacoes, reservas, adiantamentos), the mãe/mae-mode
   read-only view, parcela/cuota logic, fatura/closing-date calculations, or Nubank CSV import —
   even if they don't name the app directly. Load this BEFORE editing Financas/index.html so
