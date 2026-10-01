@@ -1089,19 +1089,20 @@
           <div class="v num" id="saldoTotal">—</div>
         </div>
       </div>
-      <p class="cfg-hint" id="saldoHint" style="margin:-8px 2px 16px;"></p>
+      <p class="cfg-hint" id="saldoHint" style="margin:-8px 2px 10px;"></p>
+      <div class="cuentas-banner" id="saldoPuente" style="margin:0 0 18px; display:none;"></div>
       <div class="summary-group-label">Movimentos do mês</div>
       <div class="summary">
         <div class="sum-card">
-          <span class="k">Ingresos</span>
+          <span class="k">Ingresos do mês</span>
           <div class="v num" id="debIngresos">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Gastos (fijos + variables)</span>
+          <span class="k">Gastos do mês (fijos + variables)</span>
           <div class="v num" id="debGastos">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Balance</span>
+          <span class="k">Balance planejado do mês</span>
           <div class="v num" id="debBalance">R$ 0,00</div>
         </div>
       </div>
@@ -3668,6 +3669,21 @@
       return g;
     }).sort(function(a, b){ return b.valor - a.valor; });
   }
+  // A pagar / já pago de um mês: faturas dos cartões (valor real se houver, senão o do app) e gastos fixos.
+  function computeCuentasResumo(mes){
+    var pendiente = 0, pagado = 0;
+    getCuentasItems(mes).forEach(function(it){
+      if (!it.active) return;
+      var amt = cuentaCardAmount(it);
+      if (it.rec && it.rec.pago) pagado += (it.rec.valorPago !== null && it.rec.valorPago !== undefined) ? it.rec.valorPago : amt;
+      else pendiente += amt;
+    });
+    getCuentasFijos(mes).forEach(function(f){
+      if (f.rec && f.rec.pago) pagado += (f.rec.valorPago !== null && f.rec.valorPago !== undefined) ? f.rec.valorPago : f.valor;
+      else pendiente += f.valor;
+    });
+    return {pendiente: pendiente, pagado: pagado};
+  }
   function cuentaCardAmount(it){
     var v = (it.rec && it.rec.valorReal !== null && it.rec.valorReal !== undefined) ? it.rec.valorReal : it.app;
     return Math.max(0, v);
@@ -4284,6 +4300,23 @@
     $("saldoHint").textContent = sd.asOf
       ? "Saldo informado em " + serialToDisplay(dateInputToSerial(sd.asOf)) + ", já descontando o que foi pago até então."
       : "Informe a soma das contas de cada um hoje.";
+
+    // Ponte: o saldo real contra o que falta pagar do mês corrente (não do mês filtrado, porque o saldo
+    // é de hoje e os meses fechados já foram pagos por inteiro).
+    var bar = $("saldoPuente");
+    if (sd.total === null){ bar.style.display = "none"; return; }
+    var cur = getCurrentRealYM(), mes = monthKey(cur);
+    var r = computeCuentasResumo(mes);
+    var sobra = sd.total - r.pendiente;
+    bar.className = "cuentas-banner " + (sobra < 0 ? "warn" : "ok");
+    bar.innerHTML = '<span>Saldo <b>' + fmtBRL(sd.total) + '</b> − a pagar de ' + escapeHtml(formatMonthLabel(cur)) + ' <b>' + fmtBRL(r.pendiente) +
+      '</b> <small>(faturas + fixos pendentes; já pago ' + fmtBRL(r.pagado) + ')</small> = ' +
+      (sobra < 0 ? '<b>faltam ' + fmtBRL(-sobra) + '</b>' : '<b>sobram ' + fmtBRL(sobra) + '</b>') + '</span>' +
+      '<button class="btn btn-sm" id="saldoPuenteGo" type="button">Ver contas</button>';
+    $("saldoPuenteGo").addEventListener("click", function(){
+      filterMonth = cur; onMonthChanged(); setActivePage("cuentas");
+    });
+    bar.style.display = "flex";
   }
   function saveSaldoPessoa(item, inputEl){
     var txt = inputEl.value.trim();
