@@ -55,8 +55,10 @@ El mes de la fatura sale de la propia factura (vencimiento / fechas de las compr
   - hoy **entre el día 15 y antes del último día útil**: además cayó el 40% del salario de *m+1*.
   - hoy **>= último día útil del mes**: ya cayó el 100% del salario de *m+1*.
 - Confirmado por el usuario: el salario recibido en *m* es el ingreso de *m+1*, "mitad de mes" = día 15
-  y el 60% cae el último día útil. La plata de los padres ("Plata Padres") no tiene fecha fija:
-  preguntar cuánto ya llegó.
+  y el 60% cae el último día útil. La plata de los padres ("Plata Padres") la envían cada mes por
+  Western Union, sin fecha fija, con un **mínimo de R$ 1.300**: **usar el valor que está en el app** (debe
+  ser 1.300) y darla por recibida, salvo que el usuario diga cuánto cayó exactamente (entonces usar ese
+  valor). No preguntar por ella.
 
 ## Flujo
 
@@ -91,8 +93,8 @@ Objetivo: que el app refleje si **ya se gastó plata del salario** que el app to
 1. Con la regla del calendario, calcular el **salario del mes siguiente ya recibido** (S): suma de las
    filas de ingreso del mes *m+1* que ya cayeron según la fecha de hoy (40% el día 15, 60% el último día
    útil). Si una fila de salario no trae porcentaje (ej. "Salario Fachera" único), **dividirla 40/60 por
-   defecto** (confirmado por el usuario). Las filas de los padres ("Plata Padres") **preguntar cuánto ya
-   llegó**. Mostrar S y confirmarlo.
+   defecto** (confirmado por el usuario). "Plata Padres" entra con el valor del app (mínimo 1.300) o con
+   el monto exacto si el usuario lo da. Mostrar S y confirmarlo.
 2. **Saldo del mes en curso** `L = saldo de hoy − S`: lo que queda de la plata del mes *m*.
    (Si hoy aún no pasó el vencimiento de alguna factura de *m*, esa factura sigue saliendo de L.)
 3. Lo que el app espera de *m*: `restante(m)` de `renderDashboard`
