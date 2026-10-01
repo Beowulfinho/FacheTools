@@ -255,6 +255,23 @@
   .limite-figures{ display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft); flex-wrap:wrap; gap:6px 14px; }
   .limite-figures .num{ font-family:"IBM Plex Mono",monospace; }
   @media (max-width: 880px){ .limite-figures{ flex-direction:column; gap:2px; } }
+  .cuentas-list{ display:flex; flex-direction:column; gap:14px; padding:16px 18px 20px; }
+  .cuentas-card{ border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--paper-raised); }
+  .cuentas-card.ok{ border-color:var(--accent); background:var(--accent-soft); }
+  .cuentas-card.warn{ border-color:var(--warn); background:var(--warn-soft); }
+  .cuentas-card.idle{ opacity:.65; }
+  .cuentas-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:8px; }
+  .cuentas-head .name{ font-weight:600; font-size:14px; }
+  .cuentas-head .tag{ font-size:12px; font-weight:600; color:var(--ink-soft); }
+  .cuentas-card.ok .cuentas-head .tag{ color:var(--accent); }
+  .cuentas-card.warn .cuentas-head .tag{ color:var(--warn); }
+  .cuentas-figs{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 18px; font-size:13px; color:var(--ink-soft); }
+  .cuentas-figs .num{ font-family:"IBM Plex Mono",monospace; font-weight:600; color:var(--ink); }
+  .cuentas-figs input{ width:120px; padding:5px 8px; border:1px solid var(--line); border-radius:7px; background:var(--paper); color:var(--ink); font-family:"IBM Plex Mono",monospace; font-size:13px; }
+  .cuentas-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .cuentas-banner{ margin:16px 18px 0; padding:12px 16px; border-radius:10px; border:1px solid var(--line); background:var(--paper-raised); font-size:13.5px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .cuentas-banner.ok{ border-color:var(--accent); background:var(--accent-soft); }
+  @media (max-width: 880px){ .cuentas-figs{ flex-direction:column; align-items:flex-start; gap:4px; } }
   .subs-list{ display:flex; flex-direction:column; padding:6px 0 6px; }
   .subs-item{
     display:flex; justify-content:space-between; align-items:center; gap:10px;
@@ -381,6 +398,8 @@
   html.mae-mode #btnImportCsv,
   html.mae-mode #btnAddAdiantamento,
   html.mae-mode #pageTabs button[data-page="dashboard"],
+  html.mae-mode #pageTabs button[data-page="cuentas"],
+  html.mae-mode #bottomNav button[data-page="cuentas"],
   html.mae-mode #pageTabs button[data-page="debito"],
   html.mae-mode #pageTabs button[data-page="investimentos"],
   html.mae-mode #pageTabs button[data-page="limite"],
@@ -933,6 +952,7 @@
     <div class="page-toolbar">
       <div class="page-tabs" id="pageTabs">
         <button data-page="dashboard" class="active" type="button">Dashboard</button>
+        <button data-page="cuentas" type="button">Cuentas</button>
         <button data-page="tabela" type="button">Credito</button>
         <button data-page="calendario" type="button">Calendário</button>
         <button data-page="limite" type="button">Limite</button>
@@ -1179,6 +1199,18 @@
       </div>
     </div>
 
+    <div class="page-section" id="pageCuentas">
+      <div id="cuentasBanner"></div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head"><h2>1 · Faturas dos cartões</h2></div>
+        <div class="cuentas-list" id="cuentasCartoes"></div>
+      </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head"><h2>2 · Débito (ingressos e saídas)</h2></div>
+        <div class="cuentas-list" id="cuentasDebito"></div>
+      </div>
+    </div>
+
     <div class="page-section" id="pageLimite">
       <div class="summary summary-2col">
         <div class="sum-card">
@@ -1208,6 +1240,9 @@
     <nav class="bottom-nav" id="bottomNav">
       <button data-page="dashboard" class="active" type="button" title="Dashboard" aria-label="Dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>
+      </button>
+      <button data-page="cuentas" type="button" title="Cuentas" aria-label="Cuentas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
       </button>
       <button data-page="tabela" type="button" title="Credito" aria-label="Credito">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.2"/><path d="M2.5 10h19"/></svg>
@@ -2107,6 +2142,7 @@
     renderMonthLabel();
     renderList();
     renderDashboard();
+    renderCuentasPage();
     renderCalendarioPage();
     renderLimitePage();
     renderAssinaturasPage();
@@ -2177,6 +2213,13 @@
         return { descricao: rec.descricao || null, cartao_id: idByName("cartoes", rec.cartao), valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out };
       case "compra_cartao_trocas":
         return { compra_id: rec.compraRow, cartao_id: idByName("cartoes", rec.cartao), mes: rec.mes };
+      case "cuentas_mes":
+        return {
+          mes: rec.mes, cartao_id: rec.cartao ? idByName("cartoes", rec.cartao) : null,
+          valor_real: (rec.valorReal===null || rec.valorReal===undefined) ? null : rec.valorReal,
+          conferido: !!rec.conferido,
+          conferido_at: rec.conferido ? new Date().toISOString() : null
+        };
     }
   }
 
@@ -2252,7 +2295,7 @@
 
   // A table ordering that restores parents before children (antecipacoes depends on compras
   // existing first); every other table is independent so it doesn't matter where it falls.
-  var LIXEIRA_RESTORE_ORDER = {compras:0, debito:0, reservas:0, adiantamentos:0, pessoas:0, cartoes:0, tipos:0, diario:0, antecipacoes:1, compra_cartao_trocas:1};
+  var LIXEIRA_RESTORE_ORDER = {compras:0, debito:0, reservas:0, adiantamentos:0, pessoas:0, cartoes:0, tipos:0, diario:0, antecipacoes:1, compra_cartao_trocas:1, cuentas_mes:1};
   function restoreLixeiraBatch(batchId){
     return supabaseClient.from("lixeira").select("*").eq("batch_id", batchId).then(throwIfError).then(function(res){
       var rows = (res.data || []).slice().sort(function(a,b){
@@ -2287,7 +2330,9 @@
       supabaseClient.from("reservas").select("*"),
       supabaseClient.from("adiantamentos").select("*"),
       supabaseClient.from("lixeira").select("*").order("deleted_at", {ascending:false}),
-      supabaseClient.from("compra_cartao_trocas").select("*").order("mes")
+      supabaseClient.from("compra_cartao_trocas").select("*").order("mes"),
+      // Tolerates a missing table (migration not applied yet) so the rest of the app still loads.
+      supabaseClient.from("cuentas_mes").select("*").then(function(res){ return res.error ? {data:[]} : res; })
     ]).then(function(results){
       results.forEach(throwIfError);
       var pessoasRows = results[0].data||[], cartoesRows = results[1].data||[], tiposRows = results[2].data||[];
@@ -2296,6 +2341,7 @@
       var reservasRows = results[7].data||[], adiantamentosRows = results[8].data||[];
       var lixeiraRows = results[9].data||[];
       var cartaoTrocasRows = results[10].data||[];
+      var cuentasRows = results[11].data||[];
 
       var pessoaNameById = {}; pessoasRows.forEach(function(r){ pessoaNameById[r.id] = r.nome; });
       var cartaoNameById = {}; cartoesRows.forEach(function(r){ cartaoNameById[r.id] = r.nome; });
@@ -2365,18 +2411,22 @@
         return {row:r.id, compraRow:r.compra_id, cartao: cartaoNameById[r.cartao_id] || "", mes:r.mes};
       });
 
+      var cuentas = cuentasRows.map(function(r){
+        return {row:r.id, mes:r.mes, cartao: r.cartao_id ? (cartaoNameById[r.cartao_id] || "") : "", valorReal: (r.valor_real===null || r.valor_real===undefined) ? null : Number(r.valor_real), conferido: !!r.conferido};
+      });
+
       return {
         fileName: currentUserEmail || "",
         pessoas:{records:pessoas}, cartoes:{records:cartoes}, tipos:{records:tipos},
         compras:{records:compras}, debito:{records:debito}, diario:{records:diario},
         antecipacoes:{records:antecipacoes}, reservas:{records:reservas}, adiantamentos:{records:adiantamentos},
-        lixeira:{records:lixeira}, cartaoTrocas:{records:cartaoTrocas}
+        lixeira:{records:lixeira}, cartaoTrocas:{records:cartaoTrocas}, cuentas:{records:cuentas}
       };
     });
   }
 
   // ---------- App state ----------
-  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]}, cartaoTrocas:{records:[]} };
+  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]}, cartaoTrocas:{records:[]}, cuentas:{records:[]} };
 
   function showError(msg){
     var b = $("errorBanner");
@@ -3584,6 +3634,191 @@
     $("limiteCalendarBody").innerHTML = bodyHtml;
   }
 
+  // ---------- Cuentas (Hacer cuentas, paso 1: cargar todo) ----------
+  // Checklist por mês: cada cartão precisa ter a fatura do app batendo com a fatura real do banco
+  // (valor real digitado ou vindo do CSV) e o débito do mês precisa estar marcado como completo.
+  // Um mês "fechado" = todos os itens com movimento conferidos; editar dados dele avisa antes.
+  function ymFromKey(key){
+    var p = String(key).split("-");
+    return {year: parseInt(p[0],10), month: parseInt(p[1],10)};
+  }
+  function findCuenta(mes, cartaoNome){
+    var cn = cartaoNome || "";
+    for (var i=0;i<state.cuentas.records.length;i++){
+      var r = state.cuentas.records[i];
+      if (r.mes === mes && (r.cartao||"") === cn) return r;
+    }
+    return null;
+  }
+  // Total da fatura de cada cartão no mês, a partir do cronograma de parcelas (mesma lógica da
+  // aba Credito/Dashboard), já abatidos os adiantamentos.
+  function getFaturaAppTotals(ym){
+    var key = monthKey(ym);
+    var totals = {};
+    state.compras.records.forEach(function(r){
+      var cartao = getEffectiveCartaoNome(r, ym);
+      getCompraScheduleForMonth(r, ym).forEach(function(e){
+        var isOut = (e.antecipacao || e.reembolsoCredito) ? !!e.outOverride : !!r.out;
+        if (isOut) return;
+        totals[cartao] = (totals[cartao]||0) + (e.effectiveValor||0);
+      });
+    });
+    var seen = {};
+    state.cartoes.records.forEach(function(c){
+      totals[c.nome] = (totals[c.nome]||0) - getAdiantamentosAbatimentoForMonthCartao(key, c.nome);
+      seen[c.nome] = true;
+    });
+    Object.keys(totals).forEach(function(n){ if (!seen[n]) delete totals[n]; });
+    return totals;
+  }
+  function getDebitoStats(mes){
+    var recs = getDebitoForMonthKey(mes).filter(function(r){ return !r.out; });
+    var ingresos = 0, gastos = 0, last = 0, count = 0;
+    recs.forEach(function(r){
+      count++;
+      if (INGRESO_TIPOS.indexOf(r.tipo) !== -1) ingresos += r.valor;
+      else if (GASTO_TIPOS.indexOf(r.tipo) !== -1) gastos += r.valor;
+      if (r.dataSerial && r.dataSerial > last) last = r.dataSerial;
+    });
+    return {count:count, ingresos:ingresos, gastos:gastos, lastSerial:last};
+  }
+  // Itens do checklist de um mês: cartões com movimento (ou com registro) + o débito.
+  function getCuentasItems(mes){
+    var totals = getFaturaAppTotals(ymFromKey(mes));
+    var items = state.cartoes.records.slice().sort(function(a,b){ return a.nome.localeCompare(b.nome); }).map(function(c){
+      var rec = findCuenta(mes, c.nome);
+      var app = totals[c.nome] || 0;
+      return {kind:"cartao", nome:c.nome, app:app, rec:rec, active: Math.abs(app) >= 0.005 || !!rec};
+    });
+    return items;
+  }
+  function isMesCerrado(mes){
+    var deb = findCuenta(mes, "");
+    if (!deb || !deb.conferido) return false;
+    return getCuentasItems(mes).every(function(it){ return !it.active || (it.rec && it.rec.conferido); });
+  }
+  function getMesesCerradosAfetados(compraRecs){
+    var meses = {};
+    state.cuentas.records.forEach(function(r){ meses[r.mes] = true; });
+    return Object.keys(meses).sort().filter(function(mes){
+      if (!isMesCerrado(mes)) return false;
+      var ym = ymFromKey(mes);
+      return compraRecs.some(function(r){ return r && r.dataSerial && getCompraScheduleForMonth(r, ym).length > 0; });
+    });
+  }
+  function confirmEditMesesCerrados(meses){
+    if (!meses.length) return true;
+    var labels = meses.map(function(m){ return formatMonthLabel(ymFromKey(m)); }).join(", ");
+    return window.confirm("Atenção: o mês " + labels + " já foi fechado em Cuentas (faturas e débito conferidos). Esta alteração muda os valores desse mês.\n\nSalvar mesmo assim?");
+  }
+
+  function saveCuenta(mes, cartaoNome, patch){
+    var existing = findCuenta(mes, cartaoNome);
+    var rec = {
+      mes: mes, cartao: cartaoNome || "",
+      valorReal: existing ? existing.valorReal : null,
+      conferido: existing ? existing.conferido : false
+    };
+    Object.keys(patch).forEach(function(k){ rec[k] = patch[k]; });
+    return saveTableRow("cuentas_mes", existing ? "update" : "insert", existing ? existing.row : null, rec)
+      .then(loadAndRender)
+      .catch(function(err){ showError("Não foi possível salvar em Cuentas: " + err.message); });
+  }
+
+  var cuentasImportTarget = null; // {cartao} while the CSV import was started from a Cuentas row
+
+  function renderCuentasPage(){
+    var listEl = $("cuentasCartoes");
+    if (!listEl) return;
+    var debEl = $("cuentasDebito"), banner = $("cuentasBanner");
+    if (!filterMonth){
+      banner.innerHTML = '<div class="cuentas-banner">Selecione um mês específico (botão "Mês atual" acima) para fazer as contas.</div>';
+      listEl.innerHTML = ""; debEl.innerHTML = "";
+      return;
+    }
+    var mes = monthKey(filterMonth);
+    var items = getCuentasItems(mes);
+    var total = 0, done = 0, html = "";
+
+    items.forEach(function(it, i){
+      var rec = it.rec;
+      var real = rec ? rec.valorReal : null;
+      var diff = (real === null || real === undefined) ? null : (it.app - real);
+      var match = diff !== null && Math.abs(diff) < 0.01;
+      var conferido = !!(rec && rec.conferido);
+      if (it.active){ total++; if (conferido) done++; }
+      var cls = !it.active ? "idle" : (conferido ? "ok" : (diff !== null && !match ? "warn" : ""));
+      var tag = !it.active ? "Sem movimento neste mês"
+        : conferido ? "✔ Conferida"
+        : diff === null ? "Falta a fatura real"
+        : match ? "Bate — falta conferir" : "Não bate";
+      html += '<div class="cuentas-card '+cls+'" data-i="'+i+'">'+
+        '<div class="cuentas-head"><span class="name">'+escapeHtml(it.nome)+'</span><span class="tag">'+tag+'</span></div>'+
+        '<div class="cuentas-figs">'+
+          '<span>App: <span class="num">'+fmtBRL(it.app)+'</span></span>'+
+          '<span>Fatura real: <input type="text" inputmode="decimal" class="cu-real" placeholder="0,00" value="'+(real===null||real===undefined?'':String(real).replace(".",","))+'"></span>'+
+          '<span>Diferença: <span class="num">'+(diff===null?'—':fmtBRL(diff))+'</span></span>'+
+        '</div>'+
+        '<div class="cuentas-actions">'+
+          '<button class="btn btn-sm cu-import" type="button">Importar fatura (CSV)</button>'+
+          '<button class="btn btn-sm '+(conferido?'':'btn-primary')+' cu-conf" type="button">'+(conferido?'Reabrir':'Marcar conferida')+'</button>'+
+        '</div></div>';
+    });
+    listEl.innerHTML = html;
+
+    listEl.querySelectorAll(".cuentas-card").forEach(function(cardEl){
+      var it = items[parseInt(cardEl.getAttribute("data-i"),10)];
+      cardEl.querySelector(".cu-real").addEventListener("change", function(){
+        var txt = this.value.trim();
+        var v = txt === "" ? null : parseAmountInput(txt);
+        if (v !== null && !isFinite(v)){ showError("Valor da fatura inválido."); return; }
+        // Mudar o valor real invalida uma conferência anterior.
+        saveCuenta(mes, it.nome, {valorReal: v === null ? null : Math.round(v*100)/100, conferido: false});
+      });
+      cardEl.querySelector(".cu-import").addEventListener("click", function(){
+        cuentasImportTarget = {cartao: it.nome};
+        $("csvFileInput").value = "";
+        $("csvFileInput").click();
+      });
+      cardEl.querySelector(".cu-conf").addEventListener("click", function(){
+        var rec = it.rec;
+        if (rec && rec.conferido){ saveCuenta(mes, it.nome, {conferido: false}); return; }
+        var real = rec ? rec.valorReal : null;
+        if (real === null || real === undefined){ showError("Informe a fatura real de " + it.nome + " (ou importe o CSV) antes de conferir. Se não houve fatura, informe 0."); return; }
+        var d = it.app - real;
+        if (Math.abs(d) >= 0.01 && !window.confirm("A fatura do app difere da real em " + fmtBRL(d) + ". Marcar como conferida mesmo assim?")) return;
+        saveCuenta(mes, it.nome, {conferido: true});
+      });
+    });
+
+    var st = getDebitoStats(mes);
+    var debRec = findCuenta(mes, "");
+    var debOk = !!(debRec && debRec.conferido);
+    total++; if (debOk) done++;
+    debEl.innerHTML =
+      '<div class="cuentas-card '+(debOk?'ok':'')+'">'+
+        '<div class="cuentas-head"><span class="name">Débito de '+escapeHtml(formatMonthLabel(filterMonth))+'</span><span class="tag">'+(debOk?'✔ Completo':(st.count?'Falta conferir':'Nada registrado'))+'</span></div>'+
+        '<div class="cuentas-figs">'+
+          '<span>Registros: <span class="num">'+st.count+'</span></span>'+
+          '<span>Ingressos: <span class="num">'+fmtBRL(st.ingresos)+'</span></span>'+
+          '<span>Saídas: <span class="num">'+fmtBRL(st.gastos)+'</span></span>'+
+          '<span>Último lançamento: <span class="num">'+(st.lastSerial?serialToDisplay(st.lastSerial):'—')+'</span></span>'+
+        '</div>'+
+        '<div class="cuentas-actions">'+
+          '<button class="btn btn-sm cu-deb-go" type="button">Abrir Ingresos/Salidas</button>'+
+          '<button class="btn btn-sm '+(debOk?'':'btn-primary')+' cu-deb-conf" type="button">'+(debOk?'Reabrir':'Marcar débito completo')+'</button>'+
+        '</div></div>';
+    debEl.querySelector(".cu-deb-go").addEventListener("click", function(){ setActivePage("debito"); });
+    debEl.querySelector(".cu-deb-conf").addEventListener("click", function(){ saveCuenta(mes, "", {conferido: !debOk}); });
+
+    var all = total > 0 && done === total;
+    banner.innerHTML = '<div class="cuentas-banner '+(all?'ok':'')+'">'+
+      '<span>'+(all ? '<b>Mês completo</b> — tudo carregado e conferido. Pronto para dividir as contas.' : '<b>'+done+' de '+total+'</b> itens conferidos em '+escapeHtml(formatMonthLabel(filterMonth))+'.')+'</span>'+
+      (all ? '<button class="btn btn-sm btn-primary" id="cuGoDash" type="button">Ver divisão no Dashboard</button>' : '')+
+    '</div>';
+    if (all) $("cuGoDash").addEventListener("click", function(){ setActivePage("dashboard"); });
+  }
+
   // Diário: how much of the month's balance is set aside as "free to use" money. A single
   // default value (stored as the Diario sheet row with mes="") applies to every month; a
   // specific month can "break inheritance" with its own row (mes="YYYY-MM") that overrides it.
@@ -3771,7 +4006,9 @@
   }
 
   function getDebitoMonthFiltered(){
-    var month = monthKey(filterMonth);
+    return getDebitoForMonthKey(monthKey(filterMonth));
+  }
+  function getDebitoForMonthKey(month){
     // Investimento rows share this table for storage only (see the Investimentos section below);
     // they're a Configurações-only value, never a line in the Ingresos/Salidas table or its
     // ingresos/gastos totals, so they're excluded here once for every consumer of this function.
@@ -4408,10 +4645,12 @@
       state.adiantamentos = result.adiantamentos;
       state.lixeira = result.lixeira;
       state.cartaoTrocas = result.cartaoTrocas;
+      state.cuentas = result.cuentas;
       setConnectedUI(true, result.fileName);
       refreshDropdowns();
       renderList();
       renderDashboard();
+      renderCuentasPage();
       renderCalendarioPage();
       renderLimitePage();
       renderAssinaturasPage();
@@ -4589,13 +4828,14 @@
   // Two navs point at the same pages: #pageTabs (text, top — desktop/tablet) and #bottomNav
   // (icon-only, fixed to the bottom — phones, like a native app's tab bar). Both are kept in
   // sync from one place so either one can drive page switching.
-  var PAGE_IDS = {dashboard:"pageDashboard", tabela:"pageTabela", calendario:"pageCalendario", limite:"pageLimite", investimentos:"pageInvestimentos", debito:"pageDebito"};
+  var PAGE_IDS = {dashboard:"pageDashboard", cuentas:"pageCuentas", tabela:"pageTabela", calendario:"pageCalendario", limite:"pageLimite", investimentos:"pageInvestimentos", debito:"pageDebito"};
   function setActivePage(page){
     document.querySelectorAll('#pageTabs button[data-page], #bottomNav button[data-page]').forEach(function(b){
       b.classList.toggle("active", b.getAttribute("data-page") === page);
     });
     Object.keys(PAGE_IDS).forEach(function(p){ $(PAGE_IDS[p]).classList.toggle("active", p === page); });
     if (page === "dashboard") renderDashboard();
+    else if (page === "cuentas") renderCuentasPage();
     else if (page === "tabela") renderList();
     else if (page === "calendario") renderCalendarioPage();
     else if (page === "limite") renderLimitePage();
@@ -4773,6 +5013,9 @@
 
     var action = editingRow ? "update" : "insert";
     var rowNum = editingRow;
+
+    var cerrados = getMesesCerradosAfetados([rec, editingRow ? editingRowRec : null]);
+    if (!confirmEditMesesCerrados(cerrados)) return;
 
     saveTableRow("compras", action, rowNum, rec).then(function(){
       closeTxModal();
@@ -5056,7 +5299,8 @@
       importCandidates = buildImportCandidates(parsed.rows, state.compras.records);
       importCsvRowsRaw = parsed.rows;
       populateSelect($("importCartaoSel"), nomes("cartoes"), "Selecione um cartão", false);
-      $("importCartaoSel").value = "";
+      $("importCartaoSel").value = cuentasImportTarget ? cuentasImportTarget.cartao : "";
+      cuentasImportTarget = null;
       renderImportPreview();
       renderImportReconcile();
       importOverlay.classList.add("show");
@@ -5229,6 +5473,7 @@
     html += '<span>Já projetado no app para ' + escapeHtml(cartaoNome) + ': <span class="num">' + fmtBRL(appTotal) + '</span></span>';
     html += '<span>Diferença: <span class="num">' + fmtBRL(delta) + '</span></span>';
     html += '</div>';
+    html += '<div class="rec-msg"><button class="btn btn-sm" id="importSaveReal" type="button">Guardar ' + fmtBRL(csvTotal) + ' como fatura real de ' + MONTH_NAMES_PT[targetYM.month-1] + '/' + targetYM.year + ' (Cuentas)</button></div>';
     if (isOk){
       html += '<div class="rec-msg">Bate certinho com o que o app já tem para este cartão neste mês.</div>';
     } else if (!flagged.length){
@@ -5242,6 +5487,13 @@
       html += '</div>';
     }
     el.innerHTML = html;
+    $("importSaveReal").addEventListener("click", function(){
+      var btn = this;
+      btn.disabled = true;
+      saveCuenta(monthKey(targetYM), cartaoNome, {valorReal: Math.round(csvTotal*100)/100, conferido: false}).then(function(){
+        btn.textContent = "Fatura real guardada em Cuentas ✔";
+      });
+    });
   }
   $("importCartaoSel").addEventListener("change", renderImportReconcile);
 
@@ -5407,6 +5659,13 @@
     };
 
     var action = editingDebRow ? "update" : "insert";
+    var debMeses = [serialToYearMonth(rec.dataSerial)];
+    if (editingDebRow){
+      var oldDeb = state.debito.records.filter(function(x){ return x.row === editingDebRow; })[0];
+      if (oldDeb) debMeses.push(serialToYearMonth(oldDeb.dataSerial));
+    }
+    var debCerrados = debMeses.filter(function(m, i){ return m && debMeses.indexOf(m) === i && isMesCerrado(m); });
+    if (!confirmEditMesesCerrados(debCerrados)) return;
     saveTableRow("debito", action, editingDebRow, rec).then(function(){
       closeDebModal();
       return loadAndRender();
