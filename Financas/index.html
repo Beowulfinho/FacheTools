@@ -399,6 +399,8 @@
   html.mae-mode #btnAddAdiantamento,
   html.mae-mode #pageTabs button[data-page="dashboard"],
   html.mae-mode #pageTabs button[data-page="cuentas"],
+  html.mae-mode #pageTabs button[data-page="previsoes"],
+  html.mae-mode #bottomNav button[data-page="previsoes"],
   html.mae-mode #bottomNav button[data-page="cuentas"],
   html.mae-mode #pageTabs button[data-page="debito"],
   html.mae-mode #pageTabs button[data-page="investimentos"],
@@ -541,6 +543,15 @@
   .out-check{ display:flex; align-items:center; gap:5px; cursor:pointer; }
   .out-check input{ width:auto; accent-color:var(--accent); cursor:pointer; }
   .out-check .out-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); }
+  /* Inside/Out só é usado em simulações de balance: a coluna fica oculta até ativar a opção em
+     "Mais opções" (classe show-inout no <html>). Em telas largas cada lista tem seu grid inline,
+     então ao tirar a coluna do Inside/Out o grid é redefinido sem ela. */
+  html:not(.show-inout) .f-out, html:not(.show-inout) .head-out{ display:none !important; }
+  @media (min-width: 881px){
+    html:not(.show-inout) #txList .tx-row, html:not(.show-inout) #txHeadRow{ grid-template-columns:0.32fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr !important; }
+    html:not(.show-inout) #debitoList .tx-row, html:not(.show-inout) #debHeadRow{ grid-template-columns:0.32fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr !important; }
+    html:not(.show-inout) #adiantamentosList .tx-row, html:not(.show-inout) #adiHeadRow{ grid-template-columns:1fr 0.9fr 1fr 0.9fr !important; }
+  }
   .row-select{ width:auto; accent-color:var(--accent); cursor:pointer; align-self:center; }
   .bulk-bar{
     display:flex; align-items:center; gap:12px; padding:9px 18px; background:var(--accent-soft);
@@ -900,6 +911,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.5l4 4-4 4"/><path d="M3 12.5v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.5l-4-4 4-4"/><path d="M21 11.5v2a4 4 0 0 1-4 4H3"/></svg>
             Assinaturas
           </button>
+          <button type="button" id="btnMenuInOut" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>Inside/Out <small id="inOutState" style="color:var(--ink-faint);">(simulações)</small></span>
+          </button>
           <div class="menu-sep"></div>
           <button type="button" id="btnLogout">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
@@ -956,6 +971,7 @@
         <button data-page="tabela" type="button">Credito</button>
         <button data-page="calendario" type="button">Calendário</button>
         <button data-page="limite" type="button">Limite</button>
+        <button data-page="previsoes" type="button">Previsões</button>
         <button data-page="debito" type="button">Ingresos/Salidas</button>
         <button data-page="investimentos" type="button">Investimentos</button>
       </div>
@@ -993,8 +1009,8 @@
       </div>
       <div class="summary summary-1col">
         <div class="sum-card">
-          <span class="k">Reservas / adiantamentos (líquido no mês)</span>
-          <div class="v num" id="dashReservas">R$ 0,00</div>
+          <span class="k">Adiantamentos de fatura (líquido no mês)</span>
+          <div class="v num" id="dashAdiantamentos">R$ 0,00</div>
         </div>
       </div>
       <div class="summary summary-1col">
@@ -1015,16 +1031,6 @@
         </div>
       </div>
 
-      <div class="panel" style="margin-top:18px;">
-        <div class="panel-head">
-          <h2>Reservas entre meses</h2>
-          <button class="btn btn-sm" id="btnAddReserva" type="button">Nova reserva</button>
-        </div>
-        <div class="list-head-row" style="grid-template-columns:0.5fr 1.2fr 1fr 0.9fr;">
-          <span></span><span>Descrição</span><span>Mês origem → destino</span><span>Valor</span>
-        </div>
-        <div class="tx-list" id="reservasList"></div>
-      </div>
     </div>
 
     <div class="page-section" id="pageInvestimentos">
@@ -1096,8 +1102,8 @@
           <button class="btn btn-sm" id="debitoBulkClear" type="button">Cancelar seleção</button>
         </div>
         <div class="tx-scroll">
-        <div class="list-head-row" style="grid-template-columns:0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr;">
-          <input type="checkbox" class="row-select" id="selectAllDebito" title="Selecionar todos"><span></span><span>Tipo</span><span>Descrição</span><span>Pessoa</span><span>Valor</span><span>Mês</span>
+        <div class="list-head-row" id="debHeadRow" style="grid-template-columns:0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr;">
+          <input type="checkbox" class="row-select" id="selectAllDebito" title="Selecionar todos"><span class="head-out"></span><span>Tipo</span><span>Descrição</span><span>Pessoa</span><span>Valor</span><span>Mês</span>
         </div>
         <div class="tx-list" id="debitoList"></div>
         </div>
@@ -1127,8 +1133,8 @@
           <h2>Adiantamentos de fatura</h2>
           <button class="btn btn-sm" id="btnAddAdiantamento" type="button">Novo adiantamento</button>
         </div>
-        <div class="list-head-row" style="grid-template-columns:0.5fr 1fr 0.9fr 1fr 0.9fr;">
-          <span></span><span>Cartão</span><span>Descrição</span><span>Mês origem → destino</span><span>Valor</span>
+        <div class="list-head-row" id="adiHeadRow" style="grid-template-columns:0.5fr 1fr 0.9fr 1fr 0.9fr;">
+          <span class="head-out"></span><span>Cartão</span><span>Descrição</span><span>Mês origem → destino</span><span>Valor</span>
         </div>
         <div class="tx-list" id="adiantamentosList"></div>
       </div>
@@ -1164,8 +1170,8 @@
           <button class="btn btn-sm" id="comprasBulkClear" type="button">Cancelar seleção</button>
         </div>
         <div class="tx-scroll">
-        <div class="list-head-row" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr;">
-          <input type="checkbox" class="row-select" id="selectAllCompras" title="Selecionar todos"><span></span><span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor total</span><span>Valor parcela</span><span>Parcela</span><span>Data</span><span>Tipo</span>
+        <div class="list-head-row" id="txHeadRow" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr;">
+          <input type="checkbox" class="row-select" id="selectAllCompras" title="Selecionar todos"><span class="head-out"></span><span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor total</span><span>Valor parcela</span><span>Parcela</span><span>Data</span><span>Tipo</span>
         </div>
         <div class="tx-list" id="txList"></div>
         </div>
@@ -1211,6 +1217,33 @@
       </div>
     </div>
 
+    <div class="page-section" id="pagePrevisoes">
+      <div class="panel">
+        <div class="panel-head"><h2>Balance projetado — próximos 6 meses</h2></div>
+        <div class="calendar-wrap">
+          <table class="calendar" id="prevProjTable">
+            <thead><tr id="prevProjHead"></tr></thead>
+            <tbody id="prevProjBody"></tbody>
+          </table>
+        </div>
+        <p class="cfg-hint" style="padding:0 18px 16px;">O balance real do resto do app não muda: as previsões só afetam esta projeção.</p>
+      </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head">
+          <h2>Previsões</h2>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-sm" id="btnPrevCompra" type="button">Nova compra prevista</button>
+            <button class="btn btn-sm" id="btnPrevDebito" type="button">Nova entrada/saída prevista</button>
+          </div>
+        </div>
+        <div class="list-head-row" style="grid-template-columns:0.7fr 1.7fr 0.8fr 1.2fr 1.1fr;">
+          <span>Tipo</span><span>Descrição</span><span>Mês</span><span>Valor</span><span></span>
+        </div>
+        <div class="tx-list" id="prevList"></div>
+        <p class="cfg-hint" style="padding:12px 18px 16px;">Para prever uma compra ou parcela que já existe, abra-a e marque "Previsão" (em compras, entradas/saídas e antecipações). Quando acontecer de verdade, use "Efetivar".</p>
+      </div>
+    </div>
+
     <div class="page-section" id="pageLimite">
       <div class="summary summary-2col">
         <div class="sum-card">
@@ -1252,6 +1285,9 @@
       </button>
       <button data-page="limite" type="button" title="Limite" aria-label="Limite">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1"/></svg>
+      </button>
+      <button data-page="previsoes" type="button" title="Previsões" aria-label="Previsões">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
       </button>
       <button data-page="debito" type="button" title="Ingresos/Salidas" aria-label="Ingresos/Salidas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h14.5M13.5 3.5l4 4-4 4"/><path d="M21 16.5H6.5M10.5 12.5l-4 4 4 4"/></svg>
@@ -1343,6 +1379,14 @@
         <input type="month" id="fReembolsoMes">
       </div>
 
+      <div class="field">
+        <label class="out-check" style="cursor:pointer;">
+          <input type="checkbox" id="fPrevisao">
+          <span>Previsão — só aparece em Previsões</span>
+        </label>
+        <span class="opt">Simulação: não entra no balance, nas listas, no limite nem no calendário; só afeta a projeção da página Previsões.</span>
+      </div>
+
       <div class="field-error" id="txError"></div>
     </div>
     <div class="modal-foot">
@@ -1375,6 +1419,17 @@
           <span class="cur">R$</span>
           <input type="text" inputmode="decimal" id="antecipValor" placeholder="0,00">
         </div>
+      </div>
+      <div class="field">
+        <label class="out-check" style="cursor:pointer;">
+          <input type="checkbox" id="antecipPrevisao">
+          <span>Previsão — só aparece em Previsões</span>
+        </label>
+        <span class="opt">Simulação: não muda as parcelas reais em nenhuma outra tela.</span>
+      </div>
+      <div class="field" id="antecipMesWrap" style="display:none;">
+        <label for="antecipMes">Mês em que seria pago</label>
+        <input type="month" id="antecipMes">
       </div>
       <div class="field-error" id="antecipError"></div>
     </div>
@@ -1497,6 +1552,14 @@
         <span class="opt" id="dVariacaoHint">Desmarcado: este valor passa a valer também nos próximos meses, até você registrar outra mudança. Marcado: só este mês usa este valor — os outros meses continuam herdando o valor normal.</span>
       </div>
 
+      <div class="field">
+        <label class="out-check" style="cursor:pointer;">
+          <input type="checkbox" id="dPrevisao">
+          <span>Previsão — só aparece em Previsões</span>
+        </label>
+        <span class="opt">Simulação: não entra no balance, nas listas, no limite nem no calendário; só afeta a projeção da página Previsões.</span>
+      </div>
+
       <div class="field-error" id="debError"></div>
     </div>
     <div class="modal-foot">
@@ -1504,53 +1567,6 @@
       <div style="flex:1;"></div>
       <button class="btn" id="debCancel" type="button">Cancelar</button>
       <button class="btn btn-primary" id="debSave" type="button">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add / edit reserva (transferência genérica entre meses) -->
-<div class="overlay" id="reservaOverlay">
-  <div class="modal">
-    <div class="modal-head">
-      <h3 id="reservaModalTitle">Nova reserva</h3>
-      <button class="modal-close" id="reservaClose" type="button" aria-label="Fechar">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="field">
-        <label for="rDescricao">Descrição <span class="opt">(opcional)</span></label>
-        <input type="text" id="rDescricao" autocomplete="off" placeholder="Ex.: Sobrou este mês, guardar pro mês que vem">
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="rMesOrigem">Mês origem <span class="opt">(perde o valor)</span></label>
-          <input type="month" id="rMesOrigem">
-        </div>
-        <div class="field">
-          <label for="rMesDestino">Mês destino <span class="opt">(recebe o valor)</span></label>
-          <input type="month" id="rMesDestino">
-        </div>
-      </div>
-      <div class="field">
-        <label for="rValor">Valor</label>
-        <div class="amount-wrap">
-          <span class="cur">R$</span>
-          <input type="text" inputmode="decimal" id="rValor" placeholder="0,00">
-        </div>
-      </div>
-      <div class="field">
-        <label class="out-check" style="cursor:pointer;">
-          <input type="checkbox" id="rSomaBalance" checked>
-          <span>Soma ao balance quando chegar no mês destino</span>
-        </label>
-        <span class="opt">Marcado: dinheiro livre — volta a contar no saldo do mês destino. Desmarcado: dinheiro já comprometido (ex.: separado pra um presente) — sai do mês origem mas não volta a contar como saldo livre.</span>
-      </div>
-      <div class="field-error" id="reservaError"></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-danger" id="reservaDelete" type="button" style="display:none;">Excluir</button>
-      <div style="flex:1;"></div>
-      <button class="btn" id="reservaCancel" type="button">Cancelar</button>
-      <button class="btn btn-primary" id="reservaSave" type="button">Salvar</button>
     </div>
   </div>
 </div>
@@ -2149,7 +2165,6 @@
     renderDebitoPage();
     renderDiarioPage();
     renderInvestimentoPage();
-    renderReservasList();
     renderAdiantamentosList();
   }
 
@@ -2191,7 +2206,8 @@
           comerciante: rec.comerciante || null,
           reembolso_valor: (rec.reembolsoValor && rec.reembolsoValor > 0) ? rec.reembolsoValor : null,
           reembolso_out: !!rec.reembolsoOut,
-          reembolso_mes: (rec.reembolsoValor && rec.reembolsoValor > 0) ? (rec.reembolsoMes || null) : null
+          reembolso_mes: (rec.reembolsoValor && rec.reembolsoValor > 0) ? (rec.reembolsoMes || null) : null,
+          previsao: !!rec.previsao
         };
       case "debito":
         return {
@@ -2201,12 +2217,13 @@
           valor: rec.valor,
           data: serialToInputValue(rec.dataSerial),
           out: !!rec.out,
-          variacao: !!rec.variacao
+          variacao: !!rec.variacao,
+          previsao: !!rec.previsao
         };
       case "diario":
         return { mes: rec.mes, valor: rec.valor };
       case "antecipacoes":
-        return { compra_id: rec.compraRow, mes: rec.mes, indices: rec.indices, valor: rec.valor, out: !!rec.out };
+        return { compra_id: rec.compraRow, mes: rec.mes, indices: rec.indices, valor: rec.valor, out: !!rec.out, previsao: !!rec.previsao };
       case "reservas":
         return { descricao: rec.descricao || null, valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out, soma_balance: rec.somaBalance !== false };
       case "adiantamentos":
@@ -2375,7 +2392,8 @@
           comerciante: r.comerciante || "",
           reembolsoValor: (r.reembolso_valor===null || r.reembolso_valor===undefined) ? null : Number(r.reembolso_valor),
           reembolsoOut: r.reembolso_out ? 1 : 0,
-          reembolsoMes: r.reembolso_mes || null
+          reembolsoMes: r.reembolso_mes || null,
+          previsao: !!r.previsao
         };
       });
 
@@ -2389,14 +2407,15 @@
           dataSerial: dateInputToSerial(r.data),
           out: r.out ? 1 : 0,
           variacao: !!r.variacao,
-          refExterna: r.ref_externa || ""
+          refExterna: r.ref_externa || "",
+          previsao: !!r.previsao
         };
       });
 
       var diario = diarioRows.map(function(r){ return {row:r.id, mes:r.mes, valor: r.valor===null?0:Number(r.valor)}; });
 
       var antecipacoes = antecipacoesRows.map(function(r){
-        return {row:r.id, compraRow:r.compra_id, mes:r.mes, indices: (r.indices||[]).slice().sort(function(a,b){ return a-b; }), valor: r.valor===null?0:Number(r.valor), out: r.out ? 1 : 0};
+        return {row:r.id, compraRow:r.compra_id, mes:r.mes, indices: (r.indices||[]).slice().sort(function(a,b){ return a-b; }), valor: r.valor===null?0:Number(r.valor), out: r.out ? 1 : 0, previsao: !!r.previsao};
       });
 
       var reservas = reservasRows.map(function(r){
@@ -2416,18 +2435,28 @@
         return {row:r.id, mes:r.mes, cartao: r.cartao_id ? (cartaoNameById[r.cartao_id] || "") : "", valorReal: (r.valor_real===null || r.valor_real===undefined) ? null : Number(r.valor_real), conferido: !!r.conferido};
       });
 
+      // Linhas marcadas como previsão são hipotéticas: ficam fora do resto do app e só a página
+      // Previsões as vê (state.previsoes), assim não poluem balances, listas, limite nem calendário.
+      function splitPrevisao(list){
+        var main = [], prev = [];
+        list.forEach(function(r){ (r.previsao ? prev : main).push(r); });
+        return {main: main, prev: prev};
+      }
+      var comprasSplit = splitPrevisao(compras), debitoSplit = splitPrevisao(debito), antecipacoesSplit = splitPrevisao(antecipacoes);
+
       return {
         fileName: currentUserEmail || "",
+        previsoes: {compras: comprasSplit.prev, debito: debitoSplit.prev, antecipacoes: antecipacoesSplit.prev},
         pessoas:{records:pessoas}, cartoes:{records:cartoes}, tipos:{records:tipos},
-        compras:{records:compras}, debito:{records:debito}, diario:{records:diario},
-        antecipacoes:{records:antecipacoes}, reservas:{records:reservas}, adiantamentos:{records:adiantamentos},
+        compras:{records:comprasSplit.main}, debito:{records:debitoSplit.main}, diario:{records:diario},
+        antecipacoes:{records:antecipacoesSplit.main}, reservas:{records:reservas}, adiantamentos:{records:adiantamentos},
         lixeira:{records:lixeira}, cartaoTrocas:{records:cartaoTrocas}, cuentas:{records:cuentas}
       };
     });
   }
 
   // ---------- App state ----------
-  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]}, cartaoTrocas:{records:[]}, cuentas:{records:[]} };
+  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]}, cartaoTrocas:{records:[]}, cuentas:{records:[]}, previsoes:{compras:[], debito:[], antecipacoes:[]} };
 
   function showError(msg){
     var b = $("errorBanner");
@@ -2961,25 +2990,8 @@
       .sort(function(a,b){ return b.total - a.total; });
   }
 
-  // ---------- Reservas (transferência genérica entre meses) e Adiantamentos (adelanto contra a
-  // fatura aberta de um cartão) ----------
-  // A "reserva" simply moves money from one month to another: it's subtracted from mesOrigem's
-  // balance and, if somaBalance is true, added back as if it were income in mesDestino — the same
-  // net-zero-across-time shape as Investimento/Retirada de Investimento, but resolved between two
-  // fixed months instead of "whenever withdrawn". Not tied to any card or fatura.
-  // When somaBalance is false, the reserva represents money already committed to something
-  // specific (e.g. a gift) rather than free cash: it still leaves mesOrigem's balance, but never
-  // comes back as available balance in mesDestino — it's tracked, not counted as spendable.
-  function getReservasNetForMonth(monthStr){
-    if (!monthStr) return 0;
-    var net = 0;
-    state.reservas.records.forEach(function(r){
-      if (r.out) return;
-      if (r.mesOrigem === monthStr) net -= (r.valor||0);
-      if (r.mesDestino === monthStr && r.somaBalance !== false) net += (r.valor||0);
-    });
-    return net;
-  }
+  // ---------- Adiantamentos (adelanto contra a fatura aberta de um cartão) ----------
+  // (As antigas "reservas entre meses" foram substituídas pelas Previsões — ver a página Previsões.)
   // An "adiantamento" is money paid early (before a card's fechamento) against a fatura that
   // hasn't closed yet — real invoices can't have specific parcelas anticipated while still open
   // (that's what getAntecipacaoAvailability/getCurrentOpenFaturaYM already enforce), but a plain
@@ -3027,48 +3039,6 @@
     return (MONTH_ABBR_PT[mi-1] || "") + "/" + parts[0].slice(2);
   }
 
-  function renderReservasList(){
-    var listEl = $("reservasList");
-    if (!listEl) return;
-    // Only reservas whose origem or destino is the month currently being viewed make sense to
-    // show here — a reserva from setembro para outubro is irrelevant while looking at novembro.
-    // "Todos os meses" has no single month to match against, so nothing is hidden there.
-    var refKey = monthKey(filterMonth);
-    var all = state.reservas.records;
-    var visible = refKey ? all.filter(function(r){ return r.mesOrigem===refKey || r.mesDestino===refKey; }) : all;
-    var sorted = visible.slice().sort(function(a,b){ return (b.mesOrigem||"").localeCompare(a.mesOrigem||""); });
-    listEl.innerHTML = "";
-    if (!sorted.length){
-      listEl.innerHTML = all.length
-        ? '<div class="empty"><span class="big">Nenhuma reserva para este mês</span>Mude o mês filtrado ou crie uma nova reserva.</div>'
-        : '<div class="empty"><span class="big">Nenhuma reserva registrada</span>Use "Nova reserva" para separar dinheiro de um mês para outro.</div>';
-      return;
-    }
-    sorted.forEach(function(r){
-      var row = document.createElement("div");
-      row.className = "tx-row";
-      row.tabIndex = 0;
-      row.style.gridTemplateColumns = "0.5fr 1.2fr 1fr 0.9fr";
-      row.innerHTML =
-        '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
-        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao || "Reserva")+(r.somaBalance===false?'<span class="tag-auto" title="Dinheiro já comprometido — não soma ao balance no mês destino">comprometido</span>':'')+'</span>'+
-        '<span data-label="Mês">'+formatMesShort(r.mesOrigem)+' → '+formatMesShort(r.mesDestino)+'</span>'+
-        '<span class="num f-valor">'+fmtBRL(r.valor)+'</span>';
-      var checkbox = row.querySelector(".out-toggle");
-      checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
-      checkbox.addEventListener("change", function(e){
-        e.stopPropagation();
-        var rec = {}; for (var k in r) rec[k] = r[k];
-        rec.out = checkbox.checked ? 0 : 1;
-        saveTableRow("reservas", "update", r.row, rec).then(loadAndRender).catch(function(err){
-          showError("Não foi possível salvar: " + err.message);
-        });
-      });
-      row.addEventListener("click", function(){ openReservaEditModal(r); });
-      listEl.appendChild(row);
-    });
-  }
-
   function renderAdiantamentosList(){
     var listEl = $("adiantamentosList");
     if (!listEl) return;
@@ -3110,78 +3080,6 @@
       listEl.appendChild(row);
     });
   }
-
-  // ---------- Reserva modal ----------
-  var reservaOverlay = $("reservaOverlay");
-  var editingReservaRow = null;
-  function defaultNextMonthStr(monthStr){
-    var parts = monthStr.split("-");
-    var ym = addMonths({year: parseInt(parts[0],10), month: parseInt(parts[1],10)}, 1);
-    return monthKey(ym);
-  }
-  function openReservaAddModal(){
-    editingReservaRow = null;
-    $("reservaModalTitle").textContent = "Nova reserva";
-    $("reservaDelete").style.display = "none";
-    $("reservaError").style.display = "none";
-    $("rDescricao").value = "";
-    $("rValor").value = "";
-    var curKey = monthKey(getRefMonth());
-    $("rMesOrigem").value = curKey;
-    $("rMesDestino").value = defaultNextMonthStr(curKey);
-    $("rSomaBalance").checked = true;
-    reservaOverlay.classList.add("show");
-  }
-  function openReservaEditModal(r){
-    if (READONLY_MAE) return;
-    editingReservaRow = r.row;
-    $("reservaModalTitle").textContent = "Editar reserva";
-    $("reservaDelete").style.display = "inline-flex";
-    $("reservaError").style.display = "none";
-    $("rDescricao").value = r.descricao || "";
-    $("rValor").value = String(r.valor).replace(".", ",");
-    $("rMesOrigem").value = r.mesOrigem || "";
-    $("rMesDestino").value = r.mesDestino || "";
-    $("rSomaBalance").checked = r.somaBalance !== false;
-    reservaOverlay.classList.add("show");
-  }
-  function closeReservaModal(){ reservaOverlay.classList.remove("show"); }
-  $("btnAddReserva").addEventListener("click", openReservaAddModal);
-  $("reservaClose").addEventListener("click", closeReservaModal);
-  $("reservaCancel").addEventListener("click", closeReservaModal);
-  reservaOverlay.addEventListener("click", function(e){ if (e.target===reservaOverlay) closeReservaModal(); });
-  $("reservaSave").addEventListener("click", function(){
-    var errEl = $("reservaError");
-    var valor = parseAmountInput($("rValor").value);
-    var mesOrigem = $("rMesOrigem").value;
-    var mesDestino = $("rMesDestino").value;
-    if (!isFinite(valor) || valor<=0){ errEl.textContent = "Informe um valor válido maior que zero."; errEl.style.display="block"; return; }
-    if (!mesOrigem || !mesDestino){ errEl.textContent = "Informe o mês origem e o mês destino."; errEl.style.display="block"; return; }
-    errEl.style.display = "none";
-    var rec = {
-      descricao: $("rDescricao").value.trim(),
-      valor: Math.round(valor*100)/100,
-      mesOrigem: mesOrigem,
-      mesDestino: mesDestino,
-      somaBalance: $("rSomaBalance").checked,
-      out: editingReservaRow ? (state.reservas.records.filter(function(x){ return x.row===editingReservaRow; })[0]||{}).out||0 : 0
-    };
-    var action = editingReservaRow ? "update" : "insert";
-    saveTableRow("reservas", action, editingReservaRow, rec).then(function(){
-      closeReservaModal();
-      return loadAndRender();
-    }).catch(function(err){
-      errEl.textContent = "Não foi possível salvar: " + err.message;
-      errEl.style.display = "block";
-    });
-  });
-  $("reservaDelete").addEventListener("click", function(){
-    if (!editingReservaRow) return;
-    pendingDelete = {tableKey:"reservas", rowNum: editingReservaRow};
-    closeReservaModal();
-    $("confirmTitle").textContent = "Excluir reserva";
-    $("confirmOverlay").classList.add("show");
-  });
 
   // ---------- Adiantamento modal ----------
   var adiantamentoOverlay = $("adiantamentoOverlay");
@@ -3844,16 +3742,15 @@
     el.classList.add(value < 0 ? "negative" : "positive");
   }
 
-  function renderDashboard(){
+  // Calcula os números do Dashboard para o mês filtrado (filterMonth), sem tocar no DOM. A página
+  // Previsões troca filterMonth temporariamente para projetar cada mês com exatamente esta lógica.
+  function computeDashboardNumbers(){
     var recs = getMonthFilteredRecords().filter(function(r){ return !r.out; });
     var total = 0;
     for (var i=0;i<recs.length;i++) total += (recs[i].effectiveValor||0);
-    var refKey = monthKey(filterMonth); // "" for "Todos os meses" — reservas/adiantamentos are
-    // tied to specific real months, so their effect is skipped in that lifetime-aggregate view.
-    var adiantamentosAbatimento = getAdiantamentosAbatimentoForMonthCartao(refKey, null);
-    total = total - adiantamentosAbatimento;
-    $("dashTotal").textContent = fmtBRL(total);
-    $("dashTotal").classList.toggle("positive", total < 0);
+    var refKey = monthKey(filterMonth); // "" for "Todos os meses" — adiantamentos are tied to
+    // specific real months, so their effect is skipped in that lifetime-aggregate view.
+    total = total - getAdiantamentosAbatimentoForMonthCartao(refKey, null);
 
     var debRecs = getDebitoMonthFiltered().filter(function(r){ return !r.out; });
     var ingresos = 0, gastos = 0, diarioGasto = 0;
@@ -3869,7 +3766,6 @@
     });
     getDynamicIncomeEntries().forEach(function(r){ ingresos += r.valor; });
     var balance = ingresos - gastos;
-    setBalanceCard("dashBalance", balance);
 
     var diarioBase = getDiarioAmount();
     // Mês com o débito marcado como completo em Cuentas (hora de "fazer as contas"): o que sobrou do
@@ -3878,23 +3774,11 @@
     var debCuenta = refKey ? findCuenta(refKey, "") : null;
     var mesFechado = !!(debCuenta && debCuenta.conferido);
     var diario = (diarioGasto > 0 && mesFechado) ? diarioGasto : Math.max(diarioBase, diarioGasto);
-    if (diarioGasto > 0){
-      $("dashDiario").textContent = fmtBRL(diarioBase - diarioGasto);
-      $("dashDiario").classList.toggle("negative", diarioBase - diarioGasto < 0);
-      $("dashDiarioLabel").textContent = "Diário restante (de " + fmtBRL(diarioBase) + ")";
-    } else {
-      $("dashDiario").textContent = fmtBRL(diarioBase);
-      $("dashDiario").classList.remove("negative");
-      $("dashDiarioLabel").textContent = "Diário";
-    }
     var investimento = getInvestimentoAmount();
-    $("dashInvestimento").textContent = fmtBRL(investimento);
-    // Reservas move money between two months directly; adiantamentos' "saída" side does the
-    // same (their "abatimento" side already raised restante above, via the reduced total, so it
-    // isn't added again here).
-    var reservasNet = getReservasNetForMonth(refKey) - getAdiantamentosSaidaForMonth(refKey);
-    if ($("dashReservas")) $("dashReservas").textContent = fmtBRL(reservasNet);
-    var restante = balance - total - diario - investimento + reservasNet;
+    // O lado "saída" do adiantamento tira dinheiro do mês diretamente; o lado "abatimento" já
+    // aumentou o restante acima, via total reduzido, então não entra de novo aqui.
+    var adiantamentosNet = -getAdiantamentosSaidaForMonth(refKey);
+    var restante = balance - total - diario - investimento + adiantamentosNet;
 
     var individualAj = 0, individualGab = 0;
     recs.forEach(function(r){
@@ -3908,11 +3792,32 @@
     // of both shares) is always exactly "restante", and each person bears the full effect of
     // their own individual spending exactly once.
     var diff = individualAj - individualGab;
-    var fachero = restante/2 - diff/2;
-    var fachera = restante/2 + diff/2;
-    setBalanceCard("dashBalanceFinal", restante);
-    setBalanceCard("dashBalanceFachero", fachero);
-    setBalanceCard("dashBalanceFachera", fachera);
+    return {
+      total: total, balance: balance, diarioBase: diarioBase, diarioGasto: diarioGasto, diario: diario,
+      investimento: investimento, adiantamentosNet: adiantamentosNet, restante: restante,
+      fachero: restante/2 - diff/2, fachera: restante/2 + diff/2
+    };
+  }
+
+  function renderDashboard(){
+    var d = computeDashboardNumbers();
+    $("dashTotal").textContent = fmtBRL(d.total);
+    $("dashTotal").classList.toggle("positive", d.total < 0);
+    setBalanceCard("dashBalance", d.balance);
+    if (d.diarioGasto > 0){
+      $("dashDiario").textContent = fmtBRL(d.diarioBase - d.diarioGasto);
+      $("dashDiario").classList.toggle("negative", d.diarioBase - d.diarioGasto < 0);
+      $("dashDiarioLabel").textContent = "Diário restante (de " + fmtBRL(d.diarioBase) + ")";
+    } else {
+      $("dashDiario").textContent = fmtBRL(d.diarioBase);
+      $("dashDiario").classList.remove("negative");
+      $("dashDiarioLabel").textContent = "Diário";
+    }
+    $("dashInvestimento").textContent = fmtBRL(d.investimento);
+    if ($("dashAdiantamentos")) $("dashAdiantamentos").textContent = fmtBRL(d.adiantamentosNet);
+    setBalanceCard("dashBalanceFinal", d.restante);
+    setBalanceCard("dashBalanceFachero", d.fachero);
+    setBalanceCard("dashBalanceFachera", d.fachera);
   }
 
   // Subscriptions active "as of" a given month (or, with no month selected, active today).
@@ -4667,20 +4572,22 @@
       state.lixeira = result.lixeira;
       state.cartaoTrocas = result.cartaoTrocas;
       state.cuentas = result.cuentas;
+      state.previsoes = result.previsoes;
       setConnectedUI(true, result.fileName);
       refreshDropdowns();
       renderList();
       renderDashboard();
       renderCuentasPage();
+      renderPrevisoesPage();
       renderCalendarioPage();
       renderLimitePage();
       renderAssinaturasPage();
       renderDebitoPage();
       renderDiarioPage();
       renderInvestimentoPage();
-      renderReservasList();
       renderAdiantamentosList();
       markLastUpdated();
+      updateInOutMenu();
       if (cfgOverlay.classList.contains("show")) renderCfgLists();
       scheduleCardDueNotifications();
     }).catch(function(err){
@@ -4772,6 +4679,41 @@
     if (e.key === "Escape") closeHeaderMenu();
   });
 
+  // ---------- Inside/Out: só aparece se for ativado em "Mais opções" ----------
+  // O toggle Inside/Out de cada linha serve para simulações de balance, então fica oculto por padrão
+  // (preferência guardada neste aparelho). Itens já marcados como Out continuam fora dos balances
+  // mesmo com a opção desativada, por isso o menu avisa quantos existem.
+  var SHOW_INOUT_KEY = "fachetools.showInOut";
+  function getShowInOut(){
+    try { return localStorage.getItem(SHOW_INOUT_KEY) === "1"; } catch(e){ return false; }
+  }
+  function countOutItems(){
+    var n = 0;
+    ["compras","debito","reservas","adiantamentos","antecipacoes"].forEach(function(k){
+      if (state[k]) state[k].records.forEach(function(r){ if (r.out) n++; });
+    });
+    return n;
+  }
+  function updateInOutMenu(){
+    var btn = $("btnMenuInOut");
+    if (!btn) return;
+    var on = document.documentElement.classList.contains("show-inout");
+    var outCount = on ? 0 : countOutItems();
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    $("inOutState").textContent = on ? "(ativado)" : (outCount ? "(desativado · " + outCount + " em Out)" : "(desativado)");
+    $("inOutState").style.color = (!on && outCount) ? "var(--warn)" : "var(--ink-faint)";
+  }
+  function applyShowInOut(on){
+    document.documentElement.classList.toggle("show-inout", !!on);
+    updateInOutMenu();
+  }
+  $("btnMenuInOut").addEventListener("click", function(){
+    var on = !document.documentElement.classList.contains("show-inout");
+    try { localStorage.setItem(SHOW_INOUT_KEY, on ? "1" : "0"); } catch(e){}
+    applyShowInOut(on);
+  });
+  applyShowInOut(getShowInOut());
+
   supabaseClient.auth.onAuthStateChange(function(event, session){
     if (session && session.user){
       currentUserEmail = session.user.email;
@@ -4845,11 +4787,143 @@
   $("fMonthClear").addEventListener("click", clearMonthFilter);
   $("fMonthToday").addEventListener("click", jumpToCurrentMonth);
 
+  // ---------- Previsões ----------
+  // Linhas marcadas com "Previsão" (compras, entradas/saídas e antecipações) são hipotéticas: o app
+  // as carrega à parte (state.previsoes) e só esta página as vê. Aqui entram numa projeção dos
+  // próximos 6 meses: balance final real de cada mês (o mesmo cálculo do Dashboard) mais o efeito
+  // líquido das previsões daquele mês.
+  var PREVISAO_MESES = 6;
+
+  function isPessoaGeraIngresso(nome){
+    return state.pessoas.records.some(function(p){ return p.nome === nome && !!p.geraIngresso; });
+  }
+  function getCurrentRealYM(){
+    var now = new Date();
+    return {year: now.getFullYear(), month: now.getMonth()+1};
+  }
+  // Efeito líquido no balance de um mês (ym = {year,month}): negativo = gasta, positivo = sobra.
+  // Gastos em nome de quem "gera ingresso" (Mãe, Padres, Tchuka) se anulam, como no espelho de compras.
+  function getPrevisaoEffectForMonth(ym){
+    var key = monthKey(ym), net = 0;
+    state.previsoes.compras.forEach(function(r){
+      if (isPessoaGeraIngresso(r.pessoa)) return;
+      getCompraScheduleForMonth(r, ym).forEach(function(e){ net -= (e.effectiveValor || 0); });
+    });
+    state.previsoes.debito.forEach(function(r){
+      if (serialToYearMonth(r.dataSerial) !== key) return;
+      if (INGRESO_TIPOS.indexOf(r.tipo) !== -1) net += r.valor;
+      else if (GASTO_TIPOS.indexOf(r.tipo) !== -1 && !isPessoaGeraIngresso(r.pessoa)) net -= r.valor;
+    });
+    state.previsoes.antecipacoes.forEach(function(a){
+      if (a.mes === key) net -= (a.valor || 0);
+      // As parcelas antecipadas deixam de ser cobradas nos meses em que cairiam.
+      var c = state.compras.records.filter(function(x){ return x.row === a.compraRow; })[0];
+      if (!c || !c.dataSerial) return;
+      var startYM = getFaturaStartYM(c.dataSerial, c.cartao);
+      var parcela = (c.valorTotal || 0) / (c.parcelas || 1);
+      (a.indices || []).forEach(function(idx){
+        if (monthKey(addMonths(startYM, idx - 1)) === key) net += parcela;
+      });
+    });
+    return net;
+  }
+
+  function getPrevisaoItems(){
+    var items = [];
+    state.previsoes.compras.forEach(function(r){
+      var ym = r.dataSerial ? monthKey(getFaturaStartYM(r.dataSerial, r.cartao)) : "";
+      var parcelas = r.parcelas || 1;
+      items.push({kind: "compra", tag: "Compra", rec: r, mes: ym, desc: r.descricao + " · " + (r.cartao || "sem cartão"),
+        valor: fmtBRL(r.valorTotal) + (parcelas > 1 ? " · " + parcelas + "x " + fmtBRL((r.valorTotal||0)/parcelas) : "")});
+    });
+    state.previsoes.debito.forEach(function(r){
+      var isIngreso = INGRESO_TIPOS.indexOf(r.tipo) !== -1;
+      items.push({kind: "debito", tag: isIngreso ? "Entrada" : "Saída", rec: r, mes: serialToYearMonth(r.dataSerial), desc: r.descricao + " · " + (r.pessoa || ""),
+        valor: (isIngreso ? "+ " : "− ") + fmtBRL(r.valor)});
+    });
+    state.previsoes.antecipacoes.forEach(function(a){
+      var c = state.compras.records.filter(function(x){ return x.row === a.compraRow; })[0];
+      items.push({kind: "antecipacao", tag: "Antecipação", rec: a, mes: a.mes,
+        desc: "Parcela" + ((a.indices||[]).length > 1 ? "s " : " ") + (a.indices||[]).join(", ") + " de " + (c ? c.descricao : "compra removida"),
+        valor: "− " + fmtBRL(a.valor)});
+    });
+    items.sort(function(x, y){ return (x.mes || "").localeCompare(y.mes || "") || x.tag.localeCompare(y.tag); });
+    return items;
+  }
+
+  function efetivarPrevisao(item){
+    var rec = {}; for (var k in item.rec) rec[k] = item.rec[k];
+    rec.previsao = false;
+    var table = item.kind === "compra" ? "compras" : (item.kind === "debito" ? "debito" : "antecipacoes");
+    saveTableRow(table, "update", item.rec.row, rec).then(loadAndRender).catch(function(err){
+      showError("Não foi possível efetivar: " + err.message);
+    });
+  }
+
+  function renderPrevisoesPage(){
+    var listEl = $("prevList");
+    if (!listEl) return;
+
+    // Projeção: troca filterMonth para cada mês e reaproveita o cálculo do Dashboard.
+    var start = getCurrentRealYM(), months = [], bases = [];
+    var savedMonth = filterMonth;
+    try {
+      for (var i = 0; i < PREVISAO_MESES; i++){
+        var ym = addMonths(start, i);
+        filterMonth = ym;
+        months.push(ym);
+        bases.push(computeDashboardNumbers().restante);
+      }
+    } finally {
+      filterMonth = savedMonth;
+    }
+    var head = '<th></th>', rowBase = '<td>Balance final (real)</td>', rowPrev = '<td>Previsões</td>', rowProj = '<td><strong>Projetado</strong></td>';
+    months.forEach(function(ym, i){
+      var eff = getPrevisaoEffectForMonth(ym);
+      var proj = bases[i] + eff;
+      head += '<th class="'+(i === 0 ? "current-month" : "")+'">'+MONTH_ABBR_PT[ym.month-1]+"/"+String(ym.year).slice(2)+'</th>';
+      rowBase += '<td class="'+(bases[i] < 0 ? "over-limit" : "")+'">'+fmtBRL(bases[i])+'</td>';
+      rowPrev += '<td>'+(Math.abs(eff) < 0.005 ? "—" : (eff > 0 ? "+ " : "− ") + fmtBRL(Math.abs(eff)))+'</td>';
+      rowProj += '<td class="'+(proj < 0 ? "over-limit" : "")+'"><strong>'+fmtBRL(proj)+'</strong></td>';
+    });
+    $("prevProjHead").innerHTML = head;
+    $("prevProjBody").innerHTML = '<tr>'+rowBase+'</tr><tr>'+rowPrev+'</tr><tr>'+rowProj+'</tr>';
+
+    var items = getPrevisaoItems(), curKey = monthKey(start);
+    listEl.innerHTML = "";
+    if (!items.length){
+      listEl.innerHTML = '<div class="empty"><span class="big">Nenhuma previsão</span>Use os botões acima, ou abra uma compra, entrada/saída ou antecipação e marque "Previsão".</div>';
+      return;
+    }
+    items.forEach(function(item){
+      var row = document.createElement("div");
+      row.className = "tx-row";
+      row.tabIndex = 0;
+      row.style.gridTemplateColumns = "0.7fr 1.7fr 0.8fr 1.2fr 1.1fr";
+      var vencida = item.mes && item.mes < curKey;
+      row.innerHTML =
+        '<span class="f-tipo">'+escapeHtml(item.tag)+'</span>'+
+        '<span class="tx-desc f-desc">'+escapeHtml(item.desc)+(vencida ? '<span class="tag-auto" title="O mês já passou: efetive ou exclua esta previsão">mês passado</span>' : '')+'</span>'+
+        '<span data-label="Mês">'+(item.mes ? formatMesShort(item.mes) : "—")+'</span>'+
+        '<span class="num f-valor">'+escapeHtml(item.valor)+'</span>'+
+        '<span><button class="btn btn-sm prev-efetivar" type="button" title="Passa a valer de verdade em todo o app">Efetivar</button></span>';
+      row.querySelector(".prev-efetivar").addEventListener("click", function(e){ e.stopPropagation(); efetivarPrevisao(item); });
+      row.addEventListener("click", function(){
+        if (item.kind === "compra") openEditModal(item.rec);
+        else if (item.kind === "debito") openEditDebModal(item.rec);
+        else openAntecipModalForExisting(item.rec.row);
+      });
+      listEl.appendChild(row);
+    });
+  }
+  $("btnPrevCompra").addEventListener("click", function(){ openAddModal({previsao: true}); });
+  $("btnPrevDebito").addEventListener("click", function(){ openAddDebModal({previsao: true}); });
+
   // ---------- Page navigation (Dashboard / Compras / Assinaturas / Ingresos-Salidas) ----------
   // Two navs point at the same pages: #pageTabs (text, top — desktop/tablet) and #bottomNav
   // (icon-only, fixed to the bottom — phones, like a native app's tab bar). Both are kept in
   // sync from one place so either one can drive page switching.
-  var PAGE_IDS = {dashboard:"pageDashboard", cuentas:"pageCuentas", tabela:"pageTabela", calendario:"pageCalendario", limite:"pageLimite", investimentos:"pageInvestimentos", debito:"pageDebito"};
+  var PAGE_IDS = {dashboard:"pageDashboard", cuentas:"pageCuentas", tabela:"pageTabela", calendario:"pageCalendario", limite:"pageLimite", previsoes:"pagePrevisoes", investimentos:"pageInvestimentos", debito:"pageDebito"};
   function setActivePage(page){
     document.querySelectorAll('#pageTabs button[data-page], #bottomNav button[data-page]').forEach(function(b){
       b.classList.toggle("active", b.getAttribute("data-page") === page);
@@ -4857,6 +4931,7 @@
     Object.keys(PAGE_IDS).forEach(function(p){ $(PAGE_IDS[p]).classList.toggle("active", p === page); });
     if (page === "dashboard") renderDashboard();
     else if (page === "cuentas") renderCuentasPage();
+    else if (page === "previsoes") renderPrevisoesPage();
     else if (page === "tabela") renderList();
     else if (page === "calendario") renderCalendarioPage();
     else if (page === "limite") renderLimitePage();
@@ -4913,7 +4988,7 @@
     if (wanted && wanted !== cur) $("fTipoSel").value = wanted;
   });
 
-  function openAddModal(){
+  function openAddModal(opts){
     editingRow = null;
     editingRowOut = 0;
     editingRowReembolsoOut = 0;
@@ -4945,6 +5020,7 @@
     $("fReembolsoValor").value = "";
     $("fReembolsoMes").value = "";
     updateReembolsoVisibility();
+    $("fPrevisao").checked = !!(opts && opts.previsao === true);
     txOverlay.classList.add("show");
     setTimeout(function(){ $("fDescricao").focus(); }, 30);
   }
@@ -4959,6 +5035,7 @@
     var avail = getAntecipacaoAvailability(r);
     $("txAntecip").style.display = ((r.parcelas||1) > 1 && avail.available.length >= 1) ? "inline-flex" : "none";
     $("txTrocarCartao").style.display = isAssinaturaTipo(r.tipo) ? "inline-flex" : "none";
+    if (r.previsao){ $("txAntecip").style.display = "none"; $("txTrocarCartao").style.display = "none"; }
     $("txError").style.display = "none";
     $("fDescricao").value = r.descricao;
     $("fComerciante").value = r.comerciante || "";
@@ -4972,6 +5049,7 @@
     $("fTipoSel").value = r.tipo;
     updateCancelacaoVisibility();
     $("fCancelacao").value = serialToInputValue(r.cancelSerial);
+    $("fPrevisao").checked = !!r.previsao;
     $("fReembolsado").checked = r.reembolsoValor !== null && r.reembolsoValor !== undefined;
     $("fReembolsoValor").value = $("fReembolsado").checked ? String(r.reembolsoValor).replace(".", ",") : "";
     $("fReembolsoMes").value = r.reembolsoMes || "";
@@ -5029,13 +5107,14 @@
       comerciante: comerciante,
       reembolsoValor: reembolsado ? Math.round(reembolsoValor*100)/100 : null,
       reembolsoOut: reembolsado ? editingRowReembolsoOut : 0,
-      reembolsoMes: reembolsoMes
+      reembolsoMes: reembolsoMes,
+      previsao: $("fPrevisao").checked
     };
 
     var action = editingRow ? "update" : "insert";
     var rowNum = editingRow;
 
-    var cerrados = getMesesCerradosAfetados([rec, editingRow ? editingRowRec : null]);
+    var cerrados = (rec.previsao && !(editingRowRec && !editingRowRec.previsao)) ? [] : getMesesCerradosAfetados([rec, editingRow ? editingRowRec : null]);
     if (!confirmEditMesesCerrados(cerrados)) return;
 
     saveTableRow("compras", action, rowNum, rec).then(function(){
@@ -5062,6 +5141,17 @@
   var antecipEditingRow = null;
   var antecipParcelaValorCache = 0;
   function closeAntecipModal(){ antecipOverlay.classList.remove("show"); }
+  // A previsão de antecipação escolhe o mês em que seria paga; a antecipação real sempre é cobrada
+  // no mês aberto, por isso o campo de mês só aparece quando "Previsão" está marcada.
+  function updateAntecipPrevisaoVisibility(){
+    $("antecipMesWrap").style.display = $("antecipPrevisao").checked ? "block" : "none";
+    if ($("antecipPrevisao").checked && !$("antecipMes").value) $("antecipMes").value = monthKey(getRefMonth());
+  }
+  $("antecipPrevisao").addEventListener("change", updateAntecipPrevisaoVisibility);
+  function findAntecipacaoRecord(row){
+    return state.antecipacoes.records.filter(function(x){ return x.row === row; })[0] ||
+           state.previsoes.antecipacoes.filter(function(x){ return x.row === row; })[0];
+  }
   // Renders one checkbox chip per candidate installment number, so the user can pick exactly
   // which ones to anticipate — not necessarily a contiguous run.
   function buildAntecipParcelasChips(candidates, parcelaValor, checkedIndices, disabled){
@@ -5087,7 +5177,7 @@
   $("antecipParcelasList").addEventListener("change", function(){
     if (!antecipEditingRow) recomputeAntecipValorSuggestion();
   });
-  function openAntecipModalForCompra(r){
+  function openAntecipModalForCompra(r, opts){
     if (READONLY_MAE) return;
     var avail = getAntecipacaoAvailability(r);
     if (!avail.available.length) return;
@@ -5099,13 +5189,16 @@
     $("antecipHint").textContent = "Escolha quais parcelas quer anticipar. O valor abaixo será cobrado em " + formatMonthLabel(getRefMonth()) + ".";
     buildAntecipParcelasChips(avail.available, parcelaValor, avail.available, false);
     recomputeAntecipValorSuggestion();
+    $("antecipPrevisao").checked = !!(opts && opts.previsao === true);
+    $("antecipMes").value = monthKey(getRefMonth());
+    updateAntecipPrevisaoVisibility();
     $("antecipDelete").style.display = "none";
     $("antecipError").style.display = "none";
     antecipOverlay.classList.add("show");
   }
   function openAntecipModalForExisting(antecipRow){
     if (READONLY_MAE) return;
-    var a = state.antecipacoes.records.filter(function(x){ return x.row === antecipRow; })[0];
+    var a = findAntecipacaoRecord(antecipRow);
     if (!a) return;
     var compraRec = state.compras.records.filter(function(c){ return c.row === a.compraRow; })[0];
     antecipCompraRow = a.compraRow;
@@ -5118,6 +5211,9 @@
       ". Para mudar quais parcelas, exclua e crie uma nova.";
     buildAntecipParcelasChips(indices, parcelaValor, indices, true);
     $("antecipValor").value = String(a.valor).replace(".", ",");
+    $("antecipPrevisao").checked = !!a.previsao;
+    $("antecipMes").value = a.mes || monthKey(getRefMonth());
+    updateAntecipPrevisaoVisibility();
     $("antecipDelete").style.display = "inline-flex";
     $("antecipError").style.display = "none";
     antecipOverlay.classList.add("show");
@@ -5132,7 +5228,7 @@
   antecipOverlay.addEventListener("click", function(e){ if (e.target===antecipOverlay) closeAntecipModal(); });
   $("antecipSave").addEventListener("click", function(){
     var errEl = $("antecipError");
-    var existing = antecipEditingRow ? state.antecipacoes.records.filter(function(x){ return x.row===antecipEditingRow; })[0] : null;
+    var existing = antecipEditingRow ? findAntecipacaoRecord(antecipEditingRow) : null;
     var indices = antecipEditingRow ? ((existing && existing.indices) || []) : getSelectedAntecipIndices();
     var valor = parseAmountInput($("antecipValor").value);
     if (!indices.length){
@@ -5146,11 +5242,15 @@
       return;
     }
     errEl.style.display = "none";
+    var asPrevisao = $("antecipPrevisao").checked;
     var rec = {
       compraRow: antecipCompraRow,
-      mes: monthKey(getRefMonth()),
+      // Real: sempre o mês aberto. Previsão: o mês escolhido; ao editar uma real mantém o mês dela.
+      mes: asPrevisao ? ($("antecipMes").value || monthKey(getRefMonth())) : (existing && existing.mes ? existing.mes : monthKey(getRefMonth())),
       indices: indices,
-      valor: Math.round(valor*100)/100
+      valor: Math.round(valor*100)/100,
+      out: existing ? (existing.out || 0) : 0,
+      previsao: asPrevisao
     };
     var action = antecipEditingRow ? "update" : "insert";
     var rowNum = antecipEditingRow;
@@ -5262,7 +5362,6 @@
       editingDebRow = null;
       antecipEditingRow = null;
       antecipCompraRow = null;
-      editingReservaRow = null;
       editingAdiantamentoRow = null;
       if (pd.tableKey === "compras") selectedCompras.clear();
       if (pd.tableKey === "debito") selectedDebito.clear();
@@ -5617,7 +5716,7 @@
     return today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
   }
 
-  function openAddDebModal(){
+  function openAddDebModal(opts){
     editingDebRow = null;
     editingDebRowOut = 0;
     $("debModalTitle").textContent = "Novo registro";
@@ -5629,6 +5728,7 @@
     $("dValor").value = "";
     $("dData").value = defaultDebDateInputValue();
     $("dVariacao").checked = false;
+    $("dPrevisao").checked = !!(opts && opts.previsao === true);
     updateDebVariacaoVisibility();
     debOverlay.classList.add("show");
     setTimeout(function(){ $("dDescricao").focus(); }, 30);
@@ -5648,6 +5748,7 @@
     $("dValor").value = String(r.valor).replace(".", ",");
     $("dData").value = r.dataSerial ? serialToInputValue(r.dataSerial) : defaultDebDateInputValue();
     $("dVariacao").checked = false;
+    $("dPrevisao").checked = !!r.previsao;
     updateDebVariacaoVisibility();
     debOverlay.classList.add("show");
   }
@@ -5676,7 +5777,8 @@
       valor: Math.round(valor*100)/100,
       dataSerial: dateInputToSerial(dataStr),
       out: editingDebRowOut,
-      variacao: FIJO_TIPOS.indexOf(tipo) !== -1 ? !!$("dVariacao").checked : false
+      variacao: FIJO_TIPOS.indexOf(tipo) !== -1 ? !!$("dVariacao").checked : false,
+      previsao: $("dPrevisao").checked
     };
 
     var action = editingDebRow ? "update" : "insert";
@@ -5685,7 +5787,7 @@
       var oldDeb = state.debito.records.filter(function(x){ return x.row === editingDebRow; })[0];
       if (oldDeb) debMeses.push(serialToYearMonth(oldDeb.dataSerial));
     }
-    var debCerrados = debMeses.filter(function(m, i){ return m && debMeses.indexOf(m) === i && isMesCerrado(m); });
+    var debCerrados = rec.previsao ? [] : debMeses.filter(function(m, i){ return m && debMeses.indexOf(m) === i && isMesCerrado(m); });
     if (!confirmEditMesesCerrados(debCerrados)) return;
     saveTableRow("debito", action, editingDebRow, rec).then(function(){
       closeDebModal();

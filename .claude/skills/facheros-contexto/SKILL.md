@@ -27,7 +27,7 @@ Aquí vive el **significado**: qué representa cada número en la vida de los fa
 - [`references/tarjetas.md`](references/tarjetas.md): qué se usa cada tarjeta de crédito.
 - [`references/gastos-fijos.md`](references/gastos-fijos.md): significado de cada gasto fijo y otros rubros.
 - [`references/reglas.md`](references/reglas.md): cómo se organizan, reparten y deciden las finanzas.
-- [`references/planes.md`](references/planes.md): viajes y salidas de Planes y cómo se conectan con compras y reservas.
+- [`references/planes.md`](references/planes.md): viajes y salidas de Planes y cómo se conectan con compras y previsões.
 
 ## Principios de la casa (confirmados)
 1. **Todo es una sola economía**: los ingresos se consideran como uno y no llevan finanzas por separado.

@@ -17,10 +17,14 @@
 - **Un mes bueno** = el **balance final queda en positivo**. *(confirmado)*
 - **Fachero/Fachera individual**: no hay regla; depende del caso (algunos gastos se asignan a los dos y otros no).
   El balance dividido existe para que **cada uno pueda comprarse cosas sin consultar al otro**. *(confirmado)*
-- **Reservas = previsiones de balance** *(confirmado)*: nacieron para gastos que **sí o sí** harán en un mes futuro,
-  de modo que se vea cómo quedará el balance de ese mes. No son ahorros ni el RDB. Hoy: Carlinhos R$ 270 (oct),
-  Regalos Casa R$ 400 (oct) y Regalo Lucas R$ 150 (nov), apartados en septiembre. Ver `planes.md`: muchas salen de
-  eventos o viajes de Planes (ej. el viaje "Carlinhos" a Bertioga, 24–25/10).
+- **Previsões (antes "reservas")** *(confirmado)*: nacieron como previsiones de balance, para gastos que **sí o sí**
+  harán en un mes futuro y ver cómo queda el balance de ese mes. Ahora son una **marca** ("Previsão") que se puede
+  poner en una compra, en una entrada/salida de débito o en una anticipación de cuota: la fila marcada **desaparece
+  del resto del app** y solo se ve y afecta en la página **Previsões** (proyección de 6 meses). Al ocurrir el gasto
+  se usa **Efetivar**. Sus tres primeras (Carlinhos R$ 270 y Regalos Casa R$ 400 en octubre; Regalo Lucas R$ 150 en
+  noviembre) y la del viaje a Colombia (R$ 2.000, diciembre) vienen de las antiguas reservas. No son ahorros ni el RDB.
+- **Inside/Out vs. Previsão**: Inside/Out (opción de los 3 puntos, oculta por defecto) sirve para **quitar** algo que ya
+  existe y simular; Previsão sirve para **agregar** algo hipotético.
 - **Cuotas**: no hay criterio para decidir el número de cuotas. El "Parcelamento de Fatura" de agosto fue **por falta
   de caja** de ese mes. *(confirmado)*
 - **Rubros que quieren seguir**: **comida, salud, transporte y lazer (ocio)**. *(confirmado)*
@@ -30,8 +34,7 @@
 - **Beneficiarios sin identificar** (el usuario no sabe): Tuna Pagamentos, Realize (probablemente Renner),
   "Resgate de empréstimo", Harllei Kevin. Si reaparecen, preguntar. *(abierto)*
 
-- **Reservas desde Planes**: los eventos de Planes con gasto cierto alimentan las reservas (ver `planes.md`).
-  Origen = mes anterior al destino, `soma_balance = false`. *(aprobado por el usuario)*
+- **Previsões desde Planes**: los eventos de Planes con gasto cierto alimentan las previsões (ver `planes.md`). *(aprobado)*
 - **PUC**: R$ 831,99, día 10, repartida Facheros 345,76 / Mãe 486,23. *(confirmado)*
 
 ## Pendiente (el usuario lo decide "al final")

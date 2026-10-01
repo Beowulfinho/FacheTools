@@ -69,7 +69,7 @@ El mes de la fatura sale de la propia factura (vencimiento / fechas de las compr
 
 ### 1. Leer el estado actual
 - `execute_sql` sobre `cartoes`, `pessoas`, `tipos`, `compras` (activas, `out=false`), `debito`,
-  `diario`, `reservas`, `adiantamentos` y `cuentas_mes`.
+  `diario`, `adiantamentos` y `cuentas_mes`. Ignorar las filas con `previsao = true` (hipotéticas) al comparar.
 - Mes de fatura de una compra = mes de `data`, +1 si `día >= cartoes.fechamento` (`getFaturaStartYM`).
   La cuota k cae en `inicio + (k-1)` meses. Las asignaturas (`tipo` con "Assinatura") se repiten cada
   mes hasta `cancelamento`. Para totales exactos (anticipaciones, reembolsos, trocas de cartão,
@@ -106,7 +106,7 @@ Objetivo: que el app refleje si **ya se gastó plata del salario** que el app to
 2. **Saldo del mes en curso** `L = saldo de hoy − S`: lo que queda de la plata del mes *m*.
    (Si hoy aún no pasó el vencimiento de alguna factura de *m*, esa factura sigue saliendo de L.)
 3. Lo que el app espera de *m*: `restante(m)` de `renderDashboard`
-   (`balance − totalCompras − diario − investimento + reservasNet`). Con los extractos de débito ya
+   (`balance − totalCompras − diario − investimento + adiantamentosNet`; las reservas ya no existen: ahora son Previsões). Con los extractos de débito ya
    itemizados (4b), `restante` incluye el gasto real de débito, así que se compara `L` directamente
    con `restante` (sin rango por el diario):
    - `L ≈ restante` → **consistente**, no hay nada que registrar.
@@ -168,10 +168,11 @@ dijo que cargues sin preguntar, proceder y reportar.
 - Un `execute_sql` por bloque lógico y un `select` de verificación después. Nada de `delete` ni
   `update` de compras existentes sin que lo pidan.
 
-### 5b. Previsiones (reservas desde Planes)
-Al terminar de cargar, revisar los eventos de Planes de los próximos 3 a 6 meses y **sincronizar las reservas**
-según `facheros-contexto/references/planes.md` (presupuesto y pasajes pendientes → reserva en el mes del gasto).
-Informar qué reservas se crearon o cambiaron.
+### 5b. Previsões (desde Planes)
+Al terminar de cargar, revisar los eventos de Planes de los próximos 3 a 6 meses y **sincronizar las previsões**
+según `facheros-contexto/references/planes.md` (presupuesto y pasajes pendientes → fila de `debito` con `previsao = true`
+en el mes del gasto). Informar qué previsões se crearon o cambiaron. Las filas con `previsao = true` **no cuentan**
+para facturas, balance ni conciliación: solo existen en la página Previsões.
 
 ### 6. Verificar y entregar
 - Releer los totales por tarjeta del mes y confirmar que coinciden con `valor_real`. Lo más fiable es la

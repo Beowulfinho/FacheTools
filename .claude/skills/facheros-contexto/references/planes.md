@@ -2,7 +2,7 @@
 
 El app **Planes** (viajes y salidas) comparte la base de datos con Financas. Los eventos de Planes son la
 fuente de muchos gastos futuros, que en Financas aparecen como **compras** (pasajes, hospedaje) y como
-**reservas** (previsiones de balance). *(confirmado: "aquí inicia la interconexión")*
+**previsões** (previsiones de balance). *(confirmado: "aquí inicia la interconexión")*
 
 ## Estado actual (01/10/2026)
 | Planes | Fechas | Notas |
@@ -25,19 +25,21 @@ fuente de muchos gastos futuros, que en Financas aparecen como **compras** (pasa
    **la fecha sigue pendiente de corregir**.
 3. **Regreso BAQ → GRU** (Barranquilla a São Paulo): 2 pasajes, ya comprados (R$ 4.217,04 cada uno).
 
-## Regla: Planes alimenta las reservas (previsiones de balance)
-Un evento de Planes con gasto cierto en un mes futuro debe tener una **reserva** en Financas, para ver cómo queda el
-balance de ese mes. Sincronizar al hacer cuentas, mirando los próximos 3 a 6 meses:
+## Regla: Planes alimenta las Previsões
+Un evento de Planes con gasto cierto en un mes futuro debe tener una **previsão** en Financas, para ver cómo queda el
+balance proyectado de ese mes (página Previsões). Sincronizar al hacer cuentas, mirando los próximos 3 a 6 meses:
 - **Qué cuenta**: el presupuesto planeado (`planes_orcamento.planejado`) y los pasajes/hospedajes **pendientes** con
-  valor. Lo ya comprado en cuotas **no** se reserva (ya está en las compras).
-- **Fila**: `reservas` con `descricao = 'Planes · <nombre del viaje> (<concepto>)'`, `valor`, `mes_destino` = mes del
-  gasto (el de inicio del viaje, o el de cada fecha si son varias), `mes_origem` = **el mes anterior al destino**
-  (como las reservas existentes: sep → oct) y `soma_balance = false` (plata comprometida, no disponible).
-- **Idempotente**: si ya existe una reserva con esa misma descripción, actualizarla en vez de crear otra.
-- **Sin fecha** (Skydiving, Perú 2027): no se crea reserva hasta que tengan mes.
-- Ya creada: "Planes · Viaje a Colombia (presupuesto)", R$ 2.000, nov → dic 2026. Cuando se compren los pasajes
-  BOG → CUC, sumar su valor.
-- Avisar al usuario de lo que se creó; borrar una reserva solo si el evento se cancela.
+  valor. Lo ya comprado en cuotas **no** se agrega (ya está en las compras).
+- **Fila**: `debito` con `previsao = true`, `tipo = 'Gasto Variable'`, `pessoa` Facheros, `descricao =
+  'Planes · <nombre del viaje> (<concepto>)'`, `valor` y `data` = **día 1 del mes del gasto** (el de inicio del viaje, o
+  el de cada fecha si son varias). Sin mes de origen ni marcas de "comprometido": una previsão solo afecta la
+  proyección de su mes y **no toca el balance real ni ninguna otra pantalla**.
+- **Idempotente**: si ya existe una previsão con esa misma descripción, actualizarla en vez de crear otra.
+- **Sin fecha** (Skydiving, Perú 2027): no se crea previsão hasta que tengan mes.
+- Cuando el gasto ocurre de verdad, el usuario usa **Efetivar** (la previsão pasa a real) o la elimina; no borrar a mano.
+- Ya creada (tras migrar las reservas): "Planes · Viaje a Colombia (presupuesto)", R$ 2.000, dic 2026. Cuando se
+  compren los pasajes BOG → CUC, sumar su valor.
+- Avisar al usuario de lo que se creó; borrar una previsão solo si el evento se cancela.
 
 ## Vincular pasajes con compras
 Un pasaje o hospedaje comprado debe **vincularse a su compra** de Financas (`planes_passagens.compra_id`) para no
