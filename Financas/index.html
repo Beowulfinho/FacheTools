@@ -549,7 +549,7 @@
   html:not(.show-inout) .f-out, html:not(.show-inout) .head-out{ display:none !important; }
   @media (min-width: 881px){
     html:not(.show-inout) #txList .tx-row, html:not(.show-inout) #txHeadRow{ grid-template-columns:0.32fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr !important; }
-    html:not(.show-inout) #debitoList .tx-row, html:not(.show-inout) #debHeadRow{ grid-template-columns:0.32fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr !important; }
+    html:not(.show-inout) #debitoList .tx-row, html:not(.show-inout) #debHeadRow, html:not(.show-inout) #debitoFixosList .tx-row, html:not(.show-inout) #debFixHeadRow{ grid-template-columns:0.32fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr !important; }
   }
   .row-select{ width:auto; accent-color:var(--accent); cursor:pointer; align-self:center; }
   .bulk-bar{
@@ -966,12 +966,12 @@
     <div class="page-toolbar">
       <div class="page-tabs" id="pageTabs">
         <button data-page="dashboard" class="active" type="button">Dashboard</button>
-        <button data-page="cuentas" type="button">Cuentas</button>
         <button data-page="tabela" type="button">Credito</button>
+        <button data-page="debito" type="button">Ingresos/Salidas</button>
+        <button data-page="cuentas" type="button">Cuentas</button>
+        <button data-page="previsoes" type="button">Previsões</button>
         <button data-page="calendario" type="button">Calendário</button>
         <button data-page="limite" type="button">Limite</button>
-        <button data-page="previsoes" type="button">Previsões</button>
-        <button data-page="debito" type="button">Ingresos/Salidas</button>
         <button data-page="investimentos" type="button">Investimentos</button>
       </div>
       <div class="month-filter">
@@ -1085,14 +1085,27 @@
           <div class="v num" id="debBalance">R$ 0,00</div>
         </div>
       </div>
+      <div class="bulk-bar" id="debitoBulkBar" style="display:none;">
+        <span id="debitoBulkCount">0 selecionadas</span>
+        <button class="btn btn-sm btn-danger" id="debitoBulkDelete" type="button">Excluir selecionadas</button>
+        <button class="btn btn-sm" id="debitoBulkClear" type="button">Cancelar seleção</button>
+      </div>
       <div class="panel">
         <div class="panel-head">
-          <h2>Movimientos</h2>
+          <h2>Fijos y recurrentes</h2>
+          <span class="cfg-hint" id="debFijosSub" style="margin:0;"></span>
         </div>
-        <div class="bulk-bar" id="debitoBulkBar" style="display:none;">
-          <span id="debitoBulkCount">0 selecionadas</span>
-          <button class="btn btn-sm btn-danger" id="debitoBulkDelete" type="button">Excluir selecionadas</button>
-          <button class="btn btn-sm" id="debitoBulkClear" type="button">Cancelar seleção</button>
+        <div class="tx-scroll">
+        <div class="list-head-row" id="debFixHeadRow" style="grid-template-columns:0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr;">
+          <input type="checkbox" class="row-select" id="selectAllDebitoFixos" title="Selecionar todos"><span class="head-out"></span><span>Tipo</span><span>Descrição</span><span>Pessoa</span><span>Valor</span><span>Mês</span>
+        </div>
+        <div class="tx-list" id="debitoFixosList"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head">
+          <h2>Movimientos</h2>
+          <span class="cfg-hint" id="debMovSub" style="margin:0;"></span>
         </div>
         <div class="tx-scroll">
         <div class="list-head-row" id="debHeadRow" style="grid-template-columns:0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr;">
@@ -1260,23 +1273,23 @@
       <button data-page="dashboard" class="active" type="button" title="Dashboard" aria-label="Dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>
       </button>
+      <button data-page="tabela" type="button" title="Credito" aria-label="Credito">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.2"/><path d="M2.5 10h19"/></svg>
+      </button>
+      <button data-page="debito" type="button" title="Ingresos/Salidas" aria-label="Ingresos/Salidas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h14.5M13.5 3.5l4 4-4 4"/><path d="M21 16.5H6.5M10.5 12.5l-4 4 4 4"/></svg>
+      </button>
       <button data-page="cuentas" type="button" title="Cuentas" aria-label="Cuentas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
       </button>
-      <button data-page="tabela" type="button" title="Credito" aria-label="Credito">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.2"/><path d="M2.5 10h19"/></svg>
+      <button data-page="previsoes" type="button" title="Previsões" aria-label="Previsões">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
       </button>
       <button data-page="calendario" type="button" title="Calendário" aria-label="Calendário">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
       </button>
       <button data-page="limite" type="button" title="Limite" aria-label="Limite">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1"/></svg>
-      </button>
-      <button data-page="previsoes" type="button" title="Previsões" aria-label="Previsões">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-      </button>
-      <button data-page="debito" type="button" title="Ingresos/Salidas" aria-label="Ingresos/Salidas">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5h14.5M13.5 3.5l4 4-4 4"/><path d="M21 16.5H6.5M10.5 12.5l-4 4 4 4"/></svg>
       </button>
       <button data-page="investimentos" type="button" title="Investimentos" aria-label="Investimentos">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
@@ -3990,119 +4003,149 @@
   }
 
   var selectedDebito = new Set();
-  var lastVisibleDebitoRows = [];
+  var lastVisibleDebitoRowsMov = [], lastVisibleDebitoRowsFijos = [];
   function updateDebitoBulkBar(){
     var bar = $("debitoBulkBar");
     if (!bar) return;
     var n = selectedDebito.size;
     bar.style.display = n > 0 ? "flex" : "none";
     $("debitoBulkCount").textContent = n + (n===1 ? " selecionada" : " selecionadas");
-    var allCb = $("selectAllDebito");
-    if (allCb){
-      var allSelected = lastVisibleDebitoRows.length > 0 && lastVisibleDebitoRows.every(function(rn){ return selectedDebito.has(rn); });
-      allCb.checked = allSelected;
-      allCb.indeterminate = !allSelected && n > 0;
-    }
+    [["selectAllDebito", lastVisibleDebitoRowsMov], ["selectAllDebitoFixos", lastVisibleDebitoRowsFijos]].forEach(function(p){
+      var cb = $(p[0]), rows = p[1];
+      if (!cb) return;
+      var sel = rows.filter(function(rn){ return selectedDebito.has(rn); }).length;
+      cb.checked = rows.length > 0 && sel === rows.length;
+      cb.indeterminate = sel > 0 && sel < rows.length;
+    });
   }
-  $("selectAllDebito").addEventListener("change", function(){
-    if (this.checked) lastVisibleDebitoRows.forEach(function(rn){ selectedDebito.add(rn); });
-    else selectedDebito.clear();
-    renderDebitoPage();
-  });
+  function bindSelectAllDebito(id, getRows){
+    $(id).addEventListener("change", function(){
+      var rows = getRows();
+      if (this.checked) rows.forEach(function(rn){ selectedDebito.add(rn); });
+      else rows.forEach(function(rn){ selectedDebito.delete(rn); });
+      renderDebitoPage();
+    });
+  }
+  bindSelectAllDebito("selectAllDebito", function(){ return lastVisibleDebitoRowsMov; });
+  bindSelectAllDebito("selectAllDebitoFixos", function(){ return lastVisibleDebitoRowsFijos; });
 
+  function isFijoDebitoTipo(t){ return FIJO_TIPOS.indexOf(t) !== -1; }
+
+  function appendDynamicDebitoRow(listEl, r){
+    var row = document.createElement("div");
+    row.className = "tx-row tx-row-static";
+    row.style.gridTemplateColumns = "0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr";
+    row.innerHTML =
+      '<span class="f-select"></span>'+
+      '<span class="f-out"></span>'+
+      '<span class="tipo-badge f-tipo">'+escapeHtml(r.tipo)+'</span>'+
+      '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'<span class="tag-auto">auto</span></span>'+
+      '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
+      '<span class="tx-amt num f-valor">'+fmtBRL(r.valor)+'</span>'+
+      '<span class="num f-data" data-label="Data">—</span>'+
+      '<span class="f-linebreak" aria-hidden="true"></span>';
+    listEl.appendChild(row);
+  }
+
+  function appendDebitoRow(listEl, r){
+    var row = document.createElement("div");
+    row.className = "tx-row" + (r.inherited ? " tx-row-inherited" : "");
+    row.tabIndex = 0;
+    row.style.gridTemplateColumns = "0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr";
+    var badgeClass = (r.tipo === "Gasto Fijo" || r.tipo === "Gasto Variable") ? (r.tipo === "Gasto Fijo" ? "assinatura" : "estorno") : "";
+    var descHtml = escapeHtml(r.descricao) + (r.inherited ? '<span class="tag-auto">herdado</span>' : (r.variacao ? '<span class="tag-auto">variação</span>' : "")) +
+      (r.refExterna ? '<span class="tag-auto" title="Itemizado de um extrato bancário; sai do Diário do mês">extrato</span>' : "");
+    if (r.inherited){
+      row.innerHTML =
+        '<span class="f-select"></span>'+
+        '<span class="f-out"></span>'+
+        '<span class="tipo-badge f-tipo '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
+        '<span class="tx-desc f-desc">'+descHtml+'</span>'+
+        '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
+        '<span class="tx-amt num f-valor">'+fmtBRL(r.valor)+'</span>'+
+        '<span class="num f-data" data-label="Data">—</span>'+
+        '<span class="f-linebreak" aria-hidden="true"></span>';
+      row.addEventListener("click", function(){ openEditDebModal(r); });
+      listEl.appendChild(row);
+      return;
+    }
+    row.innerHTML =
+      '<input type="checkbox" class="row-select f-select" '+(selectedDebito.has(r.row)?"checked":"")+'>'+
+      '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
+      '<span class="tipo-badge f-tipo '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
+      '<span class="tx-desc f-desc">'+descHtml+'</span>'+
+      '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
+      '<span class="tx-amt num f-valor">'+fmtBRL(r.valor)+'</span>'+
+      '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+'</span>'+
+      '<span class="f-linebreak" aria-hidden="true"></span>';
+    var selectCheckbox = row.querySelector(".row-select");
+    selectCheckbox.addEventListener("click", function(e){ e.stopPropagation(); });
+    selectCheckbox.addEventListener("change", function(e){
+      e.stopPropagation();
+      if (selectCheckbox.checked) selectedDebito.add(r.row); else selectedDebito.delete(r.row);
+      updateDebitoBulkBar();
+    });
+    var checkbox = row.querySelector(".out-toggle");
+    checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
+    checkbox.addEventListener("change", function(e){
+      e.stopPropagation();
+      var rec = {}; for (var k in r) rec[k] = r[k];
+      rec.out = checkbox.checked ? 0 : 1;
+      saveTableRow("debito", "update", r.row, rec).then(loadAndRender).catch(function(err){
+        showError("Não foi possível salvar: " + err.message);
+      });
+    });
+    row.addEventListener("click", function(){ openEditDebModal(r); });
+    listEl.appendChild(row);
+  }
+
+  // Duas listas: "Fijos y recurrentes" (Ingreso/Gasto Fijo, herdados cada mês, mais o espelho dos que
+  // "geram ingresso") e "Movimientos" (o que realmente se move no débito: variáveis, retiradas e os
+  // gastos itemizados dos extratos). Os totais do topo somam as duas.
   function renderDebitoPage(){
     if (!$("debitoList")) return;
     var recs = getDebitoMonthFiltered();
     var dynamicEntries = getDynamicIncomeEntries();
     var ingresos = 0, gastos = 0;
+    var fIng = 0, fGas = 0, mIng = 0, mGas = 0, espelho = 0;
     recs.forEach(function(r){
       if (r.out) return;
-      if (INGRESO_TIPOS.indexOf(r.tipo) !== -1) ingresos += r.valor;
-      else if (GASTO_TIPOS.indexOf(r.tipo) !== -1) gastos += r.valor;
+      var fijo = isFijoDebitoTipo(r.tipo);
+      if (INGRESO_TIPOS.indexOf(r.tipo) !== -1){ ingresos += r.valor; if (fijo) fIng += r.valor; else mIng += r.valor; }
+      else if (GASTO_TIPOS.indexOf(r.tipo) !== -1){ gastos += r.valor; if (fijo) fGas += r.valor; else mGas += r.valor; }
     });
-    dynamicEntries.forEach(function(r){ ingresos += r.valor; });
+    dynamicEntries.forEach(function(r){ ingresos += r.valor; espelho += r.valor; });
     $("debIngresos").textContent = fmtBRL(ingresos);
     $("debGastos").textContent = fmtBRL(gastos);
     $("debBalance").textContent = fmtBRL(ingresos - gastos);
+    $("debFijosSub").textContent = "Ingresos fijos " + fmtBRL(fIng) + " · Gastos fijos " + fmtBRL(fGas) + (espelho ? " · Espelho " + fmtBRL(espelho) : "");
+    $("debMovSub").textContent = "Ingresos " + fmtBRL(mIng) + " · Gastos " + fmtBRL(mGas);
 
-    var sorted = recs.slice().sort(function(a,b){ return (b.dataSerial||0) - (a.dataSerial||0); });
+    var tipoOrder = {"Ingreso Fijo": 0, "Gasto Fijo": 1};
+    var fijoRecs = recs.filter(function(r){ return isFijoDebitoTipo(r.tipo); }).sort(function(a, b){
+      return (tipoOrder[a.tipo] - tipoOrder[b.tipo]) || (b.valor - a.valor);
+    });
+    var movRecs = recs.filter(function(r){ return !isFijoDebitoTipo(r.tipo); }).sort(function(a, b){ return (b.dataSerial||0) - (a.dataSerial||0); });
 
-    var visibleRows = sorted.filter(function(r){ return r.row !== null; }).map(function(r){ return r.row; });
-    lastVisibleDebitoRows = visibleRows;
-    Array.from(selectedDebito).forEach(function(rn){ if (visibleRows.indexOf(rn)===-1) selectedDebito.delete(rn); });
+    lastVisibleDebitoRowsFijos = fijoRecs.filter(function(r){ return r.row !== null; }).map(function(r){ return r.row; });
+    lastVisibleDebitoRowsMov = movRecs.filter(function(r){ return r.row !== null; }).map(function(r){ return r.row; });
+    var allVisible = lastVisibleDebitoRowsFijos.concat(lastVisibleDebitoRowsMov);
+    Array.from(selectedDebito).forEach(function(rn){ if (allVisible.indexOf(rn) === -1) selectedDebito.delete(rn); });
     updateDebitoBulkBar();
 
-    var listEl = $("debitoList");
-    listEl.innerHTML = "";
-    if (!sorted.length && !dynamicEntries.length){
-      listEl.innerHTML = '<div class="empty"><span class="big">Nenhum movimento encontrado</span>Ajuste o filtro de mês.</div>';
-      return;
+    var fixList = $("debitoFixosList"), movList = $("debitoList");
+    fixList.innerHTML = ""; movList.innerHTML = "";
+    if (!fijoRecs.length && !dynamicEntries.length){
+      fixList.innerHTML = '<div class="empty"><span class="big">Nenhum fixo neste mês</span>Gastos e ingressos fixos se repetem sozinhos a cada mês.</div>';
+    } else {
+      dynamicEntries.forEach(function(r){ appendDynamicDebitoRow(fixList, r); });
+      fijoRecs.forEach(function(r){ appendDebitoRow(fixList, r); });
     }
-    dynamicEntries.forEach(function(r){
-      var row = document.createElement("div");
-      row.className = "tx-row tx-row-static";
-      row.style.gridTemplateColumns = "0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr";
-      row.innerHTML =
-        '<span class="f-select"></span>'+
-        '<span class="f-out"></span>'+
-        '<span class="tipo-badge f-tipo">'+escapeHtml(r.tipo)+'</span>'+
-        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'<span class="tag-auto">auto</span></span>'+
-        '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
-        '<span class="tx-amt num f-valor">'+fmtBRL(r.valor)+'</span>'+
-        '<span class="num f-data" data-label="Data">—</span>'+
-        '<span class="f-linebreak" aria-hidden="true"></span>';
-      listEl.appendChild(row);
-    });
-    sorted.forEach(function(r){
-      var row = document.createElement("div");
-      row.className = "tx-row" + (r.inherited ? " tx-row-inherited" : "");
-      row.tabIndex = 0;
-      row.style.gridTemplateColumns = "0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr";
-      var badgeClass = (r.tipo === "Gasto Fijo" || r.tipo === "Gasto Variable") ? (r.tipo === "Gasto Fijo" ? "assinatura" : "estorno") : "";
-      var descHtml = escapeHtml(r.descricao) + (r.inherited ? '<span class="tag-auto">herdado</span>' : (r.variacao ? '<span class="tag-auto">variação</span>' : ""));
-      if (r.inherited){
-        row.innerHTML =
-          '<span class="f-select"></span>'+
-          '<span class="f-out"></span>'+
-          '<span class="tipo-badge f-tipo '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
-          '<span class="tx-desc f-desc">'+descHtml+'</span>'+
-          '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
-          '<span class="tx-amt num f-valor">'+fmtBRL(r.valor)+'</span>'+
-          '<span class="num f-data" data-label="Data">—</span>'+
-          '<span class="f-linebreak" aria-hidden="true"></span>';
-        row.addEventListener("click", function(){ openEditDebModal(r); });
-        listEl.appendChild(row);
-        return;
-      }
-      row.innerHTML =
-        '<input type="checkbox" class="row-select f-select" '+(selectedDebito.has(r.row)?"checked":"")+'>'+
-        '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
-        '<span class="tipo-badge f-tipo '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
-        '<span class="tx-desc f-desc">'+descHtml+'</span>'+
-        '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
-        '<span class="tx-amt num f-valor">'+fmtBRL(r.valor)+'</span>'+
-        '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+'</span>'+
-        '<span class="f-linebreak" aria-hidden="true"></span>';
-      var selectCheckbox = row.querySelector(".row-select");
-      selectCheckbox.addEventListener("click", function(e){ e.stopPropagation(); });
-      selectCheckbox.addEventListener("change", function(e){
-        e.stopPropagation();
-        if (selectCheckbox.checked) selectedDebito.add(r.row); else selectedDebito.delete(r.row);
-        updateDebitoBulkBar();
-      });
-      var checkbox = row.querySelector(".out-toggle");
-      checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
-      checkbox.addEventListener("change", function(e){
-        e.stopPropagation();
-        var rec = {}; for (var k in r) rec[k] = r[k];
-        rec.out = checkbox.checked ? 0 : 1;
-        saveTableRow("debito", "update", r.row, rec).then(loadAndRender).catch(function(err){
-          showError("Não foi possível salvar: " + err.message);
-        });
-      });
-      row.addEventListener("click", function(){ openEditDebModal(r); });
-      listEl.appendChild(row);
-    });
+    if (!movRecs.length){
+      movList.innerHTML = '<div class="empty"><span class="big">Nenhum movimento neste mês</span>Aqui entram os movimentos variáveis do débito. Ajuste o filtro de mês.</div>';
+    } else {
+      movRecs.forEach(function(r){ appendDebitoRow(movList, r); });
+    }
   }
 
   // ---------- Diario (free-to-use money, subtracted from the month's balance) ----------
