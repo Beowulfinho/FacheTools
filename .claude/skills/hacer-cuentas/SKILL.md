@@ -20,6 +20,8 @@ facturas entregadas en el chat. Objetivo actual: **que el app quede actualizada*
 se informa si lo piden.
 
 Idioma con el usuario: español. Proyecto Supabase: `qdetwdneqncblxwylpyw`.
+**Cargar también `facheros-contexto`**: da el significado de personas, cuentas, tarjetas y gastos para
+interpretar cada número y cada transferencia (y se amplía cuando el usuario aclara algo nuevo).
 Fecha de hoy: **obtenerla del sistema (`date`) y decirla en voz alta**; toda la lógica del saldo
 depende de ella.
 
@@ -165,6 +167,11 @@ dijo que cargues sin preguntar, proceder y reportar.
   con diferencia queda **sin** conferir y se reporta.
 - Un `execute_sql` por bloque lógico y un `select` de verificación después. Nada de `delete` ni
   `update` de compras existentes sin que lo pidan.
+
+### 5b. Previsiones (reservas desde Planes)
+Al terminar de cargar, revisar los eventos de Planes de los próximos 3 a 6 meses y **sincronizar las reservas**
+según `facheros-contexto/references/planes.md` (presupuesto y pasajes pendientes → reserva en el mes del gasto).
+Informar qué reservas se crearon o cambiaron.
 
 ### 6. Verificar y entregar
 - Releer los totales por tarjeta del mes y confirmar que coinciden con `valor_real`. Lo más fiable es la
