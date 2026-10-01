@@ -271,6 +271,7 @@
   .cuentas-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .cuentas-banner{ margin:16px 18px 0; padding:12px 16px; border-radius:10px; border:1px solid var(--line); background:var(--paper-raised); font-size:13.5px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
   .cuentas-banner.ok{ border-color:var(--accent); background:var(--accent-soft); }
+  .cuentas-banner.warn{ border-color:var(--warn); background:var(--warn-soft); }
   @media (max-width: 880px){ .cuentas-figs{ flex-direction:column; align-items:flex-start; gap:4px; } }
   .subs-list{ display:flex; flex-direction:column; padding:6px 0 6px; }
   .subs-item{
@@ -1107,6 +1108,7 @@
           <h2>Movimientos</h2>
           <span class="cfg-hint" id="debMovSub" style="margin:0;"></span>
         </div>
+        <div class="cuentas-banner" id="debDiarioBar" style="margin:0 18px 12px; display:none;"></div>
         <div class="tx-scroll">
         <div class="list-head-row" id="debHeadRow" style="grid-template-columns:0.32fr 0.5fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr;">
           <input type="checkbox" class="row-select" id="selectAllDebito" title="Selecionar todos"><span class="head-out"></span><span>Tipo</span><span>Descrição</span><span>Pessoa</span><span>Valor</span><span>Mês</span>
@@ -4099,6 +4101,37 @@
     listEl.appendChild(row);
   }
 
+  // Lê os gastos reais do débito (os itemizados dos extratos) contra o Diário do mês: se sobrou
+  // diário, ou se passou — e nesse caso o excedente é dinheiro do salário que foi gasto.
+  function renderDebitoDiarioBar(movRecs){
+    var bar = $("debDiarioBar");
+    var refKey = monthKey(filterMonth);
+    if (!refKey){ bar.style.display = "none"; return; }
+    var base = getDiarioAmount(), gasto = 0, porConta = {};
+    movRecs.forEach(function(r){
+      if (r.out || !r.refExterna || GASTO_TIPOS.indexOf(r.tipo) === -1) return;
+      gasto += r.valor;
+      var m = /\((AJ|Gab)\)\s*$/.exec(r.descricao);
+      var conta = m ? m[1] : "outros";
+      porConta[conta] = (porConta[conta] || 0) + r.valor;
+    });
+    var dif = base - gasto;
+    var contas = Object.keys(porConta).sort().map(function(k){ return k + " " + fmtBRL(porConta[k]); }).join(" · ");
+    var html;
+    if (!gasto){
+      html = '<span>Diário do mês <b>' + fmtBRL(base) + '</b> · ainda sem gastos de débito itemizados.</span>';
+      bar.className = "cuentas-banner";
+    } else if (dif >= 0){
+      html = '<span>Gasto no débito <b>' + fmtBRL(gasto) + '</b> de um diário de ' + fmtBRL(base) + ' · <b>sobram ' + fmtBRL(dif) + '</b> do diário' + (contas ? ' <small>(' + contas + ')</small>' : '') + '.</span>';
+      bar.className = "cuentas-banner ok";
+    } else {
+      html = '<span>Gasto no débito <b>' + fmtBRL(gasto) + '</b> de um diário de ' + fmtBRL(base) + ' · passou <b>' + fmtBRL(-dif) + '</b>: esse excedente <b>saiu do salário</b>' + (contas ? ' <small>(' + contas + ')</small>' : '') + '.</span>';
+      bar.className = "cuentas-banner warn";
+    }
+    bar.innerHTML = html;
+    bar.style.display = "flex";
+  }
+
   // Duas listas: "Fijos y recurrentes" (Ingreso/Gasto Fijo, herdados cada mês, mais o espelho dos que
   // "geram ingresso") e "Movimientos" (o que realmente se move no débito: variáveis, retiradas e os
   // gastos itemizados dos extratos). Os totais do topo somam as duas.
@@ -4126,6 +4159,7 @@
       return (tipoOrder[a.tipo] - tipoOrder[b.tipo]) || (b.valor - a.valor);
     });
     var movRecs = recs.filter(function(r){ return !isFijoDebitoTipo(r.tipo); }).sort(function(a, b){ return (b.dataSerial||0) - (a.dataSerial||0); });
+    renderDebitoDiarioBar(movRecs);
 
     lastVisibleDebitoRowsFijos = fijoRecs.filter(function(r){ return r.row !== null; }).map(function(r){ return r.row; });
     lastVisibleDebitoRowsMov = movRecs.filter(function(r){ return r.row !== null; }).map(function(r){ return r.row; });
