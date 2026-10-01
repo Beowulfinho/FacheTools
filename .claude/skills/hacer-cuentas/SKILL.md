@@ -95,8 +95,11 @@ Objetivo: que el app refleje si **ya se gastó plata del salario** que el app to
 
 1. Con la regla del calendario, calcular el **salario del mes siguiente ya recibido** (S): suma de las
    filas de ingreso del mes *m+1* que ya cayeron según la fecha de hoy (40% el día 15, 60% el último día
-   útil). Si una fila de salario no trae porcentaje (ej. "Salario Fachera" único), **dividirla 40/60 por
-   defecto** (confirmado por el usuario). "Plata Padres" entra con el valor del app (mínimo 1.300) o con
+   útil). Los porcentajes "40%/60%" son solo el momento del pago, no una proporción real: los importes
+   son los de cada fila (Gabriela: R$ 1.400,00 el día 15 y R$ 1.736,42 el último día útil; Fachero:
+   R$ 960,00 y R$ 1.210,00). Si hay un extracto de la cuenta, **usar los depósitos reales**
+   ("TRANSF SALDO C/SAL P/CC" en Bradesco, transferencias desde Santander) y avisar si difieren del app.
+   Si una fila de salario no trae porcentaje, preguntar cómo se reparte. "Plata Padres" entra con el valor del app (mínimo 1.300) o con
    el monto exacto si el usuario lo da. Mostrar S y confirmarlo.
 2. **Saldo del mes en curso** `L = saldo de hoy − S`: lo que queda de la plata del mes *m*.
    (Si hoy aún no pasó el vencimiento de alguna factura de *m*, esa factura sigue saliendo de L.)
