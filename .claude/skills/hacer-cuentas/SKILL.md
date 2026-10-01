@@ -127,6 +127,8 @@ Desde ahora los gastos de débito **no se resumen en un "gasto variable"**: cada
   `"Pix: NOMBRE (Gab)"`), `valor` positivo, `data` = fecha real, `pessoa` = **Facheros** salvo que el
   usuario indique otra (la asignación Fachero/Fachera es solo para casos específicos),
   `ref_externa` = **columna Identificador** del extracto, `user_id` explícito.
+- **Hora**: las compras, los movimientos de débito y los adiantamentos aceptan `hora` (`time`, opcional). Si el extracto o la
+  factura trae la hora de la compra, guardarla; si no (Nubank no la trae), dejarla vacía.
 - **Idempotente**: `insert ... on conflict (ref_externa) where ref_externa is not null do nothing`;
   reimportar un extracto solapado no duplica.
 - **Sí se cargan**: compras en débito, Pix a terceros (comercios y personas).

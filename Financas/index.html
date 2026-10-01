@@ -1397,6 +1397,8 @@
         <div class="field">
           <label for="fData">Data da compra</label>
           <input type="date" id="fData">
+          <label for="fHora" style="margin-top:8px;">Hora <span class="opt">(opcional)</span></label>
+          <input type="time" id="fHora">
         </div>
         <div class="field">
           <label for="fTipoSel">Tipo</label>
@@ -1592,6 +1594,11 @@
         <input type="date" id="dData">
       </div>
 
+      <div class="field" id="dHoraWrap">
+        <label for="dHora">Hora <span class="opt">(opcional)</span></label>
+        <input type="time" id="dHora">
+      </div>
+
       <div class="field" id="dVariacaoWrap" style="display:none;">
         <label class="out-check" style="cursor:pointer;">
           <input type="checkbox" id="dVariacao">
@@ -1643,6 +1650,8 @@
         <div class="field">
           <label for="aData">Data do pagamento</label>
           <input type="date" id="aData">
+          <label for="aHora" style="margin-top:8px;">Hora <span class="opt">(opcional)</span></label>
+          <input type="time" id="aHora">
         </div>
       </div>
       <p class="cfg-hint" id="aHint"></p>
@@ -2227,6 +2236,8 @@
     return null;
   }
 
+  function horaFromDb(h){ return h ? String(h).slice(0, 5) : ""; }
+
   function buildPayload(tableKey, rec){
     switch(tableKey){
       case "pessoas":
@@ -2256,7 +2267,8 @@
           reembolso_valor: (rec.reembolsoValor && rec.reembolsoValor > 0) ? rec.reembolsoValor : null,
           reembolso_out: !!rec.reembolsoOut,
           reembolso_mes: (rec.reembolsoValor && rec.reembolsoValor > 0) ? (rec.reembolsoMes || null) : null,
-          previsao: !!rec.previsao
+          previsao: !!rec.previsao,
+          hora: rec.hora || null
         };
       case "debito":
         return {
@@ -2267,7 +2279,8 @@
           data: serialToInputValue(rec.dataSerial),
           out: !!rec.out,
           variacao: !!rec.variacao,
-          previsao: !!rec.previsao
+          previsao: !!rec.previsao,
+          hora: rec.hora || null
         };
       case "diario":
         return { mes: rec.mes, valor: rec.valor };
@@ -2280,6 +2293,7 @@
           descricao: rec.descricao || null, cartao_id: idByName("cartoes", rec.cartao), valor: rec.valor,
           mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out,
           data: rec.dataSerial ? serialToInputValue(rec.dataSerial) : null,
+          hora: rec.hora || null,
           previsao: !!rec.previsao
         };
       case "compra_cartao_trocas":
@@ -2451,6 +2465,7 @@
           reembolsoValor: (r.reembolso_valor===null || r.reembolso_valor===undefined) ? null : Number(r.reembolso_valor),
           reembolsoOut: r.reembolso_out ? 1 : 0,
           reembolsoMes: r.reembolso_mes || null,
+          hora: horaFromDb(r.hora),
           previsao: !!r.previsao
         };
       });
@@ -2466,6 +2481,7 @@
           out: r.out ? 1 : 0,
           variacao: !!r.variacao,
           refExterna: r.ref_externa || "",
+          hora: horaFromDb(r.hora),
           previsao: !!r.previsao
         };
       });
@@ -2480,7 +2496,7 @@
         return {row:r.id, descricao: r.descricao||"", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0, somaBalance: r.soma_balance===false ? false : true};
       });
       var adiantamentos = adiantamentosRows.map(function(r){
-        return {row:r.id, descricao: r.descricao||"", cartao: cartaoNameById[r.cartao_id] || "", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0, dataSerial: r.data ? dateInputToSerial(r.data) : null, previsao: !!r.previsao};
+        return {row:r.id, descricao: r.descricao||"", cartao: cartaoNameById[r.cartao_id] || "", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0, dataSerial: r.data ? dateInputToSerial(r.data) : null, hora: horaFromDb(r.hora), previsao: !!r.previsao};
       });
       var lixeira = lixeiraRows.map(function(r){
         return {row:r.id, batchId:r.batch_id, tableName:r.table_name, recordId:r.record_id, payload:r.payload, deletedAt:r.deleted_at};
@@ -2979,7 +2995,7 @@
         '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
         '<span class="num f-pvalor" data-label="Parcela R$">'+fmtBRL(r.effectiveValor)+'</span>'+
         '<span class="num f-parcela" data-label="Parcela">'+parcelaLabel+'</span>'+
-        '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+'</span>'+
+        '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+(r.hora ? ' · '+r.hora : '')+'</span>'+
         '<span class="tipo-badge f-tipo '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
         '<span class="f-linebreak" aria-hidden="true"></span>';
       var selectCheckbox = row.querySelector(".row-select");
@@ -3117,7 +3133,7 @@
     row.className = "tx-row tx-row-adiantamento";
     row.tabIndex = 0;
     row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr";
-    var quando = a.dataSerial ? serialToDisplay(a.dataSerial) : formatMesShort(a.mesOrigem);
+    var quando = (a.dataSerial ? serialToDisplay(a.dataSerial) : formatMesShort(a.mesOrigem)) + (a.hora ? " · " + a.hora : "");
     row.innerHTML =
       '<input type="checkbox" class="row-select f-select" disabled title="Adiantamentos não entram na seleção em massa">'+
       '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(a.out?"":"checked")+'><span class="out-label">'+(a.out?"Out":"Inside")+'</span></label>'+
@@ -3170,6 +3186,7 @@
     $("aValor").value = "";
     var today = new Date();
     $("aData").value = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+    $("aHora").value = "";
     $("aPrevisao").checked = !!(opts && opts.previsao === true);
     updateAdiantamentoHint();
     adiantamentoOverlay.classList.add("show");
@@ -3184,6 +3201,7 @@
     $("aCartaoSel").value = r.cartao;
     $("aValor").value = String(r.valor).replace(".", ",");
     $("aData").value = r.dataSerial ? serialToInputValue(r.dataSerial) : ((r.mesOrigem || "") + "-01");
+    $("aHora").value = r.hora || "";
     $("aPrevisao").checked = !!r.previsao;
     updateAdiantamentoHint();
     adiantamentoOverlay.classList.add("show");
@@ -3211,6 +3229,7 @@
       mesOrigem: dataStr.slice(0,7),
       mesDestino: monthKey(getFaturaStartYM(ds, cartao)),
       out: editingAdiantamentoOut,
+      hora: $("aHora").value || "",
       previsao: $("aPrevisao").checked
     };
     var action = editingAdiantamentoRow ? "update" : "insert";
@@ -4282,7 +4301,7 @@
       '<span class="tx-desc f-desc">'+descHtml+'</span>'+
       '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
       '<span class="tx-amt num f-valor">'+fmtBRL(r.valor)+'</span>'+
-      '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+'</span>'+
+      '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+(r.hora ? ' · '+r.hora : '')+'</span>'+
       '<span class="f-linebreak" aria-hidden="true"></span>';
     var selectCheckbox = row.querySelector(".row-select");
     selectCheckbox.addEventListener("click", function(e){ e.stopPropagation(); });
@@ -4421,7 +4440,7 @@
     var fijoRecs = recs.filter(function(r){ return isFijoDebitoTipo(r.tipo); }).sort(function(a, b){
       return (tipoOrder[a.tipo] - tipoOrder[b.tipo]) || (b.valor - a.valor);
     });
-    var movRecs = recs.filter(function(r){ return !isFijoDebitoTipo(r.tipo); }).sort(function(a, b){ return (b.dataSerial||0) - (a.dataSerial||0); });
+    var movRecs = recs.filter(function(r){ return !isFijoDebitoTipo(r.tipo); }).sort(function(a, b){ return ((b.dataSerial||0) - (a.dataSerial||0)) || (b.hora || "").localeCompare(a.hora || ""); });
     renderDebitoDiarioBar(movRecs);
 
     lastVisibleDebitoRowsFijos = fijoRecs.filter(function(r){ return r.row !== null; }).map(function(r){ return r.row; });
@@ -5453,6 +5472,7 @@
     $("fParcelas").value = "1";
     var today = new Date();
     $("fData").value = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+    $("fHora").value = "";
     // Starts at 1 parcela, so the semantically correct default is "Á vista" (a single-payment
     // expense), not "Parcelado" — falls back to "Parcelado", then to the first tipo in the list,
     // if "Á vista" isn't configured.
@@ -5491,6 +5511,7 @@
     $("fValor").value = String(r.valorTotal).replace(".", ",");
     $("fParcelas").value = r.parcelas || 1;
     $("fData").value = serialToInputValue(r.dataSerial);
+    $("fHora").value = r.hora || "";
     $("fTipoSel").value = r.tipo;
     updateCancelacaoVisibility();
     $("fCancelacao").value = serialToInputValue(r.cancelSerial);
@@ -5553,7 +5574,8 @@
       reembolsoValor: reembolsado ? Math.round(reembolsoValor*100)/100 : null,
       reembolsoOut: reembolsado ? editingRowReembolsoOut : 0,
       reembolsoMes: reembolsoMes,
-      previsao: $("fPrevisao").checked
+      previsao: $("fPrevisao").checked,
+      hora: $("fHora").value || ""
     };
 
     var action = editingRow ? "update" : "insert";
@@ -6148,6 +6170,8 @@
   function updateDebVariacaoVisibility(){
     var isFijo = FIJO_TIPOS.indexOf($("dTipoSel").value) !== -1;
     $("dVariacaoWrap").style.display = isFijo ? "flex" : "none";
+    // Um fixo vale para o mês inteiro: a hora só faz sentido nos movimentos variáveis.
+    $("dHoraWrap").style.display = isFijo ? "none" : "";
   }
   $("dTipoSel").addEventListener("change", updateDebVariacaoVisibility);
 
@@ -6172,6 +6196,7 @@
     $("dPessoaSel").selectedIndex = 0;
     $("dValor").value = "";
     $("dData").value = defaultDebDateInputValue();
+    $("dHora").value = "";
     $("dVariacao").checked = false;
     $("dPrevisao").checked = !!(opts && opts.previsao === true);
     updateDebVariacaoVisibility();
@@ -6192,6 +6217,7 @@
     $("dPessoaSel").value = r.pessoa;
     $("dValor").value = String(r.valor).replace(".", ",");
     $("dData").value = r.dataSerial ? serialToInputValue(r.dataSerial) : defaultDebDateInputValue();
+    $("dHora").value = r.hora || "";
     $("dVariacao").checked = false;
     $("dPrevisao").checked = !!r.previsao;
     updateDebVariacaoVisibility();
@@ -6223,7 +6249,8 @@
       dataSerial: dateInputToSerial(dataStr),
       out: editingDebRowOut,
       variacao: FIJO_TIPOS.indexOf(tipo) !== -1 ? !!$("dVariacao").checked : false,
-      previsao: $("dPrevisao").checked
+      previsao: $("dPrevisao").checked,
+      hora: FIJO_TIPOS.indexOf(tipo) !== -1 ? "" : ($("dHora").value || "")
     };
 
     var action = editingDebRow ? "update" : "insert";
