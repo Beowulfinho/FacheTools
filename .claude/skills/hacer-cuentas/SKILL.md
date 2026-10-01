@@ -30,8 +30,13 @@ depende de ella.
    usuario, no se asume. La tarjeta se identifica por el **día de vencimiento** (`cartoes.vencimiento`)
    y por los comerciantes ya vistos en esa tarjeta (ej. vence el 10 + Raia168/Pão de Açúcar = Nubank AJ;
    vence el 12 = Nubank Gab o Bradesco). Si queda duda, preguntar.
-2. **Saldo de débito de hoy**: un solo número, la suma de lo que hay hoy en las cuentas de ambos.
-   No piden desglose.
+2. **Saldo de débito de hoy**: la suma de lo que hay hoy en las cuentas de ambos. No piden desglose.
+   Si cada uno da el suyo por separado ("mi débito es X"), pedir el del otro y sumar.
+
+**Cómo interpretar lo que llega**: los **archivos o totales de factura son crédito** (tarjetas); un
+**valor suelto ("tengo 1.619,54") es el saldo de débito de hoy**, no una factura. Si un número es
+ambiguo, **preguntar antes de usarlo** (error real: un saldo de débito se tomó por el total de una
+factura y generó una "diferencia" inexistente de R$ 1.134,46).
 
 El mes de la fatura sale de la propia factura (vencimiento / fechas de las compras vs. el
 `fechamento` de la tarjeta).
