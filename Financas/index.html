@@ -1247,7 +1247,17 @@
 
     <div class="page-section" id="pagePrevisoes">
       <div class="panel">
-        <div class="panel-head"><h2>Balance projetado — próximos 6 meses</h2></div>
+        <div class="panel-head"><h2>Caixa projetado — o saldo passa de um mês para o outro</h2></div>
+        <div class="calendar-wrap">
+          <table class="calendar" id="cajaTable">
+            <thead><tr id="cajaHead"></tr></thead>
+            <tbody id="cajaBody"></tbody>
+          </table>
+        </div>
+        <p class="cfg-hint" id="cajaNota" style="padding:0 18px 16px;"></p>
+      </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head"><h2>Balance projetado por mês (sem arrastar o saldo)</h2></div>
         <div class="calendar-wrap">
           <table class="calendar" id="prevProjTable">
             <thead><tr id="prevProjHead"></tr></thead>
@@ -3671,18 +3681,18 @@
   }
   // A pagar / já pago de um mês: faturas dos cartões (valor real se houver, senão o do app) e gastos fixos.
   function computeCuentasResumo(mes){
-    var pendiente = 0, pagado = 0, nPagos = 0;
+    var pendCartoes = 0, pendFijos = 0, pagado = 0, nPagos = 0;
     getCuentasItems(mes).forEach(function(it){
       if (!it.active) return;
       var amt = cuentaCardAmount(it);
       if (it.rec && it.rec.pago){ nPagos++; pagado += (it.rec.valorPago !== null && it.rec.valorPago !== undefined) ? it.rec.valorPago : amt; }
-      else pendiente += amt;
+      else pendCartoes += amt;
     });
     getCuentasFijos(mes).forEach(function(f){
       if (f.rec && f.rec.pago){ nPagos++; pagado += (f.rec.valorPago !== null && f.rec.valorPago !== undefined) ? f.rec.valorPago : f.valor; }
-      else pendiente += f.valor;
+      else pendFijos += f.valor;
     });
-    return {pendiente: pendiente, pagado: pagado, nPagos: nPagos};
+    return {pendiente: pendCartoes + pendFijos, pendCartoes: pendCartoes, pendFijos: pendFijos, pagado: pagado, nPagos: nPagos};
   }
   function cuentaCardAmount(it){
     var v = (it.rec && it.rec.valorReal !== null && it.rec.valorReal !== undefined) ? it.rec.valorReal : it.app;
@@ -5164,9 +5174,92 @@
     });
   }
 
+  // ---------- Caixa projetado (o saldo que sobra depois de pagar tudo passa para o mês seguinte) ----------
+  // Saldo inicial do mês corrente = saldo informado hoje; dos seguintes = saldo final do anterior.
+  // Entradas do mês M: o salário e os ingressos do mês M+1 (caem em M: 40% no dia 15 e 60% no último dia útil)
+  // e os reembolsos do próprio mês M (Mãe, Tchuka, Padres). Saídas: faturas e gastos fixos de M (no mês
+  // corrente só o que falta pagar), o diário (no corrente, o que ainda não foi gasto) e as previsões.
+  function lastBusinessDay(year, month){
+    var d = new Date(year, month, 0);
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+    return d;
+  }
+  function getIngressosQueCaemNoMes(nextKey, isCurrent){
+    var today = new Date(), total = 0;
+    var ymCur = getCurrentRealYM(), lbd = lastBusinessDay(ymCur.year, ymCur.month);
+    getDebitoForMonthKey(nextKey).forEach(function(r){
+      if (r.out || INGRESO_TIPOS.indexOf(r.tipo) === -1) return;
+      if (isCurrent){
+        var desc = r.descricao || "";
+        // O que tem "40%" já caiu depois do dia 15; o "60%" já caiu depois do último dia útil.
+        if (desc.indexOf("40%") !== -1 && today.getDate() >= 15) return;
+        if (desc.indexOf("60%") !== -1 && today >= lbd) return;
+      }
+      total += (r.valor || 0);
+    });
+    return total;
+  }
+  function computeCajaProyectada(){
+    var cur = getCurrentRealYM(), curKey = monthKey(cur);
+    var sd = getSaldoDebito(curKey);
+    var months = [], opening = sd.total;
+    var saved = filterMonth;
+    try {
+      for (var i = 0; i < PREVISAO_MESES; i++){
+        var ym = addMonths(cur, i), key = monthKey(ym), isCurrent = (i === 0);
+        filterMonth = ym;
+        var resumo = computeCuentasResumo(key);
+        var reembolsos = 0;
+        getDynamicIncomeEntries().forEach(function(r){ reembolsos += r.valor; });
+        var diarioBase = getDiarioAmount(), itemizado = 0, variaveis = 0;
+        getDebitoForMonthKey(key).forEach(function(r){
+          if (r.out || GASTO_TIPOS.indexOf(r.tipo) === -1 || isFijoDebitoTipo(r.tipo)) return;
+          if (r.refExterna) itemizado += r.valor; else variaveis += r.valor;
+        });
+        // Mês corrente: só falta gastar o que sobra do diário (o resto já saiu do saldo). Futuros: o diário todo.
+        var diario = isCurrent ? Math.max(0, diarioBase - itemizado) : Math.max(diarioBase, itemizado);
+        var outros = diario + (isCurrent ? 0 : variaveis);
+        var m = {ym: ym, opening: opening,
+          salario: getIngressosQueCaemNoMes(monthKey(addMonths(ym, 1)), isCurrent),
+          reembolsos: reembolsos, faturas: resumo.pendCartoes, fijos: resumo.pendFijos, outros: outros,
+          previsoes: getPrevisaoEffectForMonth(ym)};
+        m.closing = (opening === null) ? null : opening + m.salario + m.reembolsos - m.faturas - m.fijos - m.outros + m.previsoes;
+        months.push(m);
+        opening = m.closing;
+      }
+    } finally {
+      filterMonth = saved;
+    }
+    return {months: months, semSaldo: sd.total === null};
+  }
+  function renderCajaProyectada(){
+    if (!$("cajaBody")) return;
+    var c = computeCajaProyectada();
+    var head = '<th></th>';
+    var rows = [["Saldo inicial", "opening"], ["+ Salário e ingressos do mês seguinte", "salario"], ["+ Reembolsos (Mãe, Tchuka, Padres)", "reembolsos"],
+      ["− Faturas dos cartões", "faturas"], ["− Gastos fixos", "fijos"], ["− Diário e outros gastos", "outros"], ["± Previsões", "previsoes"], ["Saldo final → mês seguinte", "closing"]];
+    var body = rows.map(function(){ return ""; });
+    c.months.forEach(function(m, i){
+      head += '<th class="' + (i === 0 ? "current-month" : "") + '">' + MONTH_ABBR_PT[m.ym.month-1] + "/" + String(m.ym.year).slice(2) + '</th>';
+      rows.forEach(function(rw, k){
+        var v = m[rw[1]];
+        var txt = v === null || v === undefined ? "—" : (Math.abs(v) < 0.005 ? "—" : fmtBRL(v));
+        var strong = rw[1] === "closing" || rw[1] === "opening";
+        var cls = (rw[1] === "closing" && v !== null && v < 0) ? "over-limit" : "";
+        body[k] += '<td class="' + cls + '">' + (strong ? '<strong>' + txt + '</strong>' : txt) + '</td>';
+      });
+    });
+    $("cajaHead").innerHTML = head;
+    $("cajaBody").innerHTML = rows.map(function(rw, k){ return '<tr><td>' + (rw[1] === "closing" ? '<strong>' + rw[0] + '</strong>' : rw[0]) + '</td>' + body[k] + '</tr>'; }).join("");
+    $("cajaNota").textContent = c.semSaldo
+      ? "Informe o saldo de hoje em Ingresos/Salidas para começar a projeção."
+      : "Parte do saldo informado hoje. Supostos: o salário e os ingressos do mês seguinte caem neste mês (40% no dia 15, 60% no último dia útil); os reembolsos chegam no mesmo mês da fatura; no mês corrente só entra o que ainda falta pagar e receber.";
+  }
+
   function renderPrevisoesPage(){
     var listEl = $("prevList");
     if (!listEl) return;
+    renderCajaProyectada();
 
     // Projeção: troca filterMonth para cada mês e reaproveita o cálculo do Dashboard.
     var start = getCurrentRealYM(), months = [], bases = [];

@@ -23,6 +23,12 @@
   del resto del app** y solo se ve y afecta en la página **Previsões** (proyección de 6 meses). Al ocurrir el gasto
   se usa **Efetivar**. Sus tres primeras (Carlinhos R$ 270 y Regalos Casa R$ 400 en octubre; Regalo Lucas R$ 150 en
   noviembre) y la del viaje a Colombia (R$ 2.000, diciembre) vienen de las antiguas reservas. No son ahorros ni el RDB.
+- **El sobrante pasa al mes siguiente** *(confirmado)*: lo que queda en las cuentas después de pagar todo un mes es el saldo
+  inicial del siguiente (ej.: cierre de septiembre R$ 7.936,58 − R$ 1.485 pagados de octubre = saldo de hoy R$ 6.451,58).
+  Ese saldo ya incluye el salario del mes siguiente, que cae en el mes anterior. La página Previsões encadena 6 meses:
+  saldo inicial + entradas (salario/ingresos del mes siguiente, reembolsos del mes) − faturas − fijos − diario ± previsões.
+  Supuestos *(a confirmar)*: los reembolsos de Mãe/Tchuka/Padres llegan en el mismo mes de la fatura; los ingresos del mes
+  siguiente (incluida "Plata Padres") caen en el mes actual.
 - **Inside/Out vs. Previsão**: Inside/Out (opción de los 3 puntos, oculta por defecto) sirve para **quitar** algo que ya
   existe y simular; Previsão sirve para **agregar** algo hipotético.
 - **Cuotas**: no hay criterio para decidir el número de cuotas. El "Parcelamento de Fatura" de agosto fue **por falta
