@@ -550,7 +550,6 @@
   @media (min-width: 881px){
     html:not(.show-inout) #txList .tx-row, html:not(.show-inout) #txHeadRow{ grid-template-columns:0.32fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr !important; }
     html:not(.show-inout) #debitoList .tx-row, html:not(.show-inout) #debHeadRow{ grid-template-columns:0.32fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr !important; }
-    html:not(.show-inout) #adiantamentosList .tx-row, html:not(.show-inout) #adiHeadRow{ grid-template-columns:1fr 0.9fr 1fr 0.9fr !important; }
   }
   .row-select{ width:auto; accent-color:var(--accent); cursor:pointer; align-self:center; }
   .bulk-bar{
@@ -600,8 +599,8 @@
   .tx-row-inherited .tx-desc{ font-style:italic; }
   .tx-row-antecipacao{ background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent); }
   .tx-row-antecipacao .f-pvalor, .tx-row-antecipacao .f-parcela{ color:var(--accent); font-weight:600; }
-  .tx-row-reembolso{ background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent); }
-  .tx-row-reembolso .f-pvalor, .tx-row-reembolso .f-parcela{ color:var(--accent); font-weight:600; }
+  .tx-row-reembolso, .tx-row-adiantamento{ background:var(--accent-soft); box-shadow:inset 3px 0 0 var(--accent); }
+  .tx-row-reembolso .f-pvalor, .tx-row-reembolso .f-parcela, .tx-row-adiantamento .f-pvalor, .tx-row-adiantamento .f-parcela{ color:var(--accent); font-weight:600; }
   .antecip-parcelas-list{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; max-height:180px; overflow-y:auto; }
   .antecip-parcela-chip{
     display:inline-flex; align-items:center; gap:6px; padding:6px 10px;
@@ -1008,12 +1007,6 @@
         </div>
       </div>
       <div class="summary summary-1col">
-        <div class="sum-card">
-          <span class="k">Adiantamentos de fatura (líquido no mês)</span>
-          <div class="v num" id="dashAdiantamentos">R$ 0,00</div>
-        </div>
-      </div>
-      <div class="summary summary-1col">
         <div class="sum-card sum-card-big">
           <span class="k">Balance final</span>
           <div class="v num" id="dashBalanceFinal">R$ 0,00</div>
@@ -1128,17 +1121,6 @@
         </div>
       </div>
 
-      <div class="panel" style="margin-bottom:18px;">
-        <div class="panel-head">
-          <h2>Adiantamentos de fatura</h2>
-          <button class="btn btn-sm" id="btnAddAdiantamento" type="button">Novo adiantamento</button>
-        </div>
-        <div class="list-head-row" id="adiHeadRow" style="grid-template-columns:0.5fr 1fr 0.9fr 1fr 0.9fr;">
-          <span class="head-out"></span><span>Cartão</span><span>Descrição</span><span>Mês origem → destino</span><span>Valor</span>
-        </div>
-        <div class="tx-list" id="adiantamentosList"></div>
-      </div>
-
       <div class="filters">
         <div class="search-wrap">
           <input type="text" id="fSearch" placeholder="Buscar por descrição, pessoa, cartão, tipo ou valor…">
@@ -1161,7 +1143,10 @@
       <div class="panel">
         <div class="panel-head">
           <h2>Compras registradas</h2>
-          <button class="btn btn-sm" id="btnImportCsv" type="button">Importar fatura (CSV)</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-sm" id="btnAddAdiantamento" type="button">Adiantar fatura</button>
+            <button class="btn btn-sm" id="btnImportCsv" type="button">Importar fatura (CSV)</button>
+          </div>
           <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none;">
         </div>
         <div class="bulk-bar" id="comprasBulkBar" style="display:none;">
@@ -1234,6 +1219,7 @@
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-sm" id="btnPrevCompra" type="button">Nova compra prevista</button>
             <button class="btn btn-sm" id="btnPrevDebito" type="button">Nova entrada/saída prevista</button>
+            <button class="btn btn-sm" id="btnPrevAdiantamento" type="button">Novo adiantamento previsto</button>
           </div>
         </div>
         <div class="list-head-row" style="grid-template-columns:0.7fr 1.7fr 0.8fr 1.2fr 1.1fr;">
@@ -1571,11 +1557,12 @@
   </div>
 </div>
 
-<!-- Add / edit adiantamento (adelanto contra uma fatura aberta de um cartão) -->
+
+<!-- Adiantar fatura: cartão + valor + data do pagamento (a fatura que abate e o mês de origem saem da data) -->
 <div class="overlay" id="adiantamentoOverlay">
   <div class="modal">
     <div class="modal-head">
-      <h3 id="adiantamentoModalTitle">Novo adiantamento</h3>
+      <h3 id="adiantamentoModalTitle">Adiantar fatura</h3>
       <button class="modal-close" id="adiantamentoClose" type="button" aria-label="Fechar">✕</button>
     </div>
     <div class="modal-body">
@@ -1583,26 +1570,26 @@
         <label for="aCartaoSel">Cartão</label>
         <select id="aCartaoSel"></select>
       </div>
-      <div class="field">
-        <label for="aDescricao">Descrição <span class="opt">(opcional)</span></label>
-        <input type="text" id="aDescricao" autocomplete="off" placeholder="Ex.: Adiantamento antes do fechamento">
-      </div>
       <div class="field-row">
         <div class="field">
-          <label for="aMesOrigem">Mês origem <span class="opt">(paga agora)</span></label>
-          <input type="month" id="aMesOrigem">
+          <label for="aValor">Valor</label>
+          <div class="amount-wrap">
+            <span class="cur">R$</span>
+            <input type="text" inputmode="decimal" id="aValor" placeholder="0,00">
+          </div>
         </div>
         <div class="field">
-          <label for="aMesDestino">Fatura/mês que abate</label>
-          <input type="month" id="aMesDestino">
+          <label for="aData">Data do pagamento</label>
+          <input type="date" id="aData">
         </div>
       </div>
+      <p class="cfg-hint" id="aHint"></p>
       <div class="field">
-        <label for="aValor">Valor</label>
-        <div class="amount-wrap">
-          <span class="cur">R$</span>
-          <input type="text" inputmode="decimal" id="aValor" placeholder="0,00">
-        </div>
+        <label class="out-check" style="cursor:pointer;">
+          <input type="checkbox" id="aPrevisao">
+          <span>Previsão — só aparece em Previsões</span>
+        </label>
+        <span class="opt">Simulação: não muda a fatura nem o balance em nenhuma outra tela.</span>
       </div>
       <div class="field-error" id="adiantamentoError"></div>
     </div>
@@ -2165,7 +2152,6 @@
     renderDebitoPage();
     renderDiarioPage();
     renderInvestimentoPage();
-    renderAdiantamentosList();
   }
 
   // ---------- Data layer (Supabase: auth + tables) ----------
@@ -2227,7 +2213,12 @@
       case "reservas":
         return { descricao: rec.descricao || null, valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out, soma_balance: rec.somaBalance !== false };
       case "adiantamentos":
-        return { descricao: rec.descricao || null, cartao_id: idByName("cartoes", rec.cartao), valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out };
+        return {
+          descricao: rec.descricao || null, cartao_id: idByName("cartoes", rec.cartao), valor: rec.valor,
+          mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out,
+          data: rec.dataSerial ? serialToInputValue(rec.dataSerial) : null,
+          previsao: !!rec.previsao
+        };
       case "compra_cartao_trocas":
         return { compra_id: rec.compraRow, cartao_id: idByName("cartoes", rec.cartao), mes: rec.mes };
       case "cuentas_mes":
@@ -2422,7 +2413,7 @@
         return {row:r.id, descricao: r.descricao||"", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0, somaBalance: r.soma_balance===false ? false : true};
       });
       var adiantamentos = adiantamentosRows.map(function(r){
-        return {row:r.id, descricao: r.descricao||"", cartao: cartaoNameById[r.cartao_id] || "", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0};
+        return {row:r.id, descricao: r.descricao||"", cartao: cartaoNameById[r.cartao_id] || "", valor: r.valor===null?0:Number(r.valor), mesOrigem: r.mes_origem, mesDestino: r.mes_destino, out: r.out ? 1 : 0, dataSerial: r.data ? dateInputToSerial(r.data) : null, previsao: !!r.previsao};
       });
       var lixeira = lixeiraRows.map(function(r){
         return {row:r.id, batchId:r.batch_id, tableName:r.table_name, recordId:r.record_id, payload:r.payload, deletedAt:r.deleted_at};
@@ -2442,21 +2433,21 @@
         list.forEach(function(r){ (r.previsao ? prev : main).push(r); });
         return {main: main, prev: prev};
       }
-      var comprasSplit = splitPrevisao(compras), debitoSplit = splitPrevisao(debito), antecipacoesSplit = splitPrevisao(antecipacoes);
+      var comprasSplit = splitPrevisao(compras), debitoSplit = splitPrevisao(debito), antecipacoesSplit = splitPrevisao(antecipacoes), adiantamentosSplit = splitPrevisao(adiantamentos);
 
       return {
         fileName: currentUserEmail || "",
-        previsoes: {compras: comprasSplit.prev, debito: debitoSplit.prev, antecipacoes: antecipacoesSplit.prev},
+        previsoes: {compras: comprasSplit.prev, debito: debitoSplit.prev, antecipacoes: antecipacoesSplit.prev, adiantamentos: adiantamentosSplit.prev},
         pessoas:{records:pessoas}, cartoes:{records:cartoes}, tipos:{records:tipos},
         compras:{records:comprasSplit.main}, debito:{records:debitoSplit.main}, diario:{records:diario},
-        antecipacoes:{records:antecipacoesSplit.main}, reservas:{records:reservas}, adiantamentos:{records:adiantamentos},
+        antecipacoes:{records:antecipacoesSplit.main}, reservas:{records:reservas}, adiantamentos:{records:adiantamentosSplit.main},
         lixeira:{records:lixeira}, cartaoTrocas:{records:cartaoTrocas}, cuentas:{records:cuentas}
       };
     });
   }
 
   // ---------- App state ----------
-  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]}, cartaoTrocas:{records:[]}, cuentas:{records:[]}, previsoes:{compras:[], debito:[], antecipacoes:[]} };
+  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]}, cartaoTrocas:{records:[]}, cuentas:{records:[]}, previsoes:{compras:[], debito:[], antecipacoes:[], adiantamentos:[]} };
 
   function showError(msg){
     var b = $("errorBanner");
@@ -2882,6 +2873,7 @@
     // no separate id to select by), so they're excluded from bulk-select entirely — checking that
     // box and bulk-deleting would delete the COMPRA itself, not just "cancel" the antecipação/
     // reembolso the way opening the row (or "Excluir antecipação") does.
+    var adiRows = getAdiantamentoRowsForList(fPersona, fCartao, fTipo, search);
     var visibleRows = filtered.filter(function(r){ return !r.antecipacao && !r.reembolsoCredito; }).map(function(r){ return r.row; });
     lastVisibleComprasRows = visibleRows;
     Array.from(selectedCompras).forEach(function(rn){ if (visibleRows.indexOf(rn)===-1) selectedCompras.delete(rn); });
@@ -2889,7 +2881,7 @@
 
     var listEl = $("txList");
     listEl.innerHTML = "";
-    if (filtered.length === 0){
+    if (filtered.length === 0 && !adiRows.length){
       listEl.innerHTML = '<div class="empty"><span class="big">Nenhuma compra encontrada</span>Ajuste os filtros ou adicione uma nova compra.</div>';
       return;
     }
@@ -2973,6 +2965,7 @@
       });
       listEl.appendChild(row);
     });
+    adiRows.forEach(function(a){ listEl.appendChild(buildAdiantamentoRow(a)); });
 
     var faturaRecs = recs.filter(function(r){ return !r.out; });
     if (READONLY_MAE) faturaRecs = faturaRecs.filter(function(r){ return r.pessoa === MAE_PESSOA_NAME; });
@@ -3039,79 +3032,96 @@
     return (MONTH_ABBR_PT[mi-1] || "") + "/" + parts[0].slice(2);
   }
 
-  function renderAdiantamentosList(){
-    var listEl = $("adiantamentosList");
-    if (!listEl) return;
-    // Same idea as renderReservasList: only show an adiantamento while the filtered month is
-    // its origem or destino.
+  // O adiantamento de fatura aparece como uma linha negativa na lista de Crédito, no mês da fatura que
+  // abate (como as linhas de antecipação e de reembolso). Os filtros de pessoa/tipo não se aplicam a ele.
+  function getAdiantamentoRowsForList(fPersona, fCartao, fTipo, search){
+    if (fPersona.length || fTipo.length) return [];
     var refKey = monthKey(filterMonth);
-    var all = state.adiantamentos.records;
-    var visible = refKey ? all.filter(function(r){ return r.mesOrigem===refKey || r.mesDestino===refKey; }) : all;
-    var sorted = visible.slice().sort(function(a,b){ return (b.mesOrigem||"").localeCompare(a.mesOrigem||""); });
-    listEl.innerHTML = "";
-    if (!sorted.length){
-      listEl.innerHTML = all.length
-        ? '<div class="empty"><span class="big">Nenhum adiantamento para este mês</span>Mude o mês filtrado ou crie um novo adiantamento.</div>'
-        : '<div class="empty"><span class="big">Nenhum adiantamento registrado</span>Use "Novo adiantamento" para pagar parte de uma fatura ainda aberta.</div>';
-      return;
-    }
-    sorted.forEach(function(r){
-      var row = document.createElement("div");
-      row.className = "tx-row";
-      row.tabIndex = 0;
-      row.style.gridTemplateColumns = "0.5fr 1fr 0.9fr 1fr 0.9fr";
-      row.innerHTML =
-        '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
-        '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartao)+'</span>'+
-        '<span class="tx-desc f-desc">'+escapeHtml(r.descricao || "Adiantamento")+'</span>'+
-        '<span data-label="Mês">'+formatMesShort(r.mesOrigem)+' → '+formatMesShort(r.mesDestino)+'</span>'+
-        '<span class="num f-valor">'+fmtBRL(r.valor)+'</span>';
-      var checkbox = row.querySelector(".out-toggle");
-      checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
-      checkbox.addEventListener("change", function(e){
-        e.stopPropagation();
-        var rec = {}; for (var k in r) rec[k] = r[k];
-        rec.out = checkbox.checked ? 0 : 1;
-        saveTableRow("adiantamentos", "update", r.row, rec).then(loadAndRender).catch(function(err){
-          showError("Não foi possível salvar: " + err.message);
-        });
+    return state.adiantamentos.records.filter(function(a){
+      if (refKey && a.mesDestino !== refKey) return false;
+      if (fCartao.length && fCartao.indexOf(a.cartao) === -1) return false;
+      if (search && ("adiantamento fatura " + a.cartao + " " + a.valor).toLowerCase().indexOf(search) === -1) return false;
+      return true;
+    }).sort(function(x, y){ return (y.dataSerial || 0) - (x.dataSerial || 0); });
+  }
+  function buildAdiantamentoRow(a){
+    var row = document.createElement("div");
+    row.className = "tx-row tx-row-adiantamento";
+    row.tabIndex = 0;
+    row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr";
+    var quando = a.dataSerial ? serialToDisplay(a.dataSerial) : formatMesShort(a.mesOrigem);
+    row.innerHTML =
+      '<input type="checkbox" class="row-select f-select" disabled title="Adiantamentos não entram na seleção em massa">'+
+      '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(a.out?"":"checked")+'><span class="out-label">'+(a.out?"Out":"Inside")+'</span></label>'+
+      '<span class="tx-desc f-desc">Adiantamento de fatura<span class="tag-auto" title="Pago adiantado e já descontado da fatura">adiantamento</span></span>'+
+      '<span class="f-pessoa" data-label="Pessoa">—</span>'+
+      '<span class="f-cartao" data-label="Cartão">'+escapeHtml(a.cartao)+'</span>'+
+      '<span class="tx-amt num f-valor">'+fmtBRL(-a.valor)+'</span>'+
+      '<span class="num f-pvalor" data-label="Parcela R$">'+fmtBRL(-a.valor)+'</span>'+
+      '<span class="num f-parcela" data-label="Parcela">adiantamento</span>'+
+      '<span class="num f-data" data-label="Data">'+quando+'</span>'+
+      '<span class="tipo-badge f-tipo">Adiantamento</span>'+
+      '<span class="f-linebreak" aria-hidden="true"></span>';
+    var checkbox = row.querySelector(".out-toggle");
+    checkbox.addEventListener("click", function(e){ e.stopPropagation(); });
+    checkbox.addEventListener("change", function(e){
+      e.stopPropagation();
+      var rec = {}; for (var k in a) rec[k] = a[k];
+      rec.out = checkbox.checked ? 0 : 1;
+      saveTableRow("adiantamentos", "update", a.row, rec).then(loadAndRender).catch(function(err){
+        showError("Não foi possível salvar: " + err.message);
       });
-      row.addEventListener("click", function(){ openAdiantamentoEditModal(r); });
-      listEl.appendChild(row);
     });
+    row.addEventListener("click", function(){ openAdiantamentoEditModal(a); });
+    return row;
   }
 
   // ---------- Adiantamento modal ----------
+  // Cartão + valor + data do pagamento. O mês de origem (de onde o dinheiro sai) é o mês da data, e a
+  // fatura que abate é a que estava aberta nessa data para o cartão (mesma regra de uma compra feita no
+  // dia). Marcar "Previsão" faz a linha existir só na página Previsões.
   var adiantamentoOverlay = $("adiantamentoOverlay");
   var editingAdiantamentoRow = null;
-  function openAdiantamentoAddModal(){
+  var editingAdiantamentoOut = 0;
+  function updateAdiantamentoHint(){
+    var cartao = $("aCartaoSel").value, dataStr = $("aData").value;
+    if (!cartao || !dataStr){ $("aHint").textContent = ""; return; }
+    var ds = dateInputToSerial(dataStr);
+    $("aHint").textContent = "Abate a fatura de " + formatMesShort(monthKey(getFaturaStartYM(ds, cartao))) +
+      " de " + cartao + " · o dinheiro sai em " + formatMesShort(dataStr.slice(0,7)) + ".";
+  }
+  $("aCartaoSel").addEventListener("change", updateAdiantamentoHint);
+  $("aData").addEventListener("input", updateAdiantamentoHint);
+  function openAdiantamentoAddModal(opts){
     editingAdiantamentoRow = null;
-    $("adiantamentoModalTitle").textContent = "Novo adiantamento";
+    editingAdiantamentoOut = 0;
+    $("adiantamentoModalTitle").textContent = "Adiantar fatura";
     $("adiantamentoDelete").style.display = "none";
     $("adiantamentoError").style.display = "none";
     $("aCartaoSel").selectedIndex = 0;
-    $("aDescricao").value = "";
     $("aValor").value = "";
-    var curKey = monthKey(getRefMonth());
-    $("aMesOrigem").value = curKey;
-    $("aMesDestino").value = curKey;
+    var today = new Date();
+    $("aData").value = today.getFullYear()+"-"+String(today.getMonth()+1).padStart(2,"0")+"-"+String(today.getDate()).padStart(2,"0");
+    $("aPrevisao").checked = !!(opts && opts.previsao === true);
+    updateAdiantamentoHint();
     adiantamentoOverlay.classList.add("show");
   }
   function openAdiantamentoEditModal(r){
     if (READONLY_MAE) return;
     editingAdiantamentoRow = r.row;
+    editingAdiantamentoOut = r.out || 0;
     $("adiantamentoModalTitle").textContent = "Editar adiantamento";
     $("adiantamentoDelete").style.display = "inline-flex";
     $("adiantamentoError").style.display = "none";
     $("aCartaoSel").value = r.cartao;
-    $("aDescricao").value = r.descricao || "";
     $("aValor").value = String(r.valor).replace(".", ",");
-    $("aMesOrigem").value = r.mesOrigem || "";
-    $("aMesDestino").value = r.mesDestino || "";
+    $("aData").value = r.dataSerial ? serialToInputValue(r.dataSerial) : ((r.mesOrigem || "") + "-01");
+    $("aPrevisao").checked = !!r.previsao;
+    updateAdiantamentoHint();
     adiantamentoOverlay.classList.add("show");
   }
   function closeAdiantamentoModal(){ adiantamentoOverlay.classList.remove("show"); }
-  $("btnAddAdiantamento").addEventListener("click", openAdiantamentoAddModal);
+  $("btnAddAdiantamento").addEventListener("click", function(){ openAdiantamentoAddModal(); });
   $("adiantamentoClose").addEventListener("click", closeAdiantamentoModal);
   $("adiantamentoCancel").addEventListener("click", closeAdiantamentoModal);
   adiantamentoOverlay.addEventListener("click", function(e){ if (e.target===adiantamentoOverlay) closeAdiantamentoModal(); });
@@ -3119,19 +3129,21 @@
     var errEl = $("adiantamentoError");
     var cartao = $("aCartaoSel").value;
     var valor = parseAmountInput($("aValor").value);
-    var mesOrigem = $("aMesOrigem").value;
-    var mesDestino = $("aMesDestino").value;
+    var dataStr = $("aData").value;
     if (!cartao){ errEl.textContent = "Selecione o cartão."; errEl.style.display="block"; return; }
     if (!isFinite(valor) || valor<=0){ errEl.textContent = "Informe um valor válido maior que zero."; errEl.style.display="block"; return; }
-    if (!mesOrigem || !mesDestino){ errEl.textContent = "Informe o mês origem e o mês/fatura que abate."; errEl.style.display="block"; return; }
+    if (!dataStr){ errEl.textContent = "Informe a data do pagamento."; errEl.style.display="block"; return; }
     errEl.style.display = "none";
+    var ds = dateInputToSerial(dataStr);
     var rec = {
       cartao: cartao,
-      descricao: $("aDescricao").value.trim(),
+      descricao: "",
       valor: Math.round(valor*100)/100,
-      mesOrigem: mesOrigem,
-      mesDestino: mesDestino,
-      out: editingAdiantamentoRow ? (state.adiantamentos.records.filter(function(x){ return x.row===editingAdiantamentoRow; })[0]||{}).out||0 : 0
+      dataSerial: ds,
+      mesOrigem: dataStr.slice(0,7),
+      mesDestino: monthKey(getFaturaStartYM(ds, cartao)),
+      out: editingAdiantamentoOut,
+      previsao: $("aPrevisao").checked
     };
     var action = editingAdiantamentoRow ? "update" : "insert";
     saveTableRow("adiantamentos", action, editingAdiantamentoRow, rec).then(function(){
@@ -3814,7 +3826,6 @@
       $("dashDiarioLabel").textContent = "Diário";
     }
     $("dashInvestimento").textContent = fmtBRL(d.investimento);
-    if ($("dashAdiantamentos")) $("dashAdiantamentos").textContent = fmtBRL(d.adiantamentosNet);
     setBalanceCard("dashBalanceFinal", d.restante);
     setBalanceCard("dashBalanceFachero", d.fachero);
     setBalanceCard("dashBalanceFachera", d.fachera);
@@ -4585,7 +4596,6 @@
       renderDebitoPage();
       renderDiarioPage();
       renderInvestimentoPage();
-      renderAdiantamentosList();
       markLastUpdated();
       updateInOutMenu();
       if (cfgOverlay.classList.contains("show")) renderCfgLists();
@@ -4825,6 +4835,11 @@
         if (monthKey(addMonths(startYM, idx - 1)) === key) net += parcela;
       });
     });
+    state.previsoes.adiantamentos.forEach(function(a){
+      // Mesmo efeito de um adiantamento real: o dinheiro sai no mês de origem e a fatura do mês destino baixa.
+      if (a.mesOrigem === key) net -= (a.valor || 0);
+      if (a.mesDestino === key) net += (a.valor || 0);
+    });
     return net;
   }
 
@@ -4847,6 +4862,11 @@
         desc: "Parcela" + ((a.indices||[]).length > 1 ? "s " : " ") + (a.indices||[]).join(", ") + " de " + (c ? c.descricao : "compra removida"),
         valor: "− " + fmtBRL(a.valor)});
     });
+    state.previsoes.adiantamentos.forEach(function(a){
+      items.push({kind: "adiantamento", tag: "Adiantamento", rec: a, mes: a.mesDestino,
+        desc: (a.cartao || "") + " · adianta a fatura de " + formatMesShort(a.mesDestino) + (a.mesOrigem !== a.mesDestino ? " (sai em " + formatMesShort(a.mesOrigem) + ")" : ""),
+        valor: fmtBRL(a.valor)});
+    });
     items.sort(function(x, y){ return (x.mes || "").localeCompare(y.mes || "") || x.tag.localeCompare(y.tag); });
     return items;
   }
@@ -4854,7 +4874,7 @@
   function efetivarPrevisao(item){
     var rec = {}; for (var k in item.rec) rec[k] = item.rec[k];
     rec.previsao = false;
-    var table = item.kind === "compra" ? "compras" : (item.kind === "debito" ? "debito" : "antecipacoes");
+    var table = item.kind === "compra" ? "compras" : (item.kind === "debito" ? "debito" : (item.kind === "adiantamento" ? "adiantamentos" : "antecipacoes"));
     saveTableRow(table, "update", item.rec.row, rec).then(loadAndRender).catch(function(err){
       showError("Não foi possível efetivar: " + err.message);
     });
@@ -4911,6 +4931,7 @@
       row.addEventListener("click", function(){
         if (item.kind === "compra") openEditModal(item.rec);
         else if (item.kind === "debito") openEditDebModal(item.rec);
+        else if (item.kind === "adiantamento") openAdiantamentoEditModal(item.rec);
         else openAntecipModalForExisting(item.rec.row);
       });
       listEl.appendChild(row);
@@ -4918,6 +4939,7 @@
   }
   $("btnPrevCompra").addEventListener("click", function(){ openAddModal({previsao: true}); });
   $("btnPrevDebito").addEventListener("click", function(){ openAddDebModal({previsao: true}); });
+  $("btnPrevAdiantamento").addEventListener("click", function(){ openAdiantamentoAddModal({previsao: true}); });
 
   // ---------- Page navigation (Dashboard / Compras / Assinaturas / Ingresos-Salidas) ----------
   // Two navs point at the same pages: #pageTabs (text, top — desktop/tablet) and #bottomNav
