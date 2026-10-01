@@ -111,7 +111,14 @@ dijo que cargues sin preguntar, proceder y reportar.
   `(select id from auth.users where email='andresjuanfr@gmail.com')`.
 - `compras`: `descricao`, `comerciante` = descripción en minúsculas con espacios colapsados,
   `pessoa_id` "Facheros" por defecto (otra persona solo si el usuario lo dice), `cartao_id`,
-  `valor_total`, `parcelas`, `data`, `tipo_id` ("Á vista" si 1 parcela, "Parcelado" si más), `out=false`.
+  `valor_total`, `parcelas`, `data`, `tipo_id` ("À Vista" —con À— si 1 parcela, "Parcelado" si más;
+  consultar `tipos` para el nombre exacto), `out=false`.
+- **Suscripciones o compras que pasaron a otra tarjeta**: no se editan ni se duplican; se inserta una
+  fila en `compra_cartao_trocas` (`compra_id`, `cartao_id` nuevo, `mes` = primer mes de fatura en la
+  tarjeta nueva, formato `YYYY-MM`, `user_id` explícito). Una suscripción con `cancelamento` ya no se
+  cobra y no afecta los totales.
+- **Duplicados en el app** (filas idénticas que la factura muestra una sola vez): se dejan en el app con
+  `out=true` (excluidas), conservando la más antigua; nunca `delete`.
 - `debito`: `tipo` ∈ {Ingreso Fijo, Ingreso Variable, Gasto Fijo, Gasto Variable}, `pessoa_id` "Facheros".
 - `cuentas_mes` (una fila por tarjeta y una con `cartao_id` null para débito; índice único
   `(mes, coalesce(cartao_id, ...))`, así que `update` si existe e `insert` si no): poner `valor_real`
@@ -121,7 +128,11 @@ dijo que cargues sin preguntar, proceder y reportar.
   `update` de compras existentes sin que lo pidan.
 
 ### 6. Verificar y entregar
-- Releer los totales por tarjeta del mes y confirmar que coinciden con `valor_real`.
+- Releer los totales por tarjeta del mes y confirmar que coinciden con `valor_real`. Lo más fiable es la
+  pestaña **Cuentas** de la app en el navegador del panel (botón `#btnReload` refresca los datos desde
+  Supabase; un `location.reload()` no siempre lo hace). Si el usuario da el total que ve en su app de
+  Nubank y no coincide con la suma del CSV, **no inventar**: reportar ambos y preguntar de qué factura
+  o fecha de corte es; dejar esa tarjeta sin `valor_real` ni `conferido`.
 - Reportar: qué se cargó (nº de compras y total por tarjeta), qué quedó sin cuadrar, el resultado de
   la conciliación del saldo y las anomalías detectadas.
 - Solo si lo piden: balance Fachero/Fachera del Dashboard (leerlo en la app en vivo, no `file://`, o
