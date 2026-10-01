@@ -983,7 +983,7 @@
           <div class="v num" id="dashBalance">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Diário</span>
+          <span class="k" id="dashDiarioLabel">Diário</span>
           <div class="v num" id="dashDiario">R$ 0,00</div>
         </div>
         <div class="sum-card">
@@ -2388,7 +2388,8 @@
           valor: r.valor===null?0:Number(r.valor),
           dataSerial: dateInputToSerial(r.data),
           out: r.out ? 1 : 0,
-          variacao: !!r.variacao
+          variacao: !!r.variacao,
+          refExterna: r.ref_externa || ""
         };
       });
 
@@ -3855,17 +3856,37 @@
     $("dashTotal").classList.toggle("positive", total < 0);
 
     var debRecs = getDebitoMonthFiltered().filter(function(r){ return !r.out; });
-    var ingresos = 0, gastos = 0;
+    var ingresos = 0, gastos = 0, diarioGasto = 0;
     debRecs.forEach(function(r){
       if (INGRESO_TIPOS.indexOf(r.tipo) !== -1) ingresos += r.valor;
-      else if (GASTO_TIPOS.indexOf(r.tipo) !== -1) gastos += r.valor;
+      else if (GASTO_TIPOS.indexOf(r.tipo) !== -1){
+        // Gastos de débito itemizados desde um extrato (têm ref_externa) saem do Diário do mês,
+        // não do balance — senão contariam duas vezes (o Diário já é descontado por adiantado).
+        // Na visão "Todos os meses" não há mês único, então contam como gasto normal.
+        if (r.refExterna && refKey) diarioGasto += r.valor;
+        else gastos += r.valor;
+      }
     });
     getDynamicIncomeEntries().forEach(function(r){ ingresos += r.valor; });
     var balance = ingresos - gastos;
     setBalanceCard("dashBalance", balance);
 
-    var diario = getDiarioAmount();
-    $("dashDiario").textContent = fmtBRL(diario);
+    var diarioBase = getDiarioAmount();
+    // Mês com o débito marcado como completo em Cuentas (hora de "fazer as contas"): o que sobrou do
+    // Diário volta como positivo e o que passou conta como negativo, ou seja, vale o gasto real.
+    // Mês ainda aberto: reserva o Diário inteiro, ou o gasto real se já passou dele.
+    var debCuenta = refKey ? findCuenta(refKey, "") : null;
+    var mesFechado = !!(debCuenta && debCuenta.conferido);
+    var diario = (diarioGasto > 0 && mesFechado) ? diarioGasto : Math.max(diarioBase, diarioGasto);
+    if (diarioGasto > 0){
+      $("dashDiario").textContent = fmtBRL(diarioBase - diarioGasto);
+      $("dashDiario").classList.toggle("negative", diarioBase - diarioGasto < 0);
+      $("dashDiarioLabel").textContent = "Diário restante (de " + fmtBRL(diarioBase) + ")";
+    } else {
+      $("dashDiario").textContent = fmtBRL(diarioBase);
+      $("dashDiario").classList.remove("negative");
+      $("dashDiarioLabel").textContent = "Diário";
+    }
     var investimento = getInvestimentoAmount();
     $("dashInvestimento").textContent = fmtBRL(investimento);
     // Reservas move money between two months directly; adiantamentos' "saída" side does the

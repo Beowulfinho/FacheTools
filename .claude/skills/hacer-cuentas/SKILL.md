@@ -101,18 +101,44 @@ Objetivo: que el app refleje si **ya se gastó plata del salario** que el app to
 2. **Saldo del mes en curso** `L = saldo de hoy − S`: lo que queda de la plata del mes *m*.
    (Si hoy aún no pasó el vencimiento de alguna factura de *m*, esa factura sigue saliendo de L.)
 3. Lo que el app espera de *m*: `restante(m)` de `renderDashboard`
-   (`balance − totalCompras − diario − investimento + reservasNet`). El `diario` es plata de gasto
-   libre que se descuenta por adelantado, y no se registra al gastarla:
-   - `L` entre `restante` y `restante + diario` → **consistente**, no hay nada que registrar.
-   - `L < restante` → se gastó de más sin registrar: proponer una fila en `debito` de tipo
-     `Gasto Variable` (descripción "Gasto de débito no registrado hasta DD/MM", `pessoa` Facheros,
-     `data` día 1 del mes *m*, valor `restante − L`). **Mostrar el cálculo y esperar el "ok"** antes
-     de insertarla.
-   - `L > restante + diario` → sobra plata sin explicar (ingreso no registrado o arrastre de meses
-     anteriores): **no registrar nada**, mostrar el excedente y preguntar de dónde viene.
+   (`balance − totalCompras − diario − investimento + reservasNet`). Con los extractos de débito ya
+   itemizados (4b), `restante` incluye el gasto real de débito, así que se compara `L` directamente
+   con `restante` (sin rango por el diario):
+   - `L ≈ restante` → **consistente**, no hay nada que registrar.
+   - `L < restante` → se gastó plata que el app no conoce (falta un extracto de otra cuenta o un gasto
+     en efectivo): **pedir el extracto de esa cuenta**; solo como último recurso, y con el "ok" del
+     usuario, una fila `Gasto Variable` "Gasto no identificado hasta DD/MM" por la diferencia.
+   - `L > restante` → sobra plata sin explicar (ingreso no registrado o arrastre de meses anteriores):
+     **no registrar nada**, mostrar el excedente y preguntar de dónde viene.
 4. Al terminar, marcar el débito de *m* como completo en `cuentas_mes`.
 - Esta regla es la primera versión: tras la primera ejecución real, ajustar aquí lo que haya
   salido distinto (arrastre de meses anteriores, inversión, etc.).
+
+### 4b. Extractos de débito: cada gasto visible en el app
+Desde ahora los gastos de débito **no se resumen en un "gasto variable"**: cada movimiento del extracto
+(CSV de Nubank: `Data,Valor,Identificador,Descrição`) se carga como una fila de `debito`.
+- **Fila**: `tipo='Gasto Variable'`, `descricao` = comercio + cuenta entre paréntesis (`"99 NuPay (AJ)"`,
+  `"Pix: NOMBRE (Gab)"`), `valor` positivo, `data` = fecha real, `pessoa` = **Facheros** salvo que el
+  usuario indique otra (la asignación Fachero/Fachera es solo para casos específicos),
+  `ref_externa` = **columna Identificador** del extracto, `user_id` explícito.
+- **Idempotente**: `insert ... on conflict (ref_externa) where ref_externa is not null do nothing`;
+  reimportar un extracto solapado no duplica.
+- **Sí se cargan**: compras en débito, Pix a terceros (comercios y personas).
+- **No se cargan** (no son gasto o ya están en el app): pago de fatura (ya cuenta en las compras de la
+  tarjeta), transferencias entre ellos dos o entre cuentas propias, aplicaciones/RDB (inversión),
+  aluguel y servicios (Gasto Fijo), Claro (Gasto Fijo), pago de Renner (Realize), estornos y sus
+  intentos. Lo ambiguo (resgate de empréstimo, entradas de terceros) se **pregunta**: las entradas de
+  personas con "gera ingresso" (Mãe, Padres, Tchuka) ya suman como "Espelho de compras" y registrarlas
+  duplicaría el ingreso.
+- **Diario = presupuesto de R$ 700/mes del que salen estos gastos.** El Dashboard descuenta de él las
+  filas con `ref_externa` (no las suma al balance, para no contar dos veces). Mes abierto: reserva
+  `max(diario, gasto real)`. Mes con el débito marcado completo en Cuentas: vale el gasto real (lo que
+  sobró del diario vuelve como positivo, lo que se pasó cuenta como negativo). El mes siguiente
+  empieza con otros R$ 700. No cambiar el diario de cada mes a 0.
+- Los extractos de AJ y de Gab se cargan **por separado**; falta tu Santander y las otras cuentas de
+  Gab (Bradesco, Santander, XP, Caixa) si hay gastos allí.
+- Un extracto termina el día anterior a su exportación: los movimientos del último día los trae el
+  siguiente.
 
 ### 5. Plan único y escritura en Supabase
 Presentar una sola tabla (facturas + saldo) y pedir un solo "ok" antes de escribir; si el usuario ya
