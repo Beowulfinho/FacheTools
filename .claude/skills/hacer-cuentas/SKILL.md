@@ -27,7 +27,10 @@ depende de ella.
 
 1. **Facturas**: una por tarjeta (CSV Nubank, PDF u otro) o al menos su total real. Tarjetas:
    Bradesco, Nubank AJ, Nubank Gab, Renner, Santander, XP. Una tarjeta sin factura se confirma con el
-   usuario, no se asume. La tarjeta se identifica por el **día de vencimiento** (`cartoes.vencimiento`)
+   usuario, no se asume, **excepto Renner**: no es una tarjeta activa. Si no entregan su factura, **su
+   valor en el app se considera intacto hasta nuevo aviso**: no preguntar por ella ni tomarlo como un
+   cambio. Solo para poder cerrar el mes en Cuentas, dejarla conferida con `valor_real` = total del
+   app. Si algún día entregan una factura de Renner, procesarla como cualquier otra. La tarjeta se identifica por el **día de vencimiento** (`cartoes.vencimiento`)
    y por los comerciantes ya vistos en esa tarjeta (ej. vence el 10 + Raia168/Pão de Açúcar = Nubank AJ;
    vence el 12 = Nubank Gab o Bradesco). Si queda duda, preguntar.
 2. **Saldo de débito de hoy**: la suma de lo que hay hoy en las cuentas de ambos. No piden desglose.
