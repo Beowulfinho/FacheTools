@@ -268,6 +268,13 @@
   .cuentas-card.warn .venc-count{ color:var(--warn); }
   .venc-count{ font-weight:600; font-size:12.5px; }
   .panel-head .sec-total{ font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:14px; color:var(--ink-soft); }
+  .resumo-main{ padding:20px 22px; }
+  .resumo-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:6px; }
+  .rs-col h3{ font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 8px; }
+  .rs-line{ display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line); font-size:14px; }
+  .rs-line:last-child{ border-bottom:none; font-size:16px; }
+  .rs-line .num.neg{ color:var(--danger); }
+  @media (max-width: 880px){ .resumo-grid{ grid-template-columns:1fr; gap:16px; } }
   .cuentas-card.idle{ opacity:.65; }
   .cuentas-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:8px; }
   .cuentas-head .name{ font-weight:600; font-size:14px; }
@@ -4007,20 +4014,37 @@
       });
     });
 
-    // Resumo: pendente, pago, saldo de hoje e quanto sobra depois de pagar o pendente
+    // Resumo: o que falta pagar, o que falta chegar e como ficam as contas depois de tudo.
     var sd = getSaldoDebito(mes);
     var saldo = sd.total;
-    var queda = saldo === null ? null : saldo - pendiente;
+    var reembRecebido = 0;
+    reembs.forEach(function(r){ if (r.rec && r.rec.pago) reembRecebido += r.valor; });
+    var reembFalta = totalReemb - reembRecebido;
+    var jaChegou = reembRecebido + totalExtra;
+    var aposPagar = saldo === null ? null : saldo - pendiente;
+    var finalMes = aposPagar === null ? null : aposPagar + reembFalta;
+    function rline(label, val, cls){ return '<div class="rs-line"><span>'+label+'</span><span class="num '+(cls||'')+'">'+val+'</span></div>'; }
     resumoEl.innerHTML =
-      '<div class="cuentas-card '+(queda !== null && queda < 0 ? 'warn' : (queda !== null ? 'ok' : ''))+'">'+
-        '<div class="cuentas-head"><span class="name">Contas de '+escapeHtml(formatMonthLabel(filterMonth))+'</span><span class="tag">'+nPagos+' de '+nPagosTotal+' pagas</span></div>'+
-        '<div class="cuentas-figs">'+
-          '<span>A pagar: <span class="num">'+fmtBRL(pendiente)+'</span></span>'+
-          '<span>Já pago: <span class="num">'+fmtBRL(pagado)+'</span></span>'+
-          '<span>Saldo nas contas: <span class="num">'+(saldo===null?'—':fmtBRL(saldo))+'</span></span>'+
-          '<span>Sobra após pagar o pendente: <span class="num">'+(queda===null?'—':fmtBRL(queda))+'</span></span>'+
+      '<div class="cuentas-card resumo-main '+(finalMes !== null && finalMes < 0 ? 'late' : (finalMes !== null ? 'ok' : ''))+'">'+
+        '<div class="cuentas-head"><span class="name" style="font-size:17px;">Contas de '+escapeHtml(formatMonthLabel(filterMonth))+'</span><span class="tag">'+nPagos+' de '+nPagosTotal+' pagas</span></div>'+
+        '<div class="resumo-grid">'+
+          '<div class="rs-col"><h3>Pagar</h3>'+
+            rline('Total do mês', fmtBRL(pendiente + pagado))+
+            rline('Já pago', fmtBRL(pagado))+
+            rline('<b>Falta pagar</b>', '<b>'+fmtBRL(pendiente)+'</b>')+
+          '</div>'+
+          '<div class="rs-col"><h3>Receber</h3>'+
+            rline('Reembolsos (total)', fmtBRL(totalReemb))+
+            rline('Já chegou (reembolsos + adicionais)', fmtBRL(jaChegou))+
+            rline('<b>Falta chegar</b>', '<b>'+fmtBRL(reembFalta)+'</b>')+
+          '</div>'+
+          '<div class="rs-col"><h3>Como ficam as contas</h3>'+
+            rline('Saldo nas contas hoje', saldo === null ? '—' : fmtBRL(saldo))+
+            rline('Depois de pagar o pendente', aposPagar === null ? '—' : fmtBRL(aposPagar), aposPagar !== null && aposPagar < 0 ? 'neg' : '')+
+            rline('<b>Depois de tudo chegar e pagar</b>', finalMes === null ? '—' : '<b>'+fmtBRL(finalMes)+'</b>', finalMes !== null && finalMes < 0 ? 'neg' : '')+
+          '</div>'+
         '</div>'+
-        '<p class="cfg-hint" style="margin:8px 0 0;">'+(sd.asOf ? 'Saldo informado em '+serialToDisplay(dateInputToSerial(sd.asOf))+'. ' : 'Sem saldo informado neste mês — informe em Ingresos/Salidas. ')+'O saldo já é posterior a tudo que está marcado como pago.</p>'+
+        '<p class="cfg-hint" style="margin:10px 0 0;">'+(sd.asOf ? 'Saldo informado em '+serialToDisplay(dateInputToSerial(sd.asOf))+'. ' : 'Sem saldo informado neste mês — informe em Ingresos/Salidas. ')+'O saldo já é posterior ao que está marcado como pago e como recebido; “falta chegar” são só os reembolsos ainda não marcados.</p>'+
         '<div class="cuentas-actions"><button class="btn btn-sm cu-saldo-go" type="button">Atualizar saldo</button></div>'+
       '</div>';
     resumoEl.querySelector(".cu-saldo-go").addEventListener("click", function(){ setActivePage("debito"); });
