@@ -1277,6 +1277,10 @@
         <div class="panel-head"><h2>Reembolsos de terceiros</h2><span class="sec-total" id="cuentasReembTotal"></span></div>
         <div class="cuentas-list" id="cuentasReemb"></div>
       </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head"><h2>Ingressos adicionais</h2><span class="sec-total" id="cuentasExtraTotal"></span></div>
+        <div class="cuentas-list" id="cuentasExtra"></div>
+      </div>
     </div>
 
     <div class="page-section" id="pagePrevisoes">
@@ -3684,6 +3688,17 @@
     }
     return null;
   }
+  // Configuração herdada mês a mês (ex.: dia de vencimento de um gasto fixo): vale a linha mais recente
+  // até o mês visto; se só houver linhas posteriores, a mais antiga delas.
+  function findCuentaInherited(mes, item){
+    var best = null, earliest = null;
+    state.cuentas.records.forEach(function(r){
+      if (r.item !== item || (r.cartao||"") !== "" || r.valorReal === null || r.valorReal === undefined) return;
+      if (r.mes <= mes && (!best || r.mes > best.mes)) best = r;
+      if (!earliest || r.mes < earliest.mes) earliest = r;
+    });
+    return best || earliest;
+  }
   // Total da fatura de cada cartão no mês, a partir do cronograma de parcelas (mesma lógica da
   // aba Credito/Dashboard), já abatidos os adiantamentos.
   function getFaturaAppTotals(ym){
@@ -3741,6 +3756,8 @@
       var g = groups[k];
       g.pessoa = g.pessoas.join(" + ");
       g.rec = findCuenta(mes, "", k);
+      var vrec = findCuentaInherited(mes, "venc:" + k);
+      if (vrec) g.dia = Math.round(vrec.valorReal);
       return g;
     }).sort(function(a, b){ return b.valor - a.valor; });
   }
@@ -3866,8 +3883,8 @@
     var banner = $("cuentasBanner"), resumoEl = $("cuentasResumen"), fijosEl = $("cuentasFijos");
     if (!filterMonth){
       banner.innerHTML = '<div class="cuentas-banner">Selecione um mês específico (botão "Mês atual" acima) para ver as contas do mês.</div>';
-      listEl.innerHTML = ""; resumoEl.innerHTML = ""; fijosEl.innerHTML = ""; $("cuentasReemb").innerHTML = "";
-      ["cuentasCartoesTotal","cuentasFijosTotal","cuentasReembTotal"].forEach(function(id){ $(id).textContent = ""; });
+      listEl.innerHTML = ""; resumoEl.innerHTML = ""; fijosEl.innerHTML = ""; $("cuentasReemb").innerHTML = ""; $("cuentasExtra").innerHTML = "";
+      ["cuentasCartoesTotal","cuentasFijosTotal","cuentasReembTotal","cuentasExtraTotal"].forEach(function(id){ $(id).textContent = ""; });
       return;
     }
     var mes = monthKey(filterMonth);
@@ -3923,13 +3940,19 @@
         '<div class="cuentas-head"><span class="name">'+escapeHtml(f.descricao)+(f.pessoa ? ' <small style="color:var(--ink-faint);">· '+escapeHtml(f.pessoa)+'</small>' : '')+
           (pago ? '<span class="tag-auto">paga' + (f.rec && f.rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(f.rec.pagoEm)) : (fechado ? ' (mês fechado)' : '')) + '</span>' : '<span class="tag-auto">a pagar</span>')+'</span>'+
           '<span class="num">'+fmtBRL(f.valor)+'</span></div>'+
-        (fv.label ? '<div class="cuentas-figs"><span>Vencimento: <span class="num">'+fv.label+'</span> '+fv.countdown+'</span></div>' : '')+
+        '<div class="cuentas-figs"><span>Vencimento: '+(fv.label ? '<span class="num">'+fv.label+'</span> '+fv.countdown : '<span class="num">—</span>')+'</span>'+
+          '<span>Dia: <input type="number" min="1" max="31" class="cu-venc" style="width:64px;" value="'+(f.dia||'')+'" title="Dia do vencimento (vale deste mês em diante)"></span></div>'+
         (fechado ? '</div>' : '<div class="cuentas-actions"><button class="btn btn-sm '+(pago?'':'btn-primary')+' cu-fijo-pago" type="button">'+(pago?'Desmarcar pago':'Marcar paga')+'</button></div></div>');
     });
     $("cuentasFijosTotal").textContent = "Total " + fmtBRL(totalFijos);
     fijosEl.innerHTML = fhtml || '<div class="empty" style="padding:20px 4px;">Nenhum gasto fixo neste mês.</div>';
     fijosEl.querySelectorAll(".cuentas-card").forEach(function(cardEl){
       var f = fijos[parseInt(cardEl.getAttribute("data-f"),10)];
+      cardEl.querySelector(".cu-venc").addEventListener("change", function(){
+        var d = parseInt(this.value, 10);
+        if (!isFinite(d) || d < 1 || d > 31){ showError("Dia de vencimento inválido (1 a 31)."); return; }
+        saveCuenta(mes, "", {valorReal: d}, "venc:" + f.key);
+      });
       var fBtn = cardEl.querySelector(".cu-fijo-pago");
       if (fBtn) fBtn.addEventListener("click", function(){
         if (f.rec && f.rec.pago) saveCuenta(mes, "", {pago: false, valorPago: null, pagoEm: null}, f.key);
@@ -3958,6 +3981,29 @@
       cardEl.querySelector(".cu-reemb").addEventListener("click", function(){
         if (r.rec && r.rec.pago) saveCuenta(mes, "", {pago: false, valorPago: null, pagoEm: null}, r.key);
         else saveCuenta(mes, "", {pago: true, valorPago: Math.round(r.valor*100)/100, pagoEm: todayInputValue()}, r.key);
+      });
+    });
+
+    // Ingressos adicionais: dinheiro que chega no mês e não tem valor fixo (ex.: o que os pais enviam).
+    var extras = [{key: "extra:Padres", nome: "Padres — envio do mês"}];
+    var extraEl = $("cuentasExtra"), ehtml = "", totalExtra = 0;
+    extras.forEach(function(x, i){
+      x.rec = findCuenta(mes, "", x.key);
+      var v = x.rec && x.rec.valorReal !== null && x.rec.valorReal !== undefined ? x.rec.valorReal : null;
+      if (v !== null) totalExtra += v;
+      ehtml += '<div class="cuentas-card '+(v !== null ? 'ok' : 'warn')+'" data-x="'+i+'">'+
+        '<div class="cuentas-head"><span class="name">'+escapeHtml(x.nome)+'<span class="tag-auto">'+(v !== null ? 'recebido' : 'a receber')+'</span></span></div>'+
+        '<div class="cuentas-figs"><span>Valor recebido: <input type="text" inputmode="decimal" class="cu-extra" placeholder="0,00" value="'+(v === null ? '' : String(v).replace(".", ","))+'"></span></div></div>';
+    });
+    $("cuentasExtraTotal").textContent = "Total " + fmtBRL(totalExtra);
+    extraEl.innerHTML = ehtml;
+    extraEl.querySelectorAll(".cuentas-card").forEach(function(cardEl){
+      var x = extras[parseInt(cardEl.getAttribute("data-x"),10)];
+      cardEl.querySelector(".cu-extra").addEventListener("change", function(){
+        var txt = this.value.trim();
+        var v = txt === "" ? null : parseAmountInput(txt);
+        if (v !== null && !isFinite(v)){ showError("Valor inválido."); return; }
+        saveCuenta(mes, "", {valorReal: v === null ? null : Math.round(v*100)/100}, x.key);
       });
     });
 
