@@ -237,6 +237,10 @@
   .dash-card .panel-head{ padding-bottom:10px; }
   .bar-list{ display:flex; flex-direction:column; gap:10px; padding:14px 18px 18px; }
   .bar-row{ display:flex; flex-direction:column; gap:4px; }
+  .bar-row.clickable{ cursor:pointer; padding:6px 8px; margin:-6px -8px; border-radius:8px; transition:background .15s, transform .15s; }
+  .bar-row.clickable:hover{ background:var(--accent-soft); transform:translateX(2px); }
+  .bar-row.clickable:hover .bar-name{ color:var(--accent-ink); }
+  .bar-row.clickable:hover .bar-fill{ filter:brightness(1.12); }
   .bar-row .bar-top{ display:flex; justify-content:space-between; font-size:13px; }
   .bar-row .bar-name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .bar-row .bar-value{ font-family:"IBM Plex Mono",monospace; color:var(--ink-soft); flex:none; margin-left:10px; }
@@ -533,6 +537,8 @@
     font-size:11.5px; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-faint);
     font-weight:600; border-bottom:1px solid var(--line);
   }
+  .tx-total-row{ color:var(--ink); font-size:13.5px; font-weight:700; text-transform:none; letter-spacing:0; background:var(--paper); }
+  .tx-total-row > span:nth-child(3){ font-size:11.5px; letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-faint); }
   .tx-list{ max-height:560px; overflow-y:auto; }
   /* Compras registradas and Movimientos (Ingresos/Salidas) are each the last thing on their page
      (nothing below them), so let them grow with the page instead of scrolling in their own box —
@@ -554,7 +560,7 @@
      então ao tirar a coluna do Inside/Out o grid é redefinido sem ela. */
   html:not(.show-inout) .f-out, html:not(.show-inout) .head-out{ display:none !important; }
   @media (min-width: 881px){
-    html:not(.show-inout) #txList .tx-row, html:not(.show-inout) #txHeadRow{ grid-template-columns:0.32fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr !important; }
+    html:not(.show-inout) #txList .tx-row, html:not(.show-inout) #txHeadRow, html:not(.show-inout) #txTotRow{ grid-template-columns:0.32fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr !important; }
     html:not(.show-inout) #debitoList .tx-row, html:not(.show-inout) #debHeadRow, html:not(.show-inout) #debitoFixosList .tx-row, html:not(.show-inout) #debFixHeadRow{ grid-template-columns:0.32fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr !important; }
   }
   .row-select{ width:auto; accent-color:var(--accent); cursor:pointer; align-self:center; }
@@ -833,6 +839,8 @@
 
     /* ---------- List rows become cards: no more horizontal scrolling ---------- */
     .list-head-row{ display:none; }
+    .list-head-row.tx-total-row{ display:flex !important; justify-content:space-between; }
+    .tx-total-row > span:not(:nth-child(3)):not(#txTotValue){ display:none; }
     .tx-row{
       display:flex; flex-wrap:wrap; align-items:center; row-gap:6px; column-gap:8px;
       padding:12px 14px;
@@ -1208,6 +1216,9 @@
           <button class="btn btn-sm" id="comprasBulkClear" type="button">Cancelar seleção</button>
         </div>
         <div class="tx-scroll">
+        <div class="list-head-row tx-total-row" id="txTotRow" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr;">
+          <span></span><span class="head-out"></span><span>Total filtrado</span><span></span><span></span><span></span><span class="num" id="txTotValue">R$ 0,00</span><span></span><span></span><span></span>
+        </div>
         <div class="list-head-row" id="txHeadRow" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr;">
           <input type="checkbox" class="row-select" id="selectAllCompras" title="Selecionar todos"><span class="head-out"></span><span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor total</span><span>Valor parcela</span><span>Parcela</span><span>Data</span><span>Tipo</span>
         </div>
@@ -2963,6 +2974,12 @@
     Array.from(selectedCompras).forEach(function(rn){ if (visibleRows.indexOf(rn)===-1) selectedCompras.delete(rn); });
     updateComprasBulkBar();
 
+    // Total of what's currently listed (same "Parcela R$" column), so it's visible without scrolling up.
+    var listedTotal = 0;
+    filtered.forEach(function(r){ if (!r.out) listedTotal += (r.effectiveValor || 0); });
+    adiRows.forEach(function(a){ if (!a.out) listedTotal -= (a.valor || 0); });
+    $("txTotValue").textContent = fmtBRL(listedTotal);
+
     var listEl = $("txList");
     listEl.innerHTML = "";
     if (filtered.length === 0 && !adiRows.length){
@@ -3503,7 +3520,7 @@
         '<div class="bar-top"><span class="bar-name">'+escapeHtml(g.name)+'</span><span class="bar-value num">'+fmtBRL(g.total)+'</span></div>'+
         '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;"></div></div>';
       if (filterId){
-        row.style.cursor = "pointer";
+        row.classList.add("clickable");
         row.title = "Ver compras filtradas";
         row.addEventListener("click", function(){ filterComprasBy(filterId, g.name); });
       }
