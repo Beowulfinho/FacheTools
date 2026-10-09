@@ -3263,8 +3263,8 @@
     // A negative fatura total is the card owing money back (a reembolso credit bigger than
     // what's charged this month) — favorable, so colored like a credit, not like overspending.
     $("compFaturaTotal").classList.toggle("positive", total < 0);
-    renderBarList("compFaturaPorPessoa", groupSum(monthRecs, "pessoa"));
-    renderBarList("compFaturaPorCartao", applyAdiantamentosToCartaoGroups(groupSum(monthRecs, "cartaoEfetivo"), refKey));
+    renderBarList("compFaturaPorPessoa", groupSum(monthRecs, "pessoa"), "fPersona");
+    renderBarList("compFaturaPorCartao", applyAdiantamentosToCartaoGroups(groupSum(monthRecs, "cartaoEfetivo"), refKey), "fCartao");
   }
 
   // ---------- Calendário de parcelas: every purchase, month by month, independent of any filter ----------
@@ -3480,7 +3480,14 @@
     }
   }
 
-  function renderBarList(elId, groups){
+  // Click a bar → apply it as a filter on "Compras registradas" and scroll to that table.
+  function filterComprasBy(filterId, name){
+    setMselValues($(filterId), [name]);
+    renderList();
+    var panel = $("txList").closest(".panel");
+    if (panel) panel.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+  function renderBarList(elId, groups, filterId){
     var el = $(elId);
     el.innerHTML = "";
     if (!groups.length){
@@ -3495,6 +3502,11 @@
       row.innerHTML =
         '<div class="bar-top"><span class="bar-name">'+escapeHtml(g.name)+'</span><span class="bar-value num">'+fmtBRL(g.total)+'</span></div>'+
         '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;"></div></div>';
+      if (filterId){
+        row.style.cursor = "pointer";
+        row.title = "Ver compras filtradas";
+        row.addEventListener("click", function(){ filterComprasBy(filterId, g.name); });
+      }
       el.appendChild(row);
     });
   }
