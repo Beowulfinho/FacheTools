@@ -263,6 +263,11 @@
   .cuentas-card{ border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--paper-raised); }
   .cuentas-card.ok{ border-color:var(--accent); background:var(--accent-soft); }
   .cuentas-card.warn{ border-color:var(--warn); background:var(--warn-soft); }
+  .cuentas-card.late{ border-color:var(--danger); background:var(--danger-soft); }
+  .cuentas-card.late .cuentas-head .tag, .cuentas-card.late .venc-count{ color:var(--danger); }
+  .cuentas-card.warn .venc-count{ color:var(--warn); }
+  .venc-count{ font-weight:600; font-size:12.5px; }
+  .panel-head .sec-total{ font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:14px; color:var(--ink-soft); }
   .cuentas-card.idle{ opacity:.65; }
   .cuentas-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:8px; }
   .cuentas-head .name{ font-weight:600; font-size:14px; }
@@ -1261,12 +1266,16 @@
         <div class="cuentas-list" id="cuentasResumen"></div>
       </div>
       <div class="panel" style="margin-top:18px;">
-        <div class="panel-head"><h2>Faturas dos cartões</h2></div>
+        <div class="panel-head"><h2>Faturas dos cartões</h2><span class="sec-total" id="cuentasCartoesTotal"></span></div>
         <div class="cuentas-list" id="cuentasCartoes"></div>
       </div>
       <div class="panel" style="margin-top:18px;">
-        <div class="panel-head"><h2>Gastos fixos a pagar</h2></div>
+        <div class="panel-head"><h2>Gastos fixos a pagar</h2><span class="sec-total" id="cuentasFijosTotal"></span></div>
         <div class="cuentas-list" id="cuentasFijos"></div>
+      </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head"><h2>Reembolsos de terceiros</h2><span class="sec-total" id="cuentasReembTotal"></span></div>
+        <div class="cuentas-list" id="cuentasReemb"></div>
       </div>
     </div>
 
@@ -3839,6 +3848,16 @@
     var ym = ymFromKey(mes);
     return String(Math.min(dia, new Date(Date.UTC(ym.year, ym.month, 0)).getUTCDate())).padStart(2,"0") + "/" + String(ym.month).padStart(2,"0");
   }
+  // Vencimento de uma conta: data, estado (no prazo / vencida) e contador de dias, relativos a hoje.
+  function vencInfo(dia, mes, pago){
+    if (!dia) return {label:"", late:false, countdown:""};
+    var ym = ymFromKey(mes);
+    var d = Math.min(dia, new Date(Date.UTC(ym.year, ym.month, 0)).getUTCDate());
+    var now = new Date();
+    var diff = Math.round((new Date(ym.year, ym.month-1, d) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+    var txt = diff > 1 ? "faltam " + diff + " dias" : diff === 1 ? "falta 1 dia" : diff === 0 ? "vence hoje" : diff === -1 ? "venceu ontem" : "venceu há " + (-diff) + " dias";
+    return {label: vencLabel(dia, mes), late: !pago && diff < 0, countdown: pago ? "" : '<span class="venc-count">'+txt+'</span>'};
+  }
   var cuentasImportTarget = null; // {cartao} while the CSV import was started from a Cuentas row
 
   function renderCuentasPage(){
@@ -3847,7 +3866,8 @@
     var banner = $("cuentasBanner"), resumoEl = $("cuentasResumen"), fijosEl = $("cuentasFijos");
     if (!filterMonth){
       banner.innerHTML = '<div class="cuentas-banner">Selecione um mês específico (botão "Mês atual" acima) para ver as contas do mês.</div>';
-      listEl.innerHTML = ""; resumoEl.innerHTML = ""; fijosEl.innerHTML = "";
+      listEl.innerHTML = ""; resumoEl.innerHTML = ""; fijosEl.innerHTML = ""; $("cuentasReemb").innerHTML = "";
+      ["cuentasCartoesTotal","cuentasFijosTotal","cuentasReembTotal"].forEach(function(id){ $(id).textContent = ""; });
       return;
     }
     var mes = monthKey(filterMonth);
@@ -3855,7 +3875,7 @@
     var items = getCuentasItems(mes);
     var fijos = getCuentasFijos(mes);
     var html = "";
-    var pendiente = 0, pagado = 0, nPagos = 0, nPagosTotal = 0;
+    var pendiente = 0, pagado = 0, nPagos = 0, nPagosTotal = 0, totalCartoes = 0, totalFijos = 0;
 
     var cartaoByNome = {};
     state.cartoes.records.forEach(function(c){ cartaoByNome[c.nome] = c; });
@@ -3868,15 +3888,17 @@
       nPagosTotal++;
       if (pago){ nPagos++; pagado += (pagoReal && rec.valorPago !== null && rec.valorPago !== undefined) ? rec.valorPago : amt; }
       else pendiente += amt;
-      var venc = vencLabel(cartaoByNome[it.nome] && cartaoByNome[it.nome].vencimento, mes);
-      html += '<div class="cuentas-card '+(pago?'ok':'warn')+'" data-i="'+i+'">'+
+      var venc = vencInfo(cartaoByNome[it.nome] && cartaoByNome[it.nome].vencimento, mes, pago);
+      totalCartoes += amt;
+      html += '<div class="cuentas-card '+(pago?'ok':(venc.late?'late':'warn'))+'" data-i="'+i+'">'+
         '<div class="cuentas-head"><span class="name">'+escapeHtml(it.nome)+'<span class="tag-auto">'+(pago ? 'paga' + (rec && rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(rec.pagoEm)) : (fechado ? ' (mês fechado)' : '')) : 'a pagar')+'</span></span>'+
           '<span class="num">'+fmtBRL(amt)+'</span></div>'+
-        (venc ? '<div class="cuentas-figs"><span>Vencimento: <span class="num">'+venc+'</span></span></div>' : '')+
+        (venc.label ? '<div class="cuentas-figs"><span>Vencimento: <span class="num">'+venc.label+'</span> '+venc.countdown+'</span></div>' : '')+
         (fechado ? '' : '<div class="cuentas-actions"><button class="btn btn-sm '+(pago?'':'btn-primary')+' cu-pago" type="button">'+(pago?'Desmarcar pago':'Marcar paga')+'</button></div>')+
         '</div>';
     });
     listEl.innerHTML = html || '<div class="empty" style="padding:20px 4px;">Nenhuma fatura neste mês.</div>';
+    $("cuentasCartoesTotal").textContent = "Total " + fmtBRL(totalCartoes);
 
     listEl.querySelectorAll(".cuentas-card").forEach(function(cardEl){
       var it = items[parseInt(cardEl.getAttribute("data-i"),10)];
@@ -3895,13 +3917,16 @@
       nPagosTotal++;
       if (pago){ nPagos++; pagado += (pagoReal && f.rec.valorPago !== null && f.rec.valorPago !== undefined) ? f.rec.valorPago : f.valor; }
       else pendiente += f.valor;
-      fhtml += '<div class="cuentas-card '+(pago?'ok':'warn')+'" data-f="'+i+'">'+
+      totalFijos += f.valor;
+      var fv = vencInfo(f.dia, mes, pago);
+      fhtml += '<div class="cuentas-card '+(pago?'ok':(fv.late?'late':'warn'))+'" data-f="'+i+'">'+
         '<div class="cuentas-head"><span class="name">'+escapeHtml(f.descricao)+(f.pessoa ? ' <small style="color:var(--ink-faint);">· '+escapeHtml(f.pessoa)+'</small>' : '')+
           (pago ? '<span class="tag-auto">paga' + (f.rec && f.rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(f.rec.pagoEm)) : (fechado ? ' (mês fechado)' : '')) + '</span>' : '<span class="tag-auto">a pagar</span>')+'</span>'+
           '<span class="num">'+fmtBRL(f.valor)+'</span></div>'+
-        (f.dia ? '<div class="cuentas-figs"><span>Vencimento: <span class="num">'+vencLabel(f.dia, mes)+'</span></span></div>' : '')+
+        (fv.label ? '<div class="cuentas-figs"><span>Vencimento: <span class="num">'+fv.label+'</span> '+fv.countdown+'</span></div>' : '')+
         (fechado ? '</div>' : '<div class="cuentas-actions"><button class="btn btn-sm '+(pago?'':'btn-primary')+' cu-fijo-pago" type="button">'+(pago?'Desmarcar pago':'Marcar paga')+'</button></div></div>');
     });
+    $("cuentasFijosTotal").textContent = "Total " + fmtBRL(totalFijos);
     fijosEl.innerHTML = fhtml || '<div class="empty" style="padding:20px 4px;">Nenhum gasto fixo neste mês.</div>';
     fijosEl.querySelectorAll(".cuentas-card").forEach(function(cardEl){
       var f = fijos[parseInt(cardEl.getAttribute("data-f"),10)];
@@ -3909,6 +3934,30 @@
       if (fBtn) fBtn.addEventListener("click", function(){
         if (f.rec && f.rec.pago) saveCuenta(mes, "", {pago: false, valorPago: null, pagoEm: null}, f.key);
         else saveCuenta(mes, "", {pago: true, valorPago: Math.round(f.valor*100)/100, pagoEm: todayInputValue()}, f.key);
+      });
+    });
+
+    // Reembolsos de terceiros: o que Mãe, Tchuka, Padres etc. (pessoas que "geram ingresso") devem
+    // devolver neste mês — mesmo valor do espelho de compras — e se o dinheiro já chegou.
+    var reembs = getDynamicIncomeEntries().map(function(e){
+      return {pessoa: e.pessoa, valor: e.valor, key: "reemb:" + e.pessoa, rec: findCuenta(mes, "", "reemb:" + e.pessoa)};
+    });
+    var reembEl = $("cuentasReemb"), rhtml = "", totalReemb = 0;
+    reembs.forEach(function(r, i){
+      var recebido = !!(r.rec && r.rec.pago);
+      totalReemb += r.valor;
+      rhtml += '<div class="cuentas-card '+(recebido?'ok':'warn')+'" data-r="'+i+'">'+
+        '<div class="cuentas-head"><span class="name">'+escapeHtml(r.pessoa)+'<span class="tag-auto">'+(recebido ? 'recebido' + (r.rec.pagoEm ? ' em ' + serialToDisplay(dateInputToSerial(r.rec.pagoEm)) : '') : 'a receber')+'</span></span>'+
+          '<span class="num">'+fmtBRL(r.valor)+'</span></div>'+
+        '<div class="cuentas-actions"><button class="btn btn-sm '+(recebido?'':'btn-primary')+' cu-reemb" type="button">'+(recebido?'Desmarcar recebido':'Marcar recebido')+'</button></div></div>';
+    });
+    $("cuentasReembTotal").textContent = "Total " + fmtBRL(totalReemb);
+    reembEl.innerHTML = rhtml || '<div class="empty" style="padding:20px 4px;">Nenhum reembolso de terceiros neste mês.</div>';
+    reembEl.querySelectorAll(".cuentas-card").forEach(function(cardEl){
+      var r = reembs[parseInt(cardEl.getAttribute("data-r"),10)];
+      cardEl.querySelector(".cu-reemb").addEventListener("click", function(){
+        if (r.rec && r.rec.pago) saveCuenta(mes, "", {pago: false, valorPago: null, pagoEm: null}, r.key);
+        else saveCuenta(mes, "", {pago: true, valorPago: Math.round(r.valor*100)/100, pagoEm: todayInputValue()}, r.key);
       });
     });
 
