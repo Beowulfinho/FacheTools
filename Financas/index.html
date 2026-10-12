@@ -1552,6 +1552,25 @@
   </div>
 </div>
 
+<!-- Alteração de valor de assinatura: todos os meses ou só a partir do mês em edição -->
+<div class="overlay" id="reajusteOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Alterar valor da assinatura</h3>
+      <button class="modal-close" id="reajusteClose" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="cfg-hint" id="reajusteHint"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="reajusteCancel" type="button">Cancelar</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="reajusteAll" type="button">Todos os meses</button>
+      <button class="btn btn-primary" id="reajusteFrom" type="button">A partir deste mês</button>
+    </div>
+  </div>
+</div>
+
 <!-- Transfer invested amount into Ingresos/Salidas (e.g. to help pay part of a credit card bill) -->
 <div class="overlay" id="investTransferOverlay">
   <div class="modal">
@@ -2325,6 +2344,8 @@
         };
       case "compra_cartao_trocas":
         return { compra_id: rec.compraRow, cartao_id: idByName("cartoes", rec.cartao), mes: rec.mes };
+      case "compra_reajustes":
+        return { compra_id: rec.compraRow, mes: rec.mes, valor: rec.valor };
       case "cuentas_mes":
         return {
           mes: rec.mes, cartao_id: rec.cartao ? idByName("cartoes", rec.cartao) : null,
@@ -2367,7 +2388,7 @@
   // ON DELETE CASCADE on compra_id, so the DB removes them silently along with the purchase —
   // without this they'd be gone for good even though only the purchase delete was recorded. All
   // rows from one delete share a batch_id so "Restaurar" brings back the whole thing together.
-  var LIXEIRA_COMPRA_CHILD_TABLES = ["antecipacoes", "compra_cartao_trocas"];
+  var LIXEIRA_COMPRA_CHILD_TABLES = ["antecipacoes", "compra_cartao_trocas", "compra_reajustes"];
   function moveToLixeiraThenDelete(tableKey, rowNum){
     var childQueries = (tableKey === "compras")
       ? LIXEIRA_COMPRA_CHILD_TABLES.map(function(t){
@@ -2411,7 +2432,7 @@
 
   // A table ordering that restores parents before children (antecipacoes depends on compras
   // existing first); every other table is independent so it doesn't matter where it falls.
-  var LIXEIRA_RESTORE_ORDER = {compras:0, debito:0, reservas:0, adiantamentos:0, pessoas:0, cartoes:0, tipos:0, diario:0, antecipacoes:1, compra_cartao_trocas:1, cuentas_mes:1};
+  var LIXEIRA_RESTORE_ORDER = {compras:0, debito:0, reservas:0, adiantamentos:0, pessoas:0, cartoes:0, tipos:0, diario:0, antecipacoes:1, compra_cartao_trocas:1, compra_reajustes:1, cuentas_mes:1};
   function restoreLixeiraBatch(batchId){
     return supabaseClient.from("lixeira").select("*").eq("batch_id", batchId).then(throwIfError).then(function(res){
       var rows = (res.data || []).slice().sort(function(a,b){
@@ -2448,7 +2469,8 @@
       supabaseClient.from("lixeira").select("*").order("deleted_at", {ascending:false}),
       supabaseClient.from("compra_cartao_trocas").select("*").order("mes"),
       // Tolerates a missing table (migration not applied yet) so the rest of the app still loads.
-      supabaseClient.from("cuentas_mes").select("*").then(function(res){ return res.error ? {data:[]} : res; })
+      supabaseClient.from("cuentas_mes").select("*").then(function(res){ return res.error ? {data:[]} : res; }),
+      supabaseClient.from("compra_reajustes").select("*").order("mes").then(function(res){ return res.error ? {data:[]} : res; })
     ]).then(function(results){
       results.forEach(throwIfError);
       var pessoasRows = results[0].data||[], cartoesRows = results[1].data||[], tiposRows = results[2].data||[];
@@ -2458,6 +2480,7 @@
       var lixeiraRows = results[9].data||[];
       var cartaoTrocasRows = results[10].data||[];
       var cuentasRows = results[11].data||[];
+      var reajustesRows = results[12].data||[];
 
       var pessoaNameById = {}; pessoasRows.forEach(function(r){ pessoaNameById[r.id] = r.nome; });
       var cartaoNameById = {}; cartoesRows.forEach(function(r){ cartaoNameById[r.id] = r.nome; });
@@ -2532,6 +2555,9 @@
         return {row:r.id, compraRow:r.compra_id, cartao: cartaoNameById[r.cartao_id] || "", mes:r.mes};
       });
 
+      var reajustes = reajustesRows.map(function(r){
+        return {row:r.id, compraRow:r.compra_id, mes:r.mes, valor:Number(r.valor)};
+      });
       var cuentas = cuentasRows.map(function(r){
         return {row:r.id, mes:r.mes, cartao: r.cartao_id ? (cartaoNameById[r.cartao_id] || "") : "", valorReal: (r.valor_real===null || r.valor_real===undefined) ? null : Number(r.valor_real), conferido: !!r.conferido,
           item: r.item || "", pago: !!r.pago, valorPago: (r.valor_pago === null || r.valor_pago === undefined) ? null : Number(r.valor_pago), pagoEm: r.pago_em || null};
@@ -2552,13 +2578,13 @@
         pessoas:{records:pessoas}, cartoes:{records:cartoes}, tipos:{records:tipos},
         compras:{records:comprasSplit.main}, debito:{records:debitoSplit.main}, diario:{records:diario},
         antecipacoes:{records:antecipacoesSplit.main}, reservas:{records:reservas}, adiantamentos:{records:adiantamentosSplit.main},
-        lixeira:{records:lixeira}, cartaoTrocas:{records:cartaoTrocas}, cuentas:{records:cuentas}
+        lixeira:{records:lixeira}, cartaoTrocas:{records:cartaoTrocas}, reajustes:{records:reajustes}, cuentas:{records:cuentas}
       };
     });
   }
 
   // ---------- App state ----------
-  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]}, cartaoTrocas:{records:[]}, cuentas:{records:[]}, previsoes:{compras:[], debito:[], antecipacoes:[], adiantamentos:[]} };
+  var state = { compras:{records:[],maxRow:1,colStyles:null}, pessoas:{records:[]}, tipos:{records:[]}, cartoes:{records:[]}, debito:{records:[]}, diario:{records:[]}, antecipacoes:{records:[]}, reservas:{records:[]}, adiantamentos:{records:[]}, lixeira:{records:[]}, cartaoTrocas:{records:[]}, reajustes:{records:[]}, cuentas:{records:[]}, previsoes:{compras:[], debito:[], antecipacoes:[], adiantamentos:[]} };
 
   function showError(msg){
     var b = $("errorBanner");
@@ -2761,6 +2787,20 @@
   // r.cartao stays the ORIGINAL card and still drives the fatura start-month math (which card's
   // fechamento the very first charge landed in) — a troca only overrides which card is displayed/
   // grouped-by for the months at or after it, never the underlying schedule dates.
+  // Assinatura price history: r.valorTotal is the value from the start; each reajuste (secondary
+  // table compra_reajustes) sets a new value from its fatura month on, until the next one. ym null
+  // means "now" (today's month).
+  function getReajustesForCompra(compraRow){
+    return state.reajustes.records
+      .filter(function(a){ return a.compraRow === compraRow; })
+      .sort(function(a,b){ return a.mes < b.mes ? -1 : (a.mes > b.mes ? 1 : 0); });
+  }
+  function getAssinaturaValorForMonth(r, ym){
+    var valor = r.valorTotal||0;
+    var ymKey = monthKey(ym || getRefMonth());
+    getReajustesForCompra(r.row).forEach(function(a){ if (a.mes <= ymKey) valor = a.valor; });
+    return valor;
+  }
   function getTrocasForCompra(compraRow, excludeRow){
     return state.cartaoTrocas.records
       .filter(function(t){ return t.compraRow === compraRow && t.row !== excludeRow; })
@@ -2857,7 +2897,7 @@
         var cancelYM = addMonths(startYM, monthsElapsedByDay(r.dataSerial, r.cancelSerial));
         if (monthsBetween(cancelYM, ym) > 0) return [];
       }
-      var assinaturaEntries = [{effectiveValor: r.valorTotal||0, parcelaAtual: null, parcelaTotal: 1, antecipacao: null}];
+      var assinaturaEntries = [{effectiveValor: getAssinaturaValorForMonth(r, ym), parcelaAtual: null, parcelaTotal: 1, antecipacao: null}];
       appendReembolsoCreditEntry(r, ymKey, assinaturaEntries);
       return assinaturaEntries;
     }
@@ -2909,6 +2949,7 @@
         // showing/saving the original card rather than silently overwriting it with whatever a
         // "trocar cartão" made effective for the month being viewed (see openEditModal).
         out.cartaoEfetivo = getEffectiveCartaoNome(r, null);
+        if (isAssinaturaTipo(r.tipo)) out.valorMes = getAssinaturaValorForMonth(r, null);
         return out;
       });
     }
@@ -2926,6 +2967,7 @@
         // independent from the purchase they belong to — don't let either inherit r.out here.
         if (e.antecipacao || e.reembolsoCredito) rec.out = e.outOverride ? 1 : 0;
         rec.cartaoEfetivo = getEffectiveCartaoNome(r, filterMonth);
+        if (isAssinaturaTipo(r.tipo)) rec.valorMes = getAssinaturaValorForMonth(r, filterMonth);
         out.push(rec);
       });
     });
@@ -3025,7 +3067,7 @@
         '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+(r.antecipacao?'<span class="tag-auto">antecipação</span>':'')+(r.reembolsoCredito?'<span class="tag-auto" title="Crédito de reembolso recebido">reembolso</span>':'')+((r.reembolsoInfo!==null&&r.reembolsoInfo!==undefined)?'<span class="tag-auto" title="Reembolso recebido, já refletido no total">reemb. '+fmtBRL(r.reembolsoInfo)+'</span>':'')+'</span>'+
         '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
         '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartaoEfetivo)+(r.cartaoEfetivo!==r.cartao?'<span class="tag-auto" title="Cartão original: '+escapeHtml(r.cartao)+'">trocado</span>':'')+'</span>'+
-        '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
+        '<span class="tx-amt num f-valor">'+fmtBRL(r.valorMes !== undefined ? r.valorMes : r.valorTotal)+'</span>'+
         '<span class="num f-pvalor" data-label="Parcela R$">'+fmtBRL(r.effectiveValor)+'</span>'+
         '<span class="num f-parcela" data-label="Parcela">'+parcelaLabel+'</span>'+
         '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+(r.hora ? ' · '+r.hora : '')+'</span>'+
@@ -3559,7 +3601,7 @@
       var startYM = getFaturaStartYM(r.dataSerial, r.cartao);
       var idxAtYM = monthsBetween(startYM, ym) + 1;
       var firstRemainingIdx = Math.max(idxAtYM, 1);
-      var parcelaValor = (r.valorTotal||0) / total;
+      var parcelaValor = (isAssinaturaTipo(r.tipo) ? getAssinaturaValorForMonth(r, ym) : (r.valorTotal||0)) / total;
       // Anticipated installments were already paid off earlier — they no longer tie up any of
       // the card's future limit, so they're excluded from the remaining sum below.
       var skippedMap = getAntecipatedIndexMap(r);
@@ -4182,7 +4224,7 @@
     if (!$("subsList")) return;
     var subs = getActiveSubscriptions();
     var total = 0;
-    for (var i=0;i<subs.length;i++) total += (subs[i].valorTotal||0);
+    for (var i=0;i<subs.length;i++) total += getAssinaturaValorForMonth(subs[i], null);
     $("subsTotal").textContent = fmtBRL(total);
 
     var listEl = $("subsList");
@@ -4203,7 +4245,7 @@
         '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+'</span>'+
         '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
         '<span class="f-cartao" data-label="Cartão">'+escapeHtml(cartaoAtual)+(cartaoAtual!==r.cartao?'<span class="tag-auto" title="Cartão original: '+escapeHtml(r.cartao)+'">trocado</span>':'')+'</span>'+
-        '<span class="tx-amt num f-valor">'+fmtBRL(r.valorTotal)+'</span>'+
+        '<span class="tx-amt num f-valor">'+fmtBRL(getAssinaturaValorForMonth(r, null))+'</span>'+
         '<span class="num f-data" data-label="Cancelamento">'+(r.cancelSerial ? serialToDisplay(r.cancelSerial) : "—")+'</span>'+
         '<span class="f-linebreak" aria-hidden="true"></span>';
       row.addEventListener("click", function(){
@@ -5026,6 +5068,7 @@
       state.adiantamentos = result.adiantamentos;
       state.lixeira = result.lixeira;
       state.cartaoTrocas = result.cartaoTrocas;
+      state.reajustes = result.reajustes;
       state.cuentas = result.cuentas;
       state.previsoes = result.previsoes;
       setConnectedUI(true, result.fileName);
@@ -5503,6 +5546,7 @@
   var editingRowOut = 0;
   var editingRowReembolsoOut = 0;
   var editingRowRec = null;
+  var editingMonthYM = null;
 
   function updateCancelacaoVisibility(){
     var show = isAssinaturaTipo($("fTipoSel").value);
@@ -5546,7 +5590,7 @@
     $("txDelete").style.display = "none";
     $("txAntecip").style.display = "none";
     $("txTrocarCartao").style.display = "none";
-    $("txError").style.display = "none";
+$("txError").style.display = "none";
     $("fDescricao").value = "";
     $("fComerciante").value = "";
     $("fComercianteWrap").style.display = "none";
@@ -5580,6 +5624,7 @@
     editingRowOut = r.out || 0;
     editingRowReembolsoOut = r.reembolsoOut || 0;
     editingRowRec = r;
+    editingMonthYM = filterMonth || getRefMonth();
     $("txModalTitle").textContent = "Editar compra";
     $("txDelete").style.display = "inline-flex";
     var avail = getAntecipacaoAvailability(r);
@@ -5593,7 +5638,7 @@
     $("btnToggleComerciante").textContent = "Mostrar comerciante";
     $("fPessoaSel").value = r.pessoa;
     $("fCartaoSel").value = r.cartao;
-    $("fValor").value = String(r.valorTotal).replace(".", ",");
+    $("fValor").value = String(isAssinaturaTipo(r.tipo) ? getAssinaturaValorForMonth(r, editingMonthYM) : r.valorTotal).replace(".", ",");
     $("fParcelas").value = r.parcelas || 1;
     $("fData").value = serialToInputValue(r.dataSerial);
     $("fHora").value = r.hora || "";
@@ -5669,14 +5714,73 @@
     var cerrados = (rec.previsao && !(editingRowRec && !editingRowRec.previsao)) ? [] : getMesesCerradosAfetados([rec, editingRow ? editingRowRec : null]);
     if (!confirmEditMesesCerrados(cerrados)) return;
 
-    saveTableRow("compras", action, rowNum, rec).then(function(){
-      closeTxModal();
-      return loadAndRender();
-    }).catch(function(err){
-      errEl.textContent = "Não foi possível salvar no arquivo: " + err.message;
-      errEl.style.display = "block";
-    });
+    function doSave(){
+      return saveTableRow("compras", action, rowNum, rec).then(function(){
+        closeTxModal();
+        return loadAndRender();
+      }).catch(function(err){
+        errEl.textContent = "Não foi possível salvar no arquivo: " + err.message;
+        errEl.style.display = "block";
+      });
+    }
+
+    // Changing an assinatura's value: ask whether it applies to every month or only from the month
+    // being edited on (earlier months keep their old value, kept in the compra_reajustes history).
+    var old = editingRow ? editingRowRec : null;
+    var mesYM = editingMonthYM || getRefMonth();
+    var valorAntes = old && isAssinaturaTipo(old.tipo) ? getAssinaturaValorForMonth(old, mesYM) : null;
+    var valorMudou = old && valorAntes !== null && isAssinaturaTipo(tipo) && !rec.previsao &&
+      Math.abs(valorAntes - rec.valorTotal) > 0.004;
+    if (valorMudou){
+      var startYM = getFaturaStartYM(old.dataSerial, old.cartao);
+      if (monthsBetween(startYM, mesYM) > 0){
+        askReajusteScope(old, rec, valorAntes, mesYM, doSave, errEl);
+        return;
+      }
+      // First month of the assinatura: nothing earlier to preserve, so it's the base value.
+      doSaveAllMonths(old, rec, doSave);
+      return;
+    }
+    if (old && isAssinaturaTipo(old.tipo) && isAssinaturaTipo(tipo)) rec.valorTotal = old.valorTotal; // value untouched: keep the base
+    doSave();
   });
+
+  // "Todos os meses": new base value, and the price history is dropped (every month is the same again).
+  function doSaveAllMonths(old, rec, doSave){
+    var chain = Promise.resolve();
+    getReajustesForCompra(old.row).forEach(function(a){
+      chain = chain.then(function(){ return saveTableRow("compra_reajustes", "delete", a.row, null); });
+    });
+    return chain.then(doSave);
+  }
+
+  // Asks "todos os meses" vs "a partir deste mês". The latter records a reajuste (secondary table
+  // compra_reajustes: compra, fatura month, new value) and leaves the purchase's base value, and so
+  // every earlier month, untouched. Other edited fields still apply to the whole assinatura.
+  var reajusteOverlay = $("reajusteOverlay");
+  function closeReajusteModal(){ reajusteOverlay.classList.remove("show"); }
+  function askReajusteScope(old, rec, valorAntes, mesYM, doSave, errEl){
+    $("reajusteHint").textContent = "O valor mudou de " + fmtBRL(valorAntes) + " para " + fmtBRL(rec.valorTotal) +
+      ". Aplicar em todos os meses desde o início da assinatura, ou só a partir de " + formatMonthLabel(mesYM) +
+      " (os meses anteriores mantêm o valor que já tinham)?";
+    reajusteOverlay.classList.add("show");
+    var novoValor = rec.valorTotal;
+    $("reajusteAll").onclick = function(){ closeReajusteModal(); doSaveAllMonths(old, rec, doSave); };
+    $("reajusteFrom").onclick = function(){
+      closeReajusteModal();
+      var mesKey = monthKey(mesYM);
+      var existing = getReajustesForCompra(old.row).filter(function(a){ return a.mes === mesKey; })[0];
+      rec.valorTotal = old.valorTotal; // base value stays
+      saveTableRow("compra_reajustes", existing ? "update" : "insert", existing ? existing.row : null,
+        {compraRow: old.row, mes: mesKey, valor: novoValor}).then(doSave).catch(function(err){
+        errEl.textContent = "Não foi possível salvar no arquivo: " + err.message;
+        errEl.style.display = "block";
+      });
+    };
+  }
+  $("reajusteClose").addEventListener("click", closeReajusteModal);
+  $("reajusteCancel").addEventListener("click", closeReajusteModal);
+  reajusteOverlay.addEventListener("click", function(e){ if (e.target===reajusteOverlay) closeReajusteModal(); });
 
   var pendingDelete = null;
   $("txDelete").addEventListener("click", function(){
