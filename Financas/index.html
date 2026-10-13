@@ -5711,8 +5711,13 @@ $("txError").style.display = "none";
     var action = editingRow ? "update" : "insert";
     var rowNum = editingRow;
 
-    var cerrados = (rec.previsao && !(editingRowRec && !editingRowRec.previsao)) ? [] : getMesesCerradosAfetados([rec, editingRow ? editingRowRec : null]);
-    if (!confirmEditMesesCerrados(cerrados)) return;
+    // Same closed-months warning as always, but run once the final record is known (for an
+    // assinatura value change that's after choosing the scope, so "a partir deste mês" doesn't
+    // warn about earlier months it won't touch).
+    function cerradosOk(r2){
+      var cerrados = (r2.previsao && !(editingRowRec && !editingRowRec.previsao)) ? [] : getMesesCerradosAfetados([r2, editingRow ? editingRowRec : null]);
+      return confirmEditMesesCerrados(cerrados);
+    }
 
     function doSave(){
       return saveTableRow("compras", action, rowNum, rec).then(function(){
@@ -5734,14 +5739,16 @@ $("txError").style.display = "none";
     if (valorMudou){
       var startYM = getFaturaStartYM(old.dataSerial, old.cartao);
       if (monthsBetween(startYM, mesYM) > 0){
-        askReajusteScope(old, rec, valorAntes, mesYM, doSave, errEl);
+        askReajusteScope(old, rec, valorAntes, mesYM, doSave, errEl, cerradosOk);
         return;
       }
       // First month of the assinatura: nothing earlier to preserve, so it's the base value.
+      if (!cerradosOk(rec)) return;
       doSaveAllMonths(old, rec, doSave);
       return;
     }
     if (old && isAssinaturaTipo(old.tipo) && isAssinaturaTipo(tipo)) rec.valorTotal = old.valorTotal; // value untouched: keep the base
+    if (!cerradosOk(rec)) return;
     doSave();
   });
 
@@ -5759,18 +5766,23 @@ $("txError").style.display = "none";
   // every earlier month, untouched. Other edited fields still apply to the whole assinatura.
   var reajusteOverlay = $("reajusteOverlay");
   function closeReajusteModal(){ reajusteOverlay.classList.remove("show"); }
-  function askReajusteScope(old, rec, valorAntes, mesYM, doSave, errEl){
+  function askReajusteScope(old, rec, valorAntes, mesYM, doSave, errEl, cerradosOk){
     $("reajusteHint").textContent = "O valor mudou de " + fmtBRL(valorAntes) + " para " + fmtBRL(rec.valorTotal) +
       ". Aplicar em todos os meses desde o início da assinatura, ou só a partir de " + formatMonthLabel(mesYM) +
       " (os meses anteriores mantêm o valor que já tinham)?";
     reajusteOverlay.classList.add("show");
     var novoValor = rec.valorTotal;
-    $("reajusteAll").onclick = function(){ closeReajusteModal(); doSaveAllMonths(old, rec, doSave); };
+    $("reajusteAll").onclick = function(){ closeReajusteModal(); if (!cerradosOk(rec)) return; doSaveAllMonths(old, rec, doSave); };
     $("reajusteFrom").onclick = function(){
       closeReajusteModal();
       var mesKey = monthKey(mesYM);
       var existing = getReajustesForCompra(old.row).filter(function(a){ return a.mes === mesKey; })[0];
       rec.valorTotal = old.valorTotal; // base value stays
+      // Only the new price (from this month on) changes: earlier closed months stay untouched, so
+      // the closed-months warning only matters if other fields were edited too.
+      var soValor = ["descricao","pessoa","cartao","tipo","dataSerial","parcelas","out","comerciante","hora"].every(function(k){ return (rec[k]||"") === (old[k]||""); }) &&
+        (rec.cancelSerial||null) === (old.cancelSerial||null);
+      if (!soValor && !cerradosOk(rec)) return;
       saveTableRow("compra_reajustes", existing ? "update" : "insert", existing ? existing.row : null,
         {compraRow: old.row, mes: mesKey, valor: novoValor}).then(doSave).catch(function(err){
         errEl.textContent = "Não foi possível salvar no arquivo: " + err.message;
