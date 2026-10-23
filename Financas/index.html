@@ -269,7 +269,7 @@
   .venc-count{ font-weight:600; font-size:12.5px; }
   .panel-head .sec-total{ font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:14px; color:var(--ink-soft); }
   .resumo-main{ padding:20px 22px; }
-  .resumo-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-top:6px; }
+  .resumo-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:22px; margin-top:6px; }
   .rs-col h3{ font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 8px; }
   .rs-line{ display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line); font-size:14px; }
   .rs-line:last-child{ border-bottom:none; font-size:16px; }
@@ -514,8 +514,6 @@
     font-weight:600; margin-bottom:8px; display:block;
   }
   .sum-card .v{ font-size:24px; font-weight:500; }
-  .saldo-input{ width:100%; font:inherit; color:inherit; background:transparent; border:0; border-bottom:1px dashed var(--line); padding:0 0 2px; outline:none; }
-  .saldo-input:focus{ border-bottom-color:var(--accent); }
   .sum-card .v.positive{ color:var(--accent); }
   .sum-card .v.negative{ color:var(--danger); }
   .summary-group-label{
@@ -572,7 +570,7 @@
      então ao tirar a coluna do Inside/Out o grid é redefinido sem ela. */
   html:not(.show-inout) .f-out, html:not(.show-inout) .head-out{ display:none !important; }
   @media (min-width: 881px){
-    html:not(.show-inout) #txList .tx-row, html:not(.show-inout) #txHeadRow, html:not(.show-inout) #txTotRow{ grid-template-columns:0.32fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr !important; }
+    html:not(.show-inout) #txList .tx-row, html:not(.show-inout) #txHeadRow, html:not(.show-inout) #txTotRow{ grid-template-columns:0.32fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr 0.8fr !important; }
     html:not(.show-inout) #debitoList .tx-row, html:not(.show-inout) #debHeadRow, html:not(.show-inout) #debitoFixosList .tx-row, html:not(.show-inout) #debFixHeadRow{ grid-template-columns:0.32fr 1fr 1.6fr 0.9fr 0.9fr 0.9fr !important; }
   }
   .row-select{ width:auto; accent-color:var(--accent); cursor:pointer; align-self:center; }
@@ -867,14 +865,14 @@
     .f-linebreak{ display:block; order:4; flex:0 0 100%; height:0; margin:0; padding:0; }
     .f-out{ order:5; }
     .f-tipo{ order:5; }
-    .f-pessoa, .f-cartao, .f-pvalor, .f-parcela, .f-data{ order:6; }
-    .f-pessoa, .f-cartao, .f-pvalor, .f-parcela, .f-data{
+    .f-pessoa, .f-cartao, .f-pvalor, .f-parcela, .f-faltante, .f-data{ order:6; }
+    .f-pessoa, .f-cartao, .f-pvalor, .f-parcela, .f-faltante, .f-data{
       font-size:12px; color:var(--ink-soft); background:var(--paper);
       border:1px solid var(--line); border-radius:6px; padding:3px 7px;
       white-space:nowrap;
     }
     .f-pessoa[data-label]::before, .f-cartao[data-label]::before,
-    .f-pvalor[data-label]::before, .f-parcela[data-label]::before, .f-data[data-label]::before{
+    .f-pvalor[data-label]::before, .f-parcela[data-label]::before, .f-faltante[data-label]::before, .f-data[data-label]::before{
       content:attr(data-label) ": "; color:var(--ink-faint); font-weight:600;
     }
     .out-check.f-out{
@@ -1107,29 +1105,8 @@
     </div>
 
     <div class="page-section" id="pageDebito">
-      <div class="summary-group-label" id="saldoGroupLabel">Saldo hoje no débito</div>
-      <div class="summary">
-        <div class="sum-card">
-          <span class="k">Débito Fachera</span>
-          <div class="v num"><input type="text" inputmode="decimal" class="saldo-input" id="saldoFachera" placeholder="0,00" aria-label="Saldo da Fachera"></div>
-        </div>
-        <div class="sum-card">
-          <span class="k">Débito Fachero</span>
-          <div class="v num"><input type="text" inputmode="decimal" class="saldo-input" id="saldoFachero" placeholder="0,00" aria-label="Saldo do Fachero"></div>
-        </div>
-        <div class="sum-card">
-          <span class="k">Total</span>
-          <div class="v num" id="saldoTotal">—</div>
-        </div>
-      </div>
-      <p class="cfg-hint" id="saldoHint" style="margin:-8px 2px 10px;"></p>
-      <div class="cuentas-banner" id="saldoPuente" style="margin:0 0 18px; display:none;"></div>
       <div class="summary-group-label">Movimentos do mês</div>
-      <div class="summary summary-4col">
-        <div class="sum-card">
-          <span class="k" id="debSobranteLabel">Sobrante do mês anterior (real)</span>
-          <div class="v num" id="debSobrante">—</div>
-        </div>
+      <div class="summary">
         <div class="sum-card">
           <span class="k">Ingresos do mês</span>
           <div class="v num" id="debIngresos">R$ 0,00</div>
@@ -1139,11 +1116,10 @@
           <div class="v num" id="debGastos">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Balance do mês (com sobrante)</span>
+          <span class="k">Balance do mês</span>
           <div class="v num" id="debBalance">R$ 0,00</div>
         </div>
       </div>
-      <p class="cfg-hint" id="debSobranteHint" style="margin:-8px 2px 14px;"></p>
       <div class="bulk-bar" id="debitoBulkBar" style="display:none;">
         <span id="debitoBulkCount">0 selecionadas</span>
         <button class="btn btn-sm btn-danger" id="debitoBulkDelete" type="button">Excluir selecionadas</button>
@@ -1228,11 +1204,11 @@
           <button class="btn btn-sm" id="comprasBulkClear" type="button">Cancelar seleção</button>
         </div>
         <div class="tx-scroll">
-        <div class="list-head-row tx-total-row" id="txTotRow" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr;">
-          <span></span><span class="head-out"></span><span>Total filtrado</span><span></span><span></span><span></span><span class="num" id="txTotValue">R$ 0,00</span><span></span><span></span><span></span>
+        <div class="list-head-row tx-total-row" id="txTotRow" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr 0.8fr;">
+          <span></span><span class="head-out"></span><span>Total filtrado</span><span></span><span></span><span></span><span class="num" id="txTotValue">R$ 0,00</span><span></span><span></span><span></span><span></span>
         </div>
-        <div class="list-head-row" id="txHeadRow" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr;">
-          <input type="checkbox" class="row-select" id="selectAllCompras" title="Selecionar todos"><span class="head-out"></span><span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor total</span><span>Valor parcela</span><span>Parcela</span><span>Data</span><span>Tipo</span>
+        <div class="list-head-row" id="txHeadRow" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr 0.8fr;">
+          <input type="checkbox" class="row-select" id="selectAllCompras" title="Selecionar todos"><span class="head-out"></span><span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor total</span><span>Valor parcela</span><span>Parcela</span><span>Total faltante</span><span>Data</span><span>Tipo</span>
         </div>
         <div class="tx-list" id="txList"></div>
         </div>
@@ -1292,16 +1268,6 @@
 
     <div class="page-section" id="pagePrevisoes">
       <div class="panel">
-        <div class="panel-head"><h2>Caixa projetado — o saldo passa de um mês para o outro</h2></div>
-        <div class="calendar-wrap">
-          <table class="calendar" id="cajaTable">
-            <thead><tr id="cajaHead"></tr></thead>
-            <tbody id="cajaBody"></tbody>
-          </table>
-        </div>
-        <p class="cfg-hint" id="cajaNota" style="padding:0 18px 16px;"></p>
-      </div>
-      <div class="panel" style="margin-top:18px;">
         <div class="panel-head"><h2>Balance projetado por mês (sem arrastar o saldo)</h2></div>
         <div class="calendar-wrap">
           <table class="calendar" id="prevProjTable">
@@ -3049,7 +3015,7 @@
       var isSpecialRow = r.antecipacao || r.reembolsoCredito;
       row.className = "tx-row" + (r.antecipacao ? " tx-row-antecipacao" : "") + (r.reembolsoCredito ? " tx-row-reembolso" : "");
       row.tabIndex = 0;
-      row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr";
+      row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr 0.8fr";
       var badgeClass = r.tipo === "Estorno" ? "estorno" : (isAssinaturaTipo(r.tipo) ? "assinatura" : "");
       var parcelaLabel = r.antecipacao
         ? ("antecip. " + r.antecipacao.count + "x")
@@ -3058,6 +3024,12 @@
           : (r.parcelaAtual === null)
             ? (r.parcelaTotal||1) + "x"
             : (r.parcelaAtual < 1 ? "futura" : (r.parcelaAtual > r.parcelaTotal ? "concluída" : r.parcelaAtual + "/" + r.parcelaTotal));
+      // Total faltante: o que ainda resta pagar depois da parcela deste mês.
+      var faltanteLabel = "—";
+      if (!isSpecialRow && r.parcelaAtual !== null && r.parcelaTotal > 1){
+        var restantes = r.parcelaAtual < 1 ? r.parcelaTotal : Math.max(0, r.parcelaTotal - r.parcelaAtual);
+        faltanteLabel = fmtBRL((r.effectiveValor || 0) * restantes);
+      }
       var selectDisabledTitle = r.antecipacao
         ? "Antecipações não podem ser selecionadas em massa — abra a linha e use Excluir antecipação"
         : "Créditos de reembolso não podem ser selecionados em massa — abra a compra para editar/remover o reembolso";
@@ -3070,6 +3042,7 @@
         '<span class="tx-amt num f-valor">'+fmtBRL(r.valorMes !== undefined ? r.valorMes : r.valorTotal)+'</span>'+
         '<span class="num f-pvalor" data-label="Parcela R$">'+fmtBRL(r.effectiveValor)+'</span>'+
         '<span class="num f-parcela" data-label="Parcela">'+parcelaLabel+'</span>'+
+        '<span class="num f-faltante" data-label="Total faltante">'+faltanteLabel+'</span>'+
         '<span class="num f-data" data-label="Data">'+serialToDisplay(r.dataSerial)+(r.hora ? ' · '+r.hora : '')+'</span>'+
         '<span class="tipo-badge f-tipo '+badgeClass+'">'+escapeHtml(r.tipo)+'</span>'+
         '<span class="f-linebreak" aria-hidden="true"></span>';
@@ -3124,7 +3097,7 @@
       });
       listEl.appendChild(row);
     });
-    adiRows.forEach(function(a){ listEl.appendChild(buildAdiantamentoRow(a)); });
+    adiRows.forEach(function(a){ listEl.appendChild(a.virtual ? buildSaldoAnteriorRow(a) : buildAdiantamentoRow(a)); });
 
     var faturaRecs = recs.filter(function(r){ return !r.out; });
     if (READONLY_MAE) faturaRecs = faturaRecs.filter(function(r){ return r.pessoa === MAE_PESSOA_NAME; });
@@ -3160,7 +3133,7 @@
     });
     return total;
   }
-  function getAdiantamentosAbatimentoForMonthCartao(monthStr, cartaoNome){
+  function getAdiantamentosRealAbatimentoForMonthCartao(monthStr, cartaoNome){
     if (!monthStr) return 0;
     var total = 0;
     state.adiantamentos.records.forEach(function(r){
@@ -3169,6 +3142,54 @@
       if (cartaoNome && r.cartao !== cartaoNome) return;
       total += (r.valor||0);
     });
+    return total;
+  }
+  // Saldo anterior: when a card's fatura closes a month NEGATIVE (credits/estornos bigger than the
+  // charges), that credit rolls into the next month's fatura as a discount. It's computed, not
+  // stored, and flows through the same abatimento path as an adiantamento, so every fatura total
+  // (list, KPI, per-card bars, calendar, cuentas, dashboard) picks it up. It chains: if the next
+  // month is still negative after the discount, the remainder rolls on again. Unlike an
+  // adiantamento it is not money leaving an account, so getAdiantamentosSaidaForMonth ignores it.
+  var saldoCarryCache = {};
+  function getCartaoFaturaBrutaForMonth(cartaoNome, ym){
+    var sum = 0;
+    state.compras.records.forEach(function(r){
+      if (!r.dataSerial) return;
+      if (getEffectiveCartaoNome(r, ym) !== cartaoNome) return;
+      getCompraScheduleForMonth(r, ym).forEach(function(e){
+        var isOut = (e.antecipacao || e.reembolsoCredito) ? !!e.outOverride : !!r.out;
+        if (!isOut) sum += (e.effectiveValor || 0);
+      });
+    });
+    return sum;
+  }
+  // Credit (positive number) carried INTO month ym for this card from the previous month.
+  function getSaldoAnteriorForCartaoMes(cartaoNome, ym){
+    var key = cartaoNome + "|" + monthKey(ym);
+    if (saldoCarryCache[key] !== undefined) return saldoCarryCache[key];
+    var prev = addMonths(ym, -1);
+    var earliest = null;
+    state.compras.records.forEach(function(r){
+      if (!r.dataSerial) return;
+      var st = getFaturaStartYM(r.dataSerial, r.cartao);
+      if (!earliest || monthsBetween(st, earliest) > 0) earliest = st;
+    });
+    var carry = 0;
+    if (earliest && monthsBetween(earliest, prev) >= 0){
+      var net = getCartaoFaturaBrutaForMonth(cartaoNome, prev)
+        - getAdiantamentosRealAbatimentoForMonthCartao(monthKey(prev), cartaoNome)
+        - getSaldoAnteriorForCartaoMes(cartaoNome, prev);
+      if (net < -0.004) carry = Math.round(-net*100)/100;
+    }
+    saldoCarryCache[key] = carry;
+    return carry;
+  }
+  function getAdiantamentosAbatimentoForMonthCartao(monthStr, cartaoNome){
+    if (!monthStr) return 0;
+    var total = getAdiantamentosRealAbatimentoForMonthCartao(monthStr, cartaoNome);
+    var ym = parseYmString(monthStr);
+    if (cartaoNome) total += getSaldoAnteriorForCartaoMes(cartaoNome, ym);
+    else state.cartoes.records.forEach(function(c){ total += getSaldoAnteriorForCartaoMes(c.nome, ym); });
     return total;
   }
   // Subtracts each cartão's own adiantamentos (targeting monthStr) from its bar in the "Fatura
@@ -3196,18 +3217,49 @@
   function getAdiantamentoRowsForList(fPersona, fCartao, fTipo, search){
     if (fPersona.length || fTipo.length) return [];
     var refKey = monthKey(filterMonth);
-    return state.adiantamentos.records.filter(function(a){
+    var rows = state.adiantamentos.records.filter(function(a){
       if (refKey && a.mesDestino !== refKey) return false;
       if (fCartao.length && fCartao.indexOf(a.cartao) === -1) return false;
       if (search && ("adiantamento fatura " + a.cartao + " " + a.valor).toLowerCase().indexOf(search) === -1) return false;
       return true;
     }).sort(function(x, y){ return (y.dataSerial || 0) - (x.dataSerial || 0); });
+    if (refKey){
+      var prevKey = monthKey(addMonths(filterMonth, -1));
+      state.cartoes.records.forEach(function(c){
+        if (fCartao.length && fCartao.indexOf(c.nome) === -1) return;
+        var v = getSaldoAnteriorForCartaoMes(c.nome, filterMonth);
+        if (!v) return;
+        if (search && ("saldo anterior " + c.nome + " " + v).toLowerCase().indexOf(search) === -1) return;
+        rows.push({virtual:true, cartao:c.nome, valor:v, mesDestino:refKey, mesOrigem:prevKey, out:0});
+      });
+    }
+    return rows;
+  }
+  // Read-only line for the credit rolled over from the previous month's negative fatura.
+  function buildSaldoAnteriorRow(a){
+    var row = document.createElement("div");
+    row.className = "tx-row tx-row-adiantamento";
+    row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr 0.8fr";
+    row.innerHTML =
+      '<input type="checkbox" class="row-select f-select" disabled title="Linha automática">'+
+      '<span class="f-out"></span>'+
+      '<span class="tx-desc f-desc">Saldo anterior<span class="tag-auto" title="Fatura de '+escapeHtml(formatMesShort(a.mesOrigem))+' fechou negativa; o crédito abate esta fatura">saldo anterior</span></span>'+
+      '<span class="f-pessoa" data-label="Pessoa">—</span>'+
+      '<span class="f-cartao" data-label="Cartão">'+escapeHtml(a.cartao)+'</span>'+
+      '<span class="tx-amt num f-valor">'+fmtBRL(-a.valor)+'</span>'+
+      '<span class="num f-pvalor" data-label="Parcela R$">'+fmtBRL(-a.valor)+'</span>'+
+      '<span class="num f-parcela" data-label="Parcela">automático</span>'+
+      '<span class="num f-faltante" data-label="Total faltante">—</span>'+
+      '<span class="num f-data" data-label="Data">'+formatMesShort(a.mesOrigem)+'</span>'+
+      '<span class="tipo-badge f-tipo">Saldo anterior</span>'+
+      '<span class="f-linebreak" aria-hidden="true"></span>';
+    return row;
   }
   function buildAdiantamentoRow(a){
     var row = document.createElement("div");
     row.className = "tx-row tx-row-adiantamento";
     row.tabIndex = 0;
-    row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr";
+    row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr 0.8fr";
     var quando = (a.dataSerial ? serialToDisplay(a.dataSerial) : formatMesShort(a.mesOrigem)) + (a.hora ? " · " + a.hora : "");
     row.innerHTML =
       '<input type="checkbox" class="row-select f-select" disabled title="Adiantamentos não entram na seleção em massa">'+
@@ -3218,6 +3270,7 @@
       '<span class="tx-amt num f-valor">'+fmtBRL(-a.valor)+'</span>'+
       '<span class="num f-pvalor" data-label="Parcela R$">'+fmtBRL(-a.valor)+'</span>'+
       '<span class="num f-parcela" data-label="Parcela">adiantamento</span>'+
+      '<span class="num f-faltante" data-label="Total faltante">—</span>'+
       '<span class="num f-data" data-label="Data">'+quando+'</span>'+
       '<span class="tipo-badge f-tipo">Adiantamento</span>'+
       '<span class="f-linebreak" aria-hidden="true"></span>';
@@ -3830,27 +3883,6 @@
   function cuentaCardAmount(it){
     return Math.max(0, it.app);
   }
-  // Saldo nas contas do débito por mês, por pessoa (Fachero = Andrés, Fachera = Gabriela): o mais recente
-  // informado dentro do mês. No mês corrente é o saldo de hoje; num mês passado, o do fechamento. O antigo
-  // "saldo" único (total) só vale enquanto não houver o saldo por pessoa.
-  function latestSaldoRec(item, mes){
-    var best = null;
-    state.cuentas.records.forEach(function(r){
-      if (r.item !== item || r.mes !== mes) return;
-      if (!best || (r.pagoEm || "") > (best.pagoEm || "")) best = r;
-    });
-    return best;
-  }
-  function getSaldoDebito(mes){
-    var fo = latestSaldoRec("saldo:fachero", mes), fa = latestSaldoRec("saldo:fachera", mes);
-    if (!fo && !fa){
-      var legacy = latestSaldoRec("saldo", mes);
-      return {fachero: null, fachera: null, total: legacy ? legacy.valorReal : null, asOf: legacy ? legacy.pagoEm : null};
-    }
-    var total = (fo ? (fo.valorReal || 0) : 0) + (fa ? (fa.valorReal || 0) : 0);
-    var asOf = [fo && fo.pagoEm, fa && fa.pagoEm].filter(Boolean).sort().pop() || null;
-    return {fachero: fo ? fo.valorReal : null, fachera: fa ? fa.valorReal : null, total: total, asOf: asOf};
-  }
   function todayInputValue(){
     var t = new Date();
     return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0");
@@ -3858,18 +3890,6 @@
   // Um mês que já terminou no calendário está fechado: tudo foi pago e o saldo é o do fechamento.
   function isMesFechadoAuto(mes){
     return monthsBetween(ymFromKey(mes), getCurrentRealYM()) > 0;
-  }
-  // O que sobrou DE VERDADE do mês anterior para este: o saldo do fim do mês anterior menos os ingressos deste mês que
-  // já tinham caído (esse salário é plata do mês, já contada nos ingressos dele; contá-la de novo seria duplicar).
-  function getSobranteReal(mes){
-    var prev = monthKey(addMonths(ymFromKey(mes), -1));
-    var sd = getSaldoDebito(prev);
-    if (sd.total === null) return null;
-    var ing = 0;
-    getDebitoForMonthKey(mes).forEach(function(r){
-      if (!r.out && INGRESO_TIPOS.indexOf(r.tipo) !== -1) ing += (r.valor || 0);
-    });
-    return {valor: sd.total - ing, saldoPrev: sd.total, ingresos: ing, prevKey: prev};
   }
   function getMesesCerradosAfetados(compraRecs){
     var cur = getCurrentRealYM(), out = [];
@@ -4057,17 +4077,13 @@
     });
 
     // Resumo: o que falta pagar, o que falta chegar e como ficam as contas depois de tudo.
-    var sd = getSaldoDebito(mes);
-    var saldo = sd.total;
     var reembRecebido = 0;
     reembs.forEach(function(r){ if (r.rec && r.rec.pago) reembRecebido += r.valor; });
     var reembFalta = totalReemb - reembRecebido;
     var jaChegou = reembRecebido + totalExtra;
-    var aposPagar = saldo === null ? null : saldo - pendiente;
-    var finalMes = aposPagar === null ? null : aposPagar + reembFalta;
     function rline(label, val, cls){ return '<div class="rs-line"><span>'+label+'</span><span class="num '+(cls||'')+'">'+val+'</span></div>'; }
     resumoEl.innerHTML =
-      '<div class="cuentas-card resumo-main '+(finalMes !== null && finalMes < 0 ? 'late' : (finalMes !== null ? 'ok' : ''))+'">'+
+      '<div class="cuentas-card resumo-main '+(reembFalta > 0 ? '' : 'ok')+'">'+
         '<div class="cuentas-head"><span class="name" style="font-size:17px;">Contas de '+escapeHtml(formatMonthLabel(filterMonth))+'</span><span class="tag">'+nPagos+' de '+nPagosTotal+' pagas</span></div>'+
         '<div class="resumo-grid">'+
           '<div class="rs-col"><h3>Pagar</h3>'+
@@ -4080,18 +4096,10 @@
             rline('Já chegou (reembolsos + adicionais)', fmtBRL(jaChegou))+
             rline('<b>Falta chegar</b>', '<b>'+fmtBRL(reembFalta)+'</b>')+
           '</div>'+
-          '<div class="rs-col"><h3>Como ficam as contas</h3>'+
-            rline('Saldo nas contas hoje', saldo === null ? '—' : fmtBRL(saldo))+
-            rline('Depois de pagar o pendente', aposPagar === null ? '—' : fmtBRL(aposPagar), aposPagar !== null && aposPagar < 0 ? 'neg' : '')+
-            rline('<b>Depois de tudo chegar e pagar</b>', finalMes === null ? '—' : '<b>'+fmtBRL(finalMes)+'</b>', finalMes !== null && finalMes < 0 ? 'neg' : '')+
-          '</div>'+
         '</div>'+
-        '<p class="cfg-hint" style="margin:10px 0 0;">'+(sd.asOf ? 'Saldo informado em '+serialToDisplay(dateInputToSerial(sd.asOf))+'. ' : 'Sem saldo informado neste mês — informe em Ingresos/Salidas. ')+'O saldo já é posterior ao que está marcado como pago e como recebido; “falta chegar” são só os reembolsos ainda não marcados.</p>'+
-        '<div class="cuentas-actions"><button class="btn btn-sm cu-saldo-go" type="button">Atualizar saldo</button></div>'+
       '</div>';
-    resumoEl.querySelector(".cu-saldo-go").addEventListener("click", function(){ setActivePage("debito"); });
 
-    banner.innerHTML = fechado ? '<div class="cuentas-banner ok"><span><b>Mês fechado</b> — terminou no calendário: tudo foi pago e o saldo é o do fechamento.</span></div>' : "";
+    banner.innerHTML = fechado ? '<div class="cuentas-banner ok"><span><b>Mês fechado</b> — terminou no calendário: tudo foi pago.</span></div>' : "";
   }
 
   // Diário: how much of the month's balance is set aside as "free to use" money. A single
@@ -4485,61 +4493,8 @@
   // Duas listas: "Fijos y recurrentes" (Ingreso/Gasto Fijo, herdados cada mês, mais o espelho dos que
   // "geram ingresso") e "Movimientos" (o que realmente se move no débito: variáveis, retiradas e os
   // gastos itemizados dos extratos). Os totais do topo somam as duas.
-  // Saldo no débito de cada um (Fachera = Gabriela, Fachero = Andrés) e o total, do mês que está sendo
-  // visto: no mês corrente é o saldo de hoje; em outro mês, o saldo informado para aquele mês.
-  function getSaldoMesVisto(){
-    var cur = getCurrentRealYM();
-    var ym = filterMonth || cur;
-    return {ym: ym, mes: monthKey(ym), isCurrent: monthsBetween(ym, cur) === 0};
-  }
-  function renderSaldoDebitoCards(){
-    if (!$("saldoFachera")) return;
-    var v = getSaldoMesVisto();
-    var sd = getSaldoDebito(v.mes);
-    var fmt = function(x){ return x === null || x === undefined ? "" : String(x).replace(".", ","); };
-    $("saldoGroupLabel").textContent = v.isCurrent ? "Saldo hoje no débito" : "Saldo no débito — " + formatMonthLabel(v.ym);
-    if (document.activeElement !== $("saldoFachera")) $("saldoFachera").value = fmt(sd.fachera);
-    if (document.activeElement !== $("saldoFachero")) $("saldoFachero").value = fmt(sd.fachero);
-    $("saldoTotal").textContent = sd.total === null ? "—" : fmtBRL(sd.total);
-    $("saldoTotal").classList.toggle("negative", sd.total !== null && sd.total < 0);
-    $("saldoHint").textContent = sd.asOf
-      ? "Saldo informado em " + serialToDisplay(dateInputToSerial(sd.asOf)) + ", já descontando o que foi pago até então."
-      : (v.isCurrent ? "Informe a soma das contas de cada um hoje."
-        : (monthsBetween(getCurrentRealYM(), v.ym) > 0 ? "Mês futuro: ainda não há saldo." : "Sem saldo informado para " + formatMonthLabel(v.ym) + ". Preencha como estava no fim do mês."));
-
-    // Ponte: o saldo do mês visto contra o que falta pagar desse mês. Num mês já fechado, "a pagar" costuma
-    // ser zero: tudo foi pago.
-    var bar = $("saldoPuente");
-    if (sd.total === null){ bar.style.display = "none"; return; }
-    var r = computeCuentasResumo(v.mes);
-    var sobra = sd.total - r.pendiente;
-    var semMarcas = r.nPagos === 0 && r.pendiente > 0 && !v.isCurrent && monthsBetween(v.ym, getCurrentRealYM()) > 0;
-    bar.className = "cuentas-banner " + (sobra < 0 ? "warn" : "ok");
-    bar.innerHTML = '<span>Saldo <b>' + fmtBRL(sd.total) + '</b> − a pagar de ' + escapeHtml(formatMonthLabel(v.ym)) + ' <b>' + fmtBRL(r.pendiente) +
-      '</b> <small>(faturas + fixos pendentes; já pago ' + fmtBRL(r.pagado) + (semMarcas ? '; nenhum pagamento marcado neste mês' : '') + ')</small> = ' +
-      (sobra < 0 ? '<b>faltam ' + fmtBRL(-sobra) + '</b>' : '<b>sobram ' + fmtBRL(sobra) + '</b>') + '</span>' +
-      '<button class="btn btn-sm" id="saldoPuenteGo" type="button">Ver contas</button>';
-    $("saldoPuenteGo").addEventListener("click", function(){
-      if (!filterMonth){ filterMonth = v.ym; onMonthChanged(); }
-      setActivePage("cuentas");
-    });
-    bar.style.display = "flex";
-  }
-  // Ao editar, o saldo fica no mês visto: hoje, se for o mês corrente; senão o último dia desse mês.
-  function saveSaldoPessoa(item, inputEl){
-    var txt = inputEl.value.trim();
-    var val = txt === "" ? null : parseAmountInput(txt);
-    if (val !== null && !isFinite(val)){ showError("Saldo inválido."); return; }
-    var v = getSaldoMesVisto();
-    var quando = v.isCurrent ? todayInputValue() : (v.mes + "-" + String(new Date(v.ym.year, v.ym.month, 0).getDate()).padStart(2, "0"));
-    saveCuenta(v.mes, "", {valorReal: val === null ? null : Math.round(val*100)/100, pagoEm: quando}, item);
-  }
-  $("saldoFachera").addEventListener("change", function(){ saveSaldoPessoa("saldo:fachera", this); });
-  $("saldoFachero").addEventListener("change", function(){ saveSaldoPessoa("saldo:fachero", this); });
-
   function renderDebitoPage(){
     if (!$("debitoList")) return;
-    renderSaldoDebitoCards();
     var recs = getDebitoMonthFiltered();
     var dynamicEntries = getDynamicIncomeEntries();
     var ingresos = 0, gastos = 0;
@@ -4553,13 +4508,7 @@
     dynamicEntries.forEach(function(r){ ingresos += r.valor; espelho += r.valor; });
     $("debIngresos").textContent = fmtBRL(ingresos);
     $("debGastos").textContent = fmtBRL(gastos);
-    var sob = filterMonth ? getSobranteReal(monthKey(filterMonth)) : null;
-    $("debSobrante").textContent = sob ? fmtBRL(sob.valor) : "—";
-    $("debSobranteLabel").textContent = filterMonth ? "Sobrante de " + formatMonthLabel(addMonths(filterMonth, -1)) + " (real)" : "Sobrante do mês anterior (real)";
-    $("debBalance").textContent = fmtBRL((sob ? sob.valor : 0) + ingresos - gastos);
-    $("debSobranteHint").textContent = sob
-      ? "Sobrante real = saldo no fim de " + formatMonthLabel(addMonths(filterMonth, -1)) + " (" + fmtBRL(sob.saldoPrev) + ") − ingressos de " + formatMonthLabel(filterMonth) + " que já tinham caído (" + fmtBRL(sob.ingresos) + "). Esse salário já é plata de " + formatMonthLabel(filterMonth) + ", então não se conta duas vezes."
-      : "";
+    $("debBalance").textContent = fmtBRL(ingresos - gastos);
     $("debFijosSub").textContent = "Ingresos fijos " + fmtBRL(fIng) + " · Gastos fijos " + fmtBRL(fGas) + (espelho ? " · Espelho " + fmtBRL(espelho) : "");
     $("debMovSub").textContent = "Ingresos " + fmtBRL(mIng) + " · Gastos " + fmtBRL(mGas);
 
@@ -5058,6 +5007,7 @@
     clearError();
     return loadEverything().then(function(result){
       state.compras = result.compras;
+      saldoCarryCache = {};
       state.pessoas = result.pessoas;
       state.tipos = result.tipos;
       state.cartoes = result.cartoes;
@@ -5367,92 +5317,9 @@
     });
   }
 
-  // ---------- Caixa projetado (o saldo que sobra depois de pagar tudo passa para o mês seguinte) ----------
-  // Saldo inicial do mês corrente = saldo informado hoje; dos seguintes = saldo final do anterior.
-  // Entradas do mês M: o salário e os ingressos do mês M+1 (caem em M: 40% no dia 15 e 60% no último dia útil)
-  // e os reembolsos do próprio mês M (Mãe, Tchuka, Padres). Saídas: faturas e gastos fixos de M (no mês
-  // corrente só o que falta pagar), o diário (no corrente, o que ainda não foi gasto) e as previsões.
-  function lastBusinessDay(year, month){
-    var d = new Date(year, month, 0);
-    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
-    return d;
-  }
-  function getIngressosQueCaemNoMes(nextKey, isCurrent){
-    var today = new Date(), total = 0;
-    var ymCur = getCurrentRealYM(), lbd = lastBusinessDay(ymCur.year, ymCur.month);
-    getDebitoForMonthKey(nextKey).forEach(function(r){
-      if (r.out || INGRESO_TIPOS.indexOf(r.tipo) === -1) return;
-      if (isCurrent){
-        var desc = r.descricao || "";
-        // O que tem "40%" já caiu depois do dia 15; o "60%" já caiu depois do último dia útil.
-        if (desc.indexOf("40%") !== -1 && today.getDate() >= 15) return;
-        if (desc.indexOf("60%") !== -1 && today >= lbd) return;
-      }
-      total += (r.valor || 0);
-    });
-    return total;
-  }
-  function computeCajaProyectada(){
-    var cur = getCurrentRealYM(), curKey = monthKey(cur);
-    var sd = getSaldoDebito(curKey);
-    var months = [], opening = sd.total;
-    var saved = filterMonth;
-    try {
-      for (var i = 0; i < PREVISAO_MESES; i++){
-        var ym = addMonths(cur, i), key = monthKey(ym), isCurrent = (i === 0);
-        filterMonth = ym;
-        var resumo = computeCuentasResumo(key);
-        var reembolsos = 0;
-        getDynamicIncomeEntries().forEach(function(r){ reembolsos += r.valor; });
-        var diarioBase = getDiarioAmount(), itemizado = 0, variaveis = 0;
-        getDebitoForMonthKey(key).forEach(function(r){
-          if (r.out || GASTO_TIPOS.indexOf(r.tipo) === -1 || isFijoDebitoTipo(r.tipo)) return;
-          if (r.refExterna) itemizado += r.valor; else variaveis += r.valor;
-        });
-        // Mês corrente: só falta gastar o que sobra do diário (o resto já saiu do saldo). Futuros: o diário todo.
-        var diario = isCurrent ? Math.max(0, diarioBase - itemizado) : Math.max(diarioBase, itemizado);
-        var outros = diario + (isCurrent ? 0 : variaveis);
-        var m = {ym: ym, opening: opening,
-          salario: getIngressosQueCaemNoMes(monthKey(addMonths(ym, 1)), isCurrent),
-          reembolsos: reembolsos, faturas: resumo.pendCartoes, fijos: resumo.pendFijos, outros: outros,
-          previsoes: getPrevisaoEffectForMonth(ym)};
-        m.closing = (opening === null) ? null : opening + m.salario + m.reembolsos - m.faturas - m.fijos - m.outros + m.previsoes;
-        months.push(m);
-        opening = m.closing;
-      }
-    } finally {
-      filterMonth = saved;
-    }
-    return {months: months, semSaldo: sd.total === null};
-  }
-  function renderCajaProyectada(){
-    if (!$("cajaBody")) return;
-    var c = computeCajaProyectada();
-    var head = '<th></th>';
-    var rows = [["Saldo inicial (já inclui os ingressos do próprio mês)", "opening"], ["+ Salário e ingressos do mês seguinte", "salario"], ["+ Reembolsos (Mãe, Tchuka, Padres)", "reembolsos"],
-      ["− Faturas dos cartões", "faturas"], ["− Gastos fixos", "fijos"], ["− Diário e outros gastos", "outros"], ["± Previsões", "previsoes"], ["Saldo final → mês seguinte", "closing"]];
-    var body = rows.map(function(){ return ""; });
-    c.months.forEach(function(m, i){
-      head += '<th class="' + (i === 0 ? "current-month" : "") + '">' + MONTH_ABBR_PT[m.ym.month-1] + "/" + String(m.ym.year).slice(2) + '</th>';
-      rows.forEach(function(rw, k){
-        var v = m[rw[1]];
-        var txt = v === null || v === undefined ? "—" : (Math.abs(v) < 0.005 ? "—" : fmtBRL(v));
-        var strong = rw[1] === "closing" || rw[1] === "opening";
-        var cls = (rw[1] === "closing" && v !== null && v < 0) ? "over-limit" : "";
-        body[k] += '<td class="' + cls + '">' + (strong ? '<strong>' + txt + '</strong>' : txt) + '</td>';
-      });
-    });
-    $("cajaHead").innerHTML = head;
-    $("cajaBody").innerHTML = rows.map(function(rw, k){ return '<tr><td>' + (rw[1] === "closing" ? '<strong>' + rw[0] + '</strong>' : rw[0]) + '</td>' + body[k] + '</tr>'; }).join("");
-    $("cajaNota").textContent = c.semSaldo
-      ? "Informe o saldo de hoje em Ingresos/Salidas para começar a projeção."
-      : "Parte do saldo informado hoje. Supostos: o salário e os ingressos do mês seguinte caem neste mês (40% no dia 15, 60% no último dia útil); os reembolsos chegam no mesmo mês da fatura; no mês corrente só entra o que ainda falta pagar e receber.";
-  }
-
   function renderPrevisoesPage(){
     var listEl = $("prevList");
     if (!listEl) return;
-    renderCajaProyectada();
 
     // Projeção: troca filterMonth para cada mês e reaproveita o cálculo do Dashboard.
     var start = getCurrentRealYM(), months = [], bases = [];
