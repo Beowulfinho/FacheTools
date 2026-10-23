@@ -275,6 +275,7 @@
   .rs-line:last-child{ border-bottom:none; font-size:16px; }
   .rs-line .num.neg{ color:var(--danger); }
   @media (max-width: 880px){ .resumo-grid{ grid-template-columns:1fr; gap:16px; } }
+  .bulk-sum{ font-weight:600; }
   .temp-line{ display:grid; grid-template-columns:1fr 140px 28px; gap:8px; align-items:center; }
   .temp-line input{ font:inherit; color:inherit; background:transparent; border:0; border-bottom:1px dashed var(--line); padding:2px 0; outline:none; min-width:0; }
   .temp-line input:focus{ border-bottom-color:var(--accent); }
@@ -1144,6 +1145,7 @@
       </div>
       <div class="bulk-bar" id="debitoBulkBar" style="display:none;">
         <span id="debitoBulkCount">0 selecionadas</span>
+        <span id="debitoBulkSum" class="bulk-sum"></span>
         <button class="btn btn-sm btn-danger" id="debitoBulkDelete" type="button">Excluir selecionadas</button>
         <button class="btn btn-sm" id="debitoBulkClear" type="button">Cancelar seleção</button>
       </div>
@@ -1222,6 +1224,7 @@
         </div>
         <div class="bulk-bar" id="comprasBulkBar" style="display:none;">
           <span id="comprasBulkCount">0 selecionadas</span>
+          <span id="comprasBulkSum" class="bulk-sum"></span>
           <button class="btn btn-sm btn-danger" id="comprasBulkDelete" type="button">Excluir selecionadas</button>
           <button class="btn btn-sm" id="comprasBulkClear" type="button">Cancelar seleção</button>
         </div>
@@ -2970,6 +2973,7 @@
   }
 
   var selectedCompras = new Set();
+  var comprasSelData = {}; // linha → valores da linha visível, para somar a seleção
   var lastVisibleComprasRows = [];
   function updateComprasBulkBar(){
     var bar = $("comprasBulkBar");
@@ -2977,6 +2981,9 @@
     var n = selectedCompras.size;
     bar.style.display = n > 0 ? "flex" : "none";
     $("comprasBulkCount").textContent = n + (n===1 ? " selecionada" : " selecionadas");
+    var sumParcela = 0, sumFalt = 0;
+    selectedCompras.forEach(function(rn){ var d = comprasSelData[rn]; if (d){ sumParcela += d.parcela; sumFalt += d.faltante; } });
+    $("comprasBulkSum").textContent = "Soma: parcela " + fmtBRL(sumParcela) + " · total faltante " + fmtBRL(sumFalt);
     var allCb = $("selectAllCompras");
     if (allCb){
       var allSelected = lastVisibleComprasRows.length > 0 && lastVisibleComprasRows.every(function(rn){ return selectedCompras.has(rn); });
@@ -3022,6 +3029,8 @@
     // box and bulk-deleting would delete the COMPRA itself, not just "cancel" the antecipação/
     // reembolso the way opening the row (or "Excluir antecipação") does.
     var adiRows = getAdiantamentoRowsForList(fPersona, fCartao, fTipo, search);
+    comprasSelData = {};
+    filtered.forEach(function(r){ if (!r.antecipacao && !r.reembolsoCredito) comprasSelData[r.row] = {parcela: r.effectiveValor || 0, faltante: getFaltante(r) || 0}; });
     var visibleRows = filtered.filter(function(r){ return !r.antecipacao && !r.reembolsoCredito; }).map(function(r){ return r.row; });
     lastVisibleComprasRows = visibleRows;
     Array.from(selectedCompras).forEach(function(rn){ if (visibleRows.indexOf(rn)===-1) selectedCompras.delete(rn); });
@@ -4451,6 +4460,7 @@
   }
 
   var selectedDebito = new Set();
+  var debitoSelData = {}; // linha → {valor, ingreso}, para somar a seleção
   var lastVisibleDebitoRowsMov = [], lastVisibleDebitoRowsFijos = [];
   function updateDebitoBulkBar(){
     var bar = $("debitoBulkBar");
@@ -4458,6 +4468,9 @@
     var n = selectedDebito.size;
     bar.style.display = n > 0 ? "flex" : "none";
     $("debitoBulkCount").textContent = n + (n===1 ? " selecionada" : " selecionadas");
+    var sIn = 0, sOut = 0;
+    selectedDebito.forEach(function(rn){ var d = debitoSelData[rn]; if (!d) return; if (d.ingreso) sIn += d.valor; else sOut += d.valor; });
+    $("debitoBulkSum").textContent = "Ingresos " + fmtBRL(sIn) + " · Gastos " + fmtBRL(sOut) + " · Saldo " + fmtBRL(sIn - sOut);
     [["selectAllDebito", lastVisibleDebitoRowsMov], ["selectAllDebitoFixos", lastVisibleDebitoRowsFijos]].forEach(function(p){
       var cb = $(p[0]), rows = p[1];
       if (!cb) return;
@@ -4646,6 +4659,8 @@
     var movRecs = recs.filter(function(r){ return !isFijoDebitoTipo(r.tipo); }).sort(function(a, b){ return ((b.dataSerial||0) - (a.dataSerial||0)) || (b.hora || "").localeCompare(a.hora || ""); });
     renderDebitoDiarioBar(movRecs);
 
+    debitoSelData = {};
+    fijoRecs.concat(movRecs).forEach(function(r){ if (r.row !== null) debitoSelData[r.row] = {valor: r.valor || 0, ingreso: INGRESO_TIPOS.indexOf(r.tipo) !== -1}; });
     lastVisibleDebitoRowsFijos = fijoRecs.filter(function(r){ return r.row !== null; }).map(function(r){ return r.row; });
     lastVisibleDebitoRowsMov = movRecs.filter(function(r){ return r.row !== null; }).map(function(r){ return r.row; });
     var allVisible = lastVisibleDebitoRowsFijos.concat(lastVisibleDebitoRowsMov);
