@@ -516,6 +516,23 @@
   .sum-card .v{ font-size:24px; font-weight:500; }
   .sum-card .v.positive{ color:var(--accent); }
   .sum-card .v.negative{ color:var(--danger); }
+  .sum-card{ position:relative; }
+  .kpi-help{
+    position:absolute; top:10px; right:12px; width:20px; height:20px; padding:0; border-radius:50%;
+    border:1px solid var(--line); background:var(--paper); color:var(--ink-faint);
+    font:600 12px/1 inherit; cursor:help; display:flex; align-items:center; justify-content:center;
+  }
+  .kpi-help:hover, .kpi-help:focus-visible{ color:var(--accent); border-color:var(--accent); outline:none; }
+  .kpi-tip{
+    display:none; position:absolute; top:36px; right:8px; z-index:30; width:min(280px, calc(100vw - 48px));
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+    box-shadow:0 6px 20px var(--shadow); font-size:12.5px; line-height:1.45; color:var(--ink-soft);
+    text-transform:none; letter-spacing:0; font-weight:400; text-align:left;
+  }
+  .kpi-help:hover + .kpi-tip, .kpi-help:focus-visible + .kpi-tip, .sum-card.help-open .kpi-tip{ display:block; }
+  .sum-card.kpi-click{ cursor:pointer; transition:border-color .15s; }
+  .sum-card.kpi-click:hover{ border-color:var(--accent); }
+  .sum-card.kpi-click.kpi-active{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
   .summary-group-label{
     font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint);
     font-weight:600; margin:2px 2px 10px;
@@ -1024,36 +1041,36 @@
       <div class="summary-group-label">Visão geral do período</div>
       <div class="summary summary-4col">
         <div class="sum-card">
-          <span class="k">Total compras no período</span>
+          <span class="k" data-help="Soma das parcelas das compras de crédito (só as marcadas Inside) que caem na fatura do mês escolhido, menos adiantamentos de fatura e saldo anterior que abatem esse mês.">Total compras no período</span>
           <div class="v num" id="dashTotal">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Balance (ingresos/salidas)</span>
+          <span class="k" data-help="Ingresos − gastos do débito do mês (só Inside), incluindo os reembolsos que entram como ingresso. Gastos itemizados de extratos saem do Diário, não daqui.">Balance</span>
           <div class="v num" id="dashBalance">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k" id="dashDiarioLabel">Diário</span>
+          <span class="k" data-help="Valor reservado para gastos livres do mês. Se já houve gastos de débito itemizados, mostra o que resta: diário − gastos itemizados." id="dashDiarioLabel">Diário</span>
           <div class="v num" id="dashDiario">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Investimento</span>
+          <span class="k" data-help="Valor que fica reservado para investir neste mês: o valor base herdado, ou o valor próprio definido para o mês.">Investimento</span>
           <div class="v num" id="dashInvestimento">R$ 0,00</div>
         </div>
       </div>
       <div class="summary summary-1col">
         <div class="sum-card sum-card-big">
-          <span class="k">Balance final</span>
+          <span class="k" data-help="Balance − total compras − diário − investimento − adiantamentos pagos. No diário vale o maior entre o reservado e o gasto real (mês fechado: o gasto real).">Balance final</span>
           <div class="v num" id="dashBalanceFinal">R$ 0,00</div>
         </div>
       </div>
       <div class="summary-group-label">Divisão Fachero / Fachera</div>
       <div class="summary summary-2col" style="margin-bottom:0;">
         <div class="sum-card">
-          <span class="k">Balance Fachero</span>
+          <span class="k" data-help="Metade do balance final, ajustada pela diferença de compras individuais: quem gastou mais em compras próprias (Aj × Gab) cobre metade da diferença.">Balance Fachero</span>
           <div class="v num" id="dashBalanceFachero">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Balance Fachera</span>
+          <span class="k" data-help="Metade do balance final, ajustada pela diferença de compras individuais: quem gastou mais em compras próprias (Aj × Gab) cobre metade da diferença.">Balance Fachera</span>
           <div class="v num" id="dashBalanceFachera">R$ 0,00</div>
         </div>
       </div>
@@ -1063,7 +1080,7 @@
     <div class="page-section" id="pageInvestimentos">
       <div class="summary" style="grid-template-columns:1fr;">
         <div class="sum-card">
-          <span class="k">Total investido até agora</span>
+          <span class="k" data-help="Soma de todas as contribuições de investimento até o mês escolhido, menos as retiradas e transferências para Ingresos.">Total investido até agora</span>
           <div class="v num" id="investTotalUntilNow">R$ 0,00</div>
           <button class="btn btn-sm" id="btnTransferirInvestimento" type="button" style="margin-top:10px;">Transferir para Ingresos</button>
         </div>
@@ -1108,15 +1125,15 @@
       <div class="summary-group-label">Movimentos do mês</div>
       <div class="summary">
         <div class="sum-card">
-          <span class="k">Ingresos do mês</span>
+          <span class="k" data-help="Soma dos ingressos fixos e variáveis (só Inside) do mês, mais o espelho dos reembolsos. Clique para filtrar as tabelas só com ingressos.">Ingresos do mês</span>
           <div class="v num" id="debIngresos">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Gastos do mês (fijos + variables)</span>
+          <span class="k" data-help="Soma dos gastos fixos e variáveis do débito (só Inside) neste mês. Clique para filtrar as tabelas só com gastos.">Gastos do mês</span>
           <div class="v num" id="debGastos">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Balance do mês</span>
+          <span class="k" data-help="Ingresos do mês − gastos do mês.">Balance do mês</span>
           <div class="v num" id="debBalance">R$ 0,00</div>
         </div>
       </div>
@@ -1155,7 +1172,7 @@
     <div class="page-section" id="pageTabela">
       <div class="summary" style="grid-template-columns:1fr;">
         <div class="sum-card">
-          <span class="k">Valor da fatura atual</span>
+          <span class="k" data-help="Soma das parcelas que caem na fatura do mês filtrado (compras Inside), menos adiantamentos e saldo anterior.">Valor da fatura atual</span>
           <div class="v num" id="compFaturaTotal">R$ 0,00</div>
         </div>
       </div>
@@ -1205,7 +1222,7 @@
         </div>
         <div class="tx-scroll">
         <div class="list-head-row tx-total-row" id="txTotRow" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr 0.8fr;">
-          <span></span><span class="head-out"></span><span>Total filtrado</span><span></span><span></span><span></span><span class="num" id="txTotValue">R$ 0,00</span><span></span><span></span><span></span><span></span>
+          <span></span><span class="head-out"></span><span>Total filtrado</span><span></span><span></span><span></span><span class="num" id="txTotValue">R$ 0,00</span><span></span><span class="num" id="txTotFaltante">R$ 0,00</span><span></span><span></span>
         </div>
         <div class="list-head-row" id="txHeadRow" style="grid-template-columns:0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr 0.8fr;">
           <input type="checkbox" class="row-select" id="selectAllCompras" title="Selecionar todos"><span class="head-out"></span><span>Descrição</span><span>Pessoa</span><span>Cartão</span><span>Valor total</span><span>Valor parcela</span><span>Parcela</span><span>Total faltante</span><span>Data</span><span>Tipo</span>
@@ -1297,11 +1314,11 @@
     <div class="page-section" id="pageLimite">
       <div class="summary summary-2col">
         <div class="sum-card">
-          <span class="k">Limite total usado (todos os cartões)</span>
+          <span class="k" data-help="Soma, em todos os cartões, do que ainda está comprometido: parcelas restantes das compras (menos reembolsos já recebidos).">Limite total usado</span>
           <div class="v num" id="limiteTotalUsado">R$ 0,00</div>
         </div>
         <div class="sum-card">
-          <span class="k">Limite total livre (todos os cartões)</span>
+          <span class="k" data-help="Soma dos limites de todos os cartões − limite total usado.">Limite total livre</span>
           <div class="v num" id="limiteTotalLivre">R$ 0,00</div>
         </div>
       </div>
@@ -1818,7 +1835,7 @@
         </div>
         <div class="summary" style="grid-template-columns:1fr;">
           <div class="sum-card">
-            <span class="k">Total das assinaturas ativas no período</span>
+            <span class="k" data-help="Soma do valor mensal das assinaturas ativas no mês escolhido (ou hoje, sem mês), respeitando o filtro de pessoa.">Total das assinaturas ativas</span>
             <div class="v num" id="subsTotal">R$ 0,00</div>
           </div>
         </div>
@@ -2999,8 +3016,13 @@
     updateComprasBulkBar();
 
     // Total of what's currently listed (same "Parcela R$" column), so it's visible without scrolling up.
-    var listedTotal = 0;
-    filtered.forEach(function(r){ if (!r.out) listedTotal += (r.effectiveValor || 0); });
+    var listedTotal = 0, listedFaltante = 0;
+    filtered.forEach(function(r){
+      if (r.out) return;
+      listedTotal += (r.effectiveValor || 0);
+      listedFaltante += (getFaltante(r) || 0);
+    });
+    $("txTotFaltante").textContent = fmtBRL(listedFaltante);
     adiRows.forEach(function(a){ if (!a.out) listedTotal -= (a.valor || 0); });
     $("txTotValue").textContent = fmtBRL(listedTotal);
 
@@ -3024,12 +3046,8 @@
           : (r.parcelaAtual === null)
             ? (r.parcelaTotal||1) + "x"
             : (r.parcelaAtual < 1 ? "futura" : (r.parcelaAtual > r.parcelaTotal ? "concluída" : r.parcelaAtual + "/" + r.parcelaTotal));
-      // Total faltante: o que ainda resta pagar depois da parcela deste mês.
-      var faltanteLabel = "—";
-      if (!isSpecialRow && r.parcelaAtual !== null && r.parcelaTotal > 1){
-        var restantes = r.parcelaAtual < 1 ? r.parcelaTotal : Math.max(0, r.parcelaTotal - r.parcelaAtual);
-        faltanteLabel = fmtBRL((r.effectiveValor || 0) * restantes);
-      }
+      var faltante = getFaltante(r);
+      var faltanteLabel = faltante === null ? "—" : fmtBRL(faltante);
       var selectDisabledTitle = r.antecipacao
         ? "Antecipações não podem ser selecionadas em massa — abra a linha e use Excluir antecipação"
         : "Créditos de reembolso não podem ser selecionados em massa — abra a compra para editar/remover o reembolso";
@@ -3102,6 +3120,15 @@
     var faturaRecs = recs.filter(function(r){ return !r.out; });
     if (READONLY_MAE) faturaRecs = faturaRecs.filter(function(r){ return r.pessoa === MAE_PESSOA_NAME; });
     renderCompFatura(faturaRecs);
+  }
+
+  // Total faltante: o que ainda resta pagar da compra, contando a parcela deste mês (à vista = o valor
+  // inteiro), para somar o endividamento do cartão. Linhas especiais (antecipação, reembolso) não contam.
+  function getFaltante(r){
+    if (r.antecipacao || r.reembolsoCredito) return null;
+    var total = r.parcelaTotal || 1;
+    var restantes = (r.parcelaAtual === null || r.parcelaAtual < 1) ? total : Math.max(0, total - r.parcelaAtual + 1);
+    return (r.effectiveValor || 0) * restantes;
   }
 
   function groupSum(recs, key){
@@ -4191,7 +4218,6 @@
     if (d.diarioGasto > 0){
       $("dashDiario").textContent = fmtBRL(d.diarioBase - d.diarioGasto);
       $("dashDiario").classList.toggle("negative", d.diarioBase - d.diarioGasto < 0);
-      $("dashDiarioLabel").textContent = "Diário restante (de " + fmtBRL(d.diarioBase) + ")";
     } else {
       $("dashDiario").textContent = fmtBRL(d.diarioBase);
       $("dashDiario").classList.remove("negative");
@@ -4490,6 +4516,38 @@
     bar.style.display = "flex";
   }
 
+  // Ícone "?" no canto de cada KPI (.k[data-help]): o painel explica o cálculo ao passar o mouse ou tocar.
+  (function initKpiHelp(){
+    document.querySelectorAll(".sum-card .k[data-help]").forEach(function(kEl){
+      var card = kEl.closest(".sum-card");
+      var btn = document.createElement("button");
+      btn.type = "button"; btn.className = "kpi-help"; btn.textContent = "?"; btn.setAttribute("aria-label", "Como é calculado");
+      var tip = document.createElement("div");
+      tip.className = "kpi-tip"; tip.setAttribute("role", "tooltip"); tip.textContent = kEl.getAttribute("data-help");
+      btn.addEventListener("click", function(e){
+        e.stopPropagation();
+        var open = card.classList.contains("help-open");
+        document.querySelectorAll(".sum-card.help-open").forEach(function(c){ c.classList.remove("help-open"); });
+        if (!open) card.classList.add("help-open");
+      });
+      card.appendChild(btn); card.appendChild(tip);
+    });
+    document.addEventListener("click", function(){
+      document.querySelectorAll(".sum-card.help-open").forEach(function(c){ c.classList.remove("help-open"); });
+    });
+  })();
+
+  // Clicar nos cards de Ingresos / Gastos filtra as duas tabelas do débito; clicar de novo limpa.
+  var debKindFilter = "";
+  [["debIngresos", "in"], ["debGastos", "out"]].forEach(function(p){
+    var card = $(p[0]).closest(".sum-card");
+    card.classList.add("kpi-click");
+    card.setAttribute("tabindex", "0");
+    var toggle = function(){ debKindFilter = (debKindFilter === p[1]) ? "" : p[1]; renderDebitoPage(); };
+    card.addEventListener("click", toggle);
+    card.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); } });
+  });
+
   // Duas listas: "Fijos y recurrentes" (Ingreso/Gasto Fijo, herdados cada mês, mais o espelho dos que
   // "geram ingresso") e "Movimientos" (o que realmente se move no débito: variáveis, retiradas e os
   // gastos itemizados dos extratos). Os totais do topo somam as duas.
@@ -4512,6 +4570,13 @@
     $("debFijosSub").textContent = "Ingresos fijos " + fmtBRL(fIng) + " · Gastos fijos " + fmtBRL(fGas) + (espelho ? " · Espelho " + fmtBRL(espelho) : "");
     $("debMovSub").textContent = "Ingresos " + fmtBRL(mIng) + " · Gastos " + fmtBRL(mGas);
 
+    $("debIngresos").closest(".sum-card").classList.toggle("kpi-active", debKindFilter === "in");
+    $("debGastos").closest(".sum-card").classList.toggle("kpi-active", debKindFilter === "out");
+    if (debKindFilter){
+      var kindTipos = debKindFilter === "in" ? INGRESO_TIPOS : GASTO_TIPOS;
+      recs = recs.filter(function(r){ return kindTipos.indexOf(r.tipo) !== -1; });
+      if (debKindFilter === "out") dynamicEntries = [];
+    }
     var tipoOrder = {"Ingreso Fijo": 0, "Gasto Fijo": 1};
     var fijoRecs = recs.filter(function(r){ return isFijoDebitoTipo(r.tipo); }).sort(function(a, b){
       return (tipoOrder[a.tipo] - tipoOrder[b.tipo]) || (b.valor - a.valor);
