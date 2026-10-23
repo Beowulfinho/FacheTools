@@ -275,6 +275,11 @@
   .rs-line:last-child{ border-bottom:none; font-size:16px; }
   .rs-line .num.neg{ color:var(--danger); }
   @media (max-width: 880px){ .resumo-grid{ grid-template-columns:1fr; gap:16px; } }
+  .temp-line{ display:grid; grid-template-columns:1fr 140px 28px; gap:8px; align-items:center; }
+  .temp-line input{ font:inherit; color:inherit; background:transparent; border:0; border-bottom:1px dashed var(--line); padding:2px 0; outline:none; min-width:0; }
+  .temp-line input:focus{ border-bottom-color:var(--accent); }
+  .temp-x{ border:0; background:transparent; color:var(--ink-faint); cursor:pointer; font-size:14px; }
+  .temp-x:hover{ color:var(--danger); }
   .cuentas-card.idle{ opacity:.65; }
   .cuentas-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:8px; }
   .cuentas-head .name{ font-weight:600; font-size:14px; }
@@ -1280,6 +1285,13 @@
       <div class="panel" style="margin-top:18px;">
         <div class="panel-head"><h2>Ingressos adicionais</h2><span class="sec-total" id="cuentasExtraTotal"></span></div>
         <div class="cuentas-list" id="cuentasExtra"></div>
+      </div>
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-head">
+          <h2>Cuentas temporarias</h2>
+          <span style="display:flex; gap:10px; align-items:center;"><span class="sec-total" id="cuentasTempTotal"></span><button class="btn btn-sm" id="cuentasTempAdd" type="button">Novo bloco</button></span>
+        </div>
+        <div class="cuentas-list" id="cuentasTemp"></div>
       </div>
     </div>
 
@@ -3973,9 +3985,59 @@
   }
   var cuentasImportTarget = null; // {cartao} while the CSV import was started from a Cuentas row
 
+  // Cuentas temporarias: blocos livres com título e valor (ex.: "Nubank AJ" R$ x) para centralizar o que há nas
+  // contas. Ficam na própria tabela cuentas_mes, fora de qualquer mês (mes = "0000-00", pois a tabela exige
+  // AAAA-MM): item "tb:<id>|<título>" e o valor em valorReal. O id começa pelo horário de criação, então
+  // ordenar por ele mantém a ordem estável depois de editar.
+  var TEMP_MES = "0000-00";
+  function tempParse(r){
+    var m = /^tb:([^|]*)\|(.*)$/.exec(r.item || "");
+    return (m && r.mes === TEMP_MES) ? {id: m[1], text: m[2], rec: r} : null;
+  }
+  function tempSave(existing, item, valor){
+    var rec = {mes: TEMP_MES, cartao: "", item: item, valorReal: valor, conferido: false, pago: false, valorPago: null, pagoEm: null};
+    return saveTableRow("cuentas_mes", existing ? "update" : "insert", existing ? existing.row : null, rec)
+      .then(loadAndRender).catch(function(err){ showError("Não foi possível salvar: " + err.message); });
+  }
+  function renderCuentasTemp(){
+    var el = $("cuentasTemp");
+    if (!el) return;
+    var blocks = state.cuentas.records.map(tempParse).filter(Boolean).sort(function(x, y){ return x.id < y.id ? -1 : (x.id > y.id ? 1 : 0); });
+    var total = 0;
+    el.innerHTML = "";
+    if (!blocks.length) el.innerHTML = '<div class="empty" style="padding:12px 4px;"><span class="big">Nenhum bloco</span>Crie um bloco com título e valor, por exemplo "Nubank AJ".</div>';
+    blocks.forEach(function(b){
+      total += (b.rec.valorReal || 0);
+      var card = document.createElement("div");
+      card.className = "cuentas-card";
+      card.innerHTML = '<div class="temp-line"><input type="text" class="tl-label" value="' + escapeHtml(b.text) + '" placeholder="Título">' +
+        '<input type="text" inputmode="decimal" class="tl-val num" value="' + (b.rec.valorReal === null ? "" : String(b.rec.valorReal).replace(".", ",")) + '" placeholder="0,00">' +
+        '<button class="temp-x tl-del" type="button" title="Excluir bloco">✕</button></div>';
+      var labelEl = card.querySelector(".tl-label"), valEl = card.querySelector(".tl-val");
+      var commit = function(){
+        var txt = valEl.value.trim();
+        var v = txt === "" ? null : parseAmountInput(txt);
+        if (v !== null && !isFinite(v)){ showError("Valor inválido."); return; }
+        tempSave(b.rec, "tb:" + b.id + "|" + (labelEl.value.trim() || "Bloco"), v === null ? null : Math.round(v * 100) / 100);
+      };
+      labelEl.addEventListener("change", commit);
+      valEl.addEventListener("change", commit);
+      card.querySelector(".tl-del").addEventListener("click", function(){
+        if (!window.confirm('Excluir o bloco "' + b.text + '"?')) return;
+        saveTableRow("cuentas_mes", "delete", b.rec.row).then(loadAndRender).catch(function(err){ showError("Não foi possível excluir: " + err.message); });
+      });
+      el.appendChild(card);
+    });
+    $("cuentasTempTotal").textContent = blocks.length ? "Total " + fmtBRL(total) : "";
+  }
+  $("cuentasTempAdd").addEventListener("click", function(){
+    tempSave(null, "tb:" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + "|Novo bloco", null);
+  });
+
   function renderCuentasPage(){
     var listEl = $("cuentasCartoes");
     if (!listEl) return;
+    renderCuentasTemp();
     var banner = $("cuentasBanner"), resumoEl = $("cuentasResumen"), fijosEl = $("cuentasFijos");
     if (!filterMonth){
       banner.innerHTML = '<div class="cuentas-banner">Selecione um mês específico (botão "Mês atual" acima) para ver as contas do mês.</div>';
