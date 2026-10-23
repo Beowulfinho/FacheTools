@@ -4027,7 +4027,7 @@
         var txt = valEl.value.trim();
         var v = txt === "" ? null : parseAmountInput(txt);
         if (v !== null && !isFinite(v)){ showError("Valor inválido."); return; }
-        tempSave(b.rec, "tb:" + b.id + "|" + (labelEl.value.trim() || "Bloco"), v === null ? null : Math.round(v * 100) / 100);
+        tempSave(b.rec, "tb:" + b.id + "|" + labelEl.value.trim(), v === null ? null : Math.round(v * 100) / 100);
       };
       labelEl.addEventListener("change", commit);
       valEl.addEventListener("change", commit);
@@ -4040,7 +4040,7 @@
     $("cuentasTempTotal").textContent = blocks.length ? "Total " + fmtBRL(total) : "";
   }
   $("cuentasTempAdd").addEventListener("click", function(){
-    tempSave(null, "tb:" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + "|Novo bloco", null);
+    tempSave(null, "tb:" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) + "|", null);
   });
 
   function renderCuentasPage(){
@@ -4442,11 +4442,22 @@
     if (!flagged.length) return [];
     var monthRecs = getMonthFilteredRecords();
     var sums = {};
+    // Antecipar parcelas de uma compra é um assunto entre a gente e o cartão: quem reembolsa continua pagando
+    // parcela a parcela. Por isso o espelho ignora o pagamento antecipado e conta cada parcela antecipada no
+    // seu mês original.
     monthRecs.forEach(function(r){
-      if (r.out) return;
+      if (r.out || r.antecipacao) return;
       if (flagged.indexOf(r.pessoa) === -1) return;
       sums[r.pessoa] = (sums[r.pessoa]||0) + (r.effectiveValor||0);
     });
+    if (filterMonth){
+      state.compras.records.forEach(function(r){
+        if (r.out || !r.dataSerial || isAssinaturaTipo(r.tipo) || flagged.indexOf(r.pessoa) === -1) return;
+        var total = r.parcelas || 1;
+        var idx = monthsBetween(getFaturaStartYM(r.dataSerial, r.cartao), filterMonth) + 1;
+        if (idx >= 1 && idx <= total && getAntecipatedIndexMap(r)[idx]) sums[r.pessoa] = (sums[r.pessoa]||0) + (r.valorTotal||0) / total;
+      });
+    }
     var debRecs = getDebitoMonthFiltered();
     debRecs.forEach(function(r){
       if (r.out) return;
