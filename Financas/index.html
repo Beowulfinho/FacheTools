@@ -275,6 +275,11 @@
   .rs-line:last-child{ border-bottom:none; font-size:16px; }
   .rs-line .num.neg{ color:var(--danger); }
   @media (max-width: 880px){ .resumo-grid{ grid-template-columns:1fr; gap:16px; } }
+  .ultima-bar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:18px; padding:12px 18px;
+    background:var(--paper-raised); border:1px solid var(--line); border-radius:13px; box-shadow:0 1px 2px var(--shadow); }
+  .ultima-bar h2{ font-size:15px; margin:0; margin-right:auto; }
+  .ultima-bar .field{ width:170px; }
+  .ultima-bar .dsel-panel{ left:auto; right:0; }
   .bulk-sum{ font-weight:600; }
   .temp-line{ display:grid; grid-template-columns:1fr 140px 28px; gap:8px; align-items:center; }
   .temp-line input{ font:inherit; color:inherit; background:transparent; border:0; border-bottom:1px dashed var(--line); padding:2px 0; outline:none; min-width:0; }
@@ -1269,15 +1274,11 @@
 
     <div class="page-section" id="pageCuentas">
       <div id="cuentasBanner"></div>
-      <div class="panel" style="margin-top:18px;">
-        <div class="panel-head">
-          <h2>Últimas contas feitas em</h2>
-          <span style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <span class="cfg-hint" id="cuentasUltimaHint" style="margin:0;"></span>
-            <input type="date" id="cuentasUltima">
-            <button class="btn btn-sm" id="cuentasUltimaHoje" type="button">Hoje</button>
-          </span>
-        </div>
+      <div class="ultima-bar">
+        <h2>Últimas contas feitas em</h2>
+        <span class="cfg-hint" id="cuentasUltimaHint" style="margin:0;"></span>
+        <div class="field"><input type="date" id="cuentasUltima"></div>
+        <button class="btn btn-sm" id="cuentasUltimaHoje" type="button">Hoje</button>
       </div>
       <div class="panel" style="margin-top:18px;">
         <div class="panel-head"><h2>Resumo do mês</h2></div>
@@ -1456,7 +1457,7 @@
         <label for="fReembolsoTipo">Tipo de reembolso</label>
         <select id="fReembolsoTipo">
           <option value="credito">Crédito no mês — o valor entra negativo e as parcelas continuam cobrando</option>
-          <option value="abate">Abate as parcelas — como se a compra custasse menos</option>
+          <option value="abate">Abate as parcelas — como se a compra não tivesse existido</option>
         </select>
       </div>
       <div class="field" id="fReembolsoValorWrap" style="display:none;">
@@ -3084,7 +3085,7 @@
     filtered.forEach(function(r){
       var row = document.createElement("div");
       var isSpecialRow = r.antecipacao || r.reembolsoCredito;
-      row.className = "tx-row" + (r.antecipacao ? " tx-row-antecipacao" : "") + (r.reembolsoCredito ? " tx-row-reembolso" : "");
+      row.className = "tx-row" + (r.antecipacao ? " tx-row-antecipacao" : "") + ((r.reembolsoCredito || (!isSpecialRow && reembolsoAbatimento(r))) ? " tx-row-reembolso" : "");
       row.tabIndex = 0;
       row.style.gridTemplateColumns = "0.32fr 0.5fr 1.3fr 0.75fr 0.85fr 0.75fr 0.8fr 0.7fr 0.8fr 0.8fr 0.8fr";
       var badgeClass = r.tipo === "Estorno" ? "estorno" : (isAssinaturaTipo(r.tipo) ? "assinatura" : "");
