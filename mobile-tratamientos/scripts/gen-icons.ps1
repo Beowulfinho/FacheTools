@@ -34,11 +34,11 @@ function Write-AppIcon($path, $size) {
     $bmp = New-Object System.Drawing.Bitmap $size, $size
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $g.Clear([System.Drawing.ColorTranslator]::FromHtml("#2F7D79"))
+    $g.Clear([System.Drawing.ColorTranslator]::FromHtml("#C2417B"))
     # Glifo ocupando ~60% central (zona segura del maskable)
     $scale = ($size * 0.60) / 24.0
     $off = ($size - 24 * $scale) / 2
-    $pen = New-Pen $size $scale 1.8 ([System.Drawing.ColorTranslator]::FromHtml("#F4F1EA"))
+    $pen = New-Pen $size $scale 1.8 ([System.Drawing.ColorTranslator]::FromHtml("#FFFFFF"))
     Draw-Glyph $g $pen $scale $off $off
     $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose(); $bmp.Dispose()

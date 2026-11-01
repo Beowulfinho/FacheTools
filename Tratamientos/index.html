@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2F7D79">
+<meta name="theme-color" content="#C2417B">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,53 +11,53 @@
 <title>Tracker</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F7D79'/%3E%3Crect x='7' y='9' width='18' height='16' rx='3' fill='none' stroke='%23F4F1EA' stroke-width='2'/%3E%3Cpath d='M7 14h18M12 6v5M20 6v5M12.5 19.5l2.5 2.5 4.5-5' stroke='%23F4F1EA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23C2417B'/%3E%3Crect x='7' y='9' width='18' height='16' rx='3' fill='none' stroke='%23FFFFFF' stroke-width='2'/%3E%3Cpath d='M7 14h18M12 6v5M20 6v5M12.5 19.5l2.5 2.5 4.5-5' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root {
     color-scheme: light;
-    --paper: #F4F1EA;
-    --paper-2: #E8E4D8;
-    --paper-3: #DAD5C4;
-    --paper-raised: #FBFAF6;
+    --paper: #F8F0EE;
+    --paper-2: #EFE3E0;
+    --paper-3: #E3D3CF;
+    --paper-raised: #FDF9F8;
     --ink: #1E2A28;
     --ink-soft: #56655F;
     --ink-faint: #8A9590;
-    --accent: #2F7D79;
-    --accent-ink: #F4F1EA;
-    --accent-soft: #D6E8E6;
+    --accent: #C2417B;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #F6DCE7;
     --good: #3F7D4A;
     --good-soft: #E1EEE1;
     --warn: #A8710E;
     --warn-soft: #F3E7D0;
     --critical: #A83636;
     --critical-soft: #F3DEDE;
-    --line: #CBC6B0;
+    --line: #D9C7C3;
     --shadow: 0 1px 2px rgba(30, 42, 40, 0.06), 0 4px 14px rgba(30, 42, 40, 0.05);
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --paper: #131E1B;
-      --paper-2: #1B2724;
-      --paper-3: #24322E;
-      --paper-raised: #1B2724;
+      --paper: #1E1518;
+      --paper-2: #2A1E22;
+      --paper-3: #36272C;
+      --paper-raised: #2A1E22;
       --ink: #E9EDE9;
       --ink-soft: #9FB0A9;
       --ink-faint: #647169;
-      --accent: #5FBDB6;
-      --accent-ink: #0C1917;
-      --accent-soft: #1B3532;
+      --accent: #F28DB6;
+      --accent-ink: #2A0F1B;
+      --accent-soft: #3A1F2D;
       --good: #7BC688;
       --good-soft: #1F3323;
       --warn: #E1AC55;
       --warn-soft: #3A2E15;
       --critical: #E28080;
       --critical-soft: #3A2020;
-      --line: #33413C;
+      --line: #46343A;
       --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 18px rgba(0, 0, 0, 0.25);
     }
   }
@@ -755,7 +755,7 @@
     var SB = window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar;
     if (!SB) return;
     SB.setOverlaysWebView({ overlay: false }).catch(function(){});
-    SB.setBackgroundColor({ color: "#2F7D79" }).catch(function(){});
+    SB.setBackgroundColor({ color: "#C2417B" }).catch(function(){});
     SB.setStyle({ style: "DARK" }).catch(function(){});
   })();
 
