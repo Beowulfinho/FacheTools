@@ -81,7 +81,7 @@
   .wrap {
     max-width: 640px;
     margin: 0 auto;
-    padding: calc(24px + env(safe-area-inset-top, 0px)) 18px 80px;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 18px 110px;
   }
 
   header.top {
@@ -171,15 +171,81 @@
     font-family: inherit; font-size: 16px; color: var(--ink); background: var(--paper);
     border: 1px solid var(--line); border-radius: 8px; padding: 10px 11px; min-width: 0;
   }
-  .capture-row input[type="text"] { flex: 1; }
-  .capture-row input[type="date"] { flex: 1; }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-  .chip {
-    background: var(--paper); border: 1px solid var(--line); color: var(--ink-soft);
-    border-radius: 999px; padding: 4px 11px; font-size: 12.5px; font-weight: 600;
-  }
-  .chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .capture .field input[type="text"], .capture .field textarea { background: var(--paper); }
+  .capture .field textarea { width: 100%; resize: vertical; min-height: 64px; }
   .add-btn { width: 100%; padding: 12px; font-size: 14.5px; }
+
+  /* Selector de fecha propio (reemplaza el nativo, que ignora el estilo de la app) */
+  .date-btn {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left;
+    font-size: 16px; padding: 10px 11px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--ink);
+  }
+  .date-btn.ph { color: var(--ink-faint); }
+  .date-btn svg { width: 20px; height: 20px; color: var(--accent); flex: none; }
+
+  .top-actions { display: flex; align-items: center; gap: 4px; }
+  .icon-btn {
+    width: 38px; height: 38px; border-radius: 50%; border: none; background: none; color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { background: var(--paper-2); color: var(--ink); }
+  .icon-btn svg { width: 22px; height: 22px; }
+
+  /* ---------- Barra inferior (mismo patrón que Finanças) ---------- */
+  .bottom-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex;
+    background: var(--paper-raised); border-top: 1px solid var(--line);
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -2px 10px rgba(30, 42, 40, 0.06);
+  }
+  .bottom-nav button {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    background: none; border: none; padding: 8px 2px 6px; border-radius: 10px; color: var(--ink-faint);
+    font-size: 11.5px; font-weight: 600;
+  }
+  .bottom-nav button svg { width: 24px; height: 24px; }
+  .bottom-nav button.active { color: var(--accent); }
+  .bottom-nav button:active { background: var(--paper); }
+  .tab-page[hidden] { display: none; }
+
+  /* ---------- Calendario ---------- */
+  .cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .cal-title { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 18px; display: inline-block; }
+  .cal-nav { display: flex; align-items: center; gap: 4px; }
+  .cal-today-btn { font-size: 12.5px; font-weight: 700; border: 1px solid var(--line); background: var(--paper-raised); border-radius: 999px; padding: 6px 12px; }
+  .cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-week span { text-align: center; font-size: 11.5px; font-weight: 600; text-transform: uppercase; color: var(--ink-faint); padding-bottom: 4px; }
+  .cal-cell {
+    position: relative; aspect-ratio: 1 / 1.05; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--paper-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    padding: 2px; font-size: 14.5px; font-weight: 600;
+  }
+  .cal-cell.other { opacity: 0.4; }
+  .cal-cell.today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .cal-cell.selected { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .cal-badge {
+    min-width: 20px; height: 18px; border-radius: 999px; padding: 0 6px; background: var(--accent); color: var(--accent-ink);
+    font-size: 11.5px; font-weight: 700; line-height: 18px; text-align: center;
+  }
+  .cal-badge.none { visibility: hidden; }
+  .cal-badge.late { background: var(--critical); color: #fff; }
+  .cal-cell.selected .cal-badge { background: var(--accent-ink); color: var(--accent); }
+  .cal-detail { margin-top: 18px; }
+  .cal-detail .add-day-btn { width: 100%; margin-top: 10px; }
+
+  /* Diálogo del selector de fecha */
+  #dp-dialog { width: min(340px, calc(100vw - 32px)); }
+  .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .dp-title { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 16px; display: inline-block; }
+  .dp-week, .dp-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .dp-week span { text-align: center; font-size: 11.5px; font-weight: 600; color: var(--ink-faint); padding-bottom: 4px; }
+  .dp-day { height: 40px; border-radius: 9px; border: 1px solid transparent; background: none; font-size: 15px; }
+  .dp-day:hover { background: var(--paper-2); }
+  .dp-day.other { color: var(--ink-faint); }
+  .dp-day.today { border-color: var(--accent); }
+  .dp-day.selected { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+  .dp-foot { display: flex; justify-content: space-between; margin-top: 10px; }
 
   /* ---------- Lista ---------- */
   .search {
@@ -191,8 +257,9 @@
     display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
     padding: 0 2px 6px; margin-bottom: 6px; border-bottom: 1px solid var(--line);
   }
-  .day-title { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 15px; text-transform: capitalize; }
+  .day-title { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 15px; display: inline-block; }
   .day-sub { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-faint); white-space: nowrap; }
+  .day-title::first-letter, .cal-title::first-letter, .dp-title::first-letter { text-transform: uppercase; }
   .day.is-today .day-title { color: var(--accent); }
   .day.is-late .day-title { color: var(--critical); }
 
@@ -244,7 +311,7 @@
   .dlg-actions .right { display: flex; gap: 8px; }
 
   .toast {
-    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
     background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 999px; font-size: 13px;
     opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 300; max-width: calc(100vw - 32px); text-align: center;
   }
@@ -260,7 +327,12 @@
 <div class="wrap">
   <header class="top">
     <h1><span class="app-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15.5l2.2 2.2 4-4.4"/></svg></span> Tracker</h1>
-    <span class="clock" id="clock"></span>
+    <div class="top-actions">
+      <span class="clock" id="clock"></span>
+      <button type="button" class="icon-btn" id="btn-settings" aria-label="Configuración" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>
+      </button>
+    </div>
   </header>
 
   <div id="notConnectedView" style="display:none;">
@@ -290,72 +362,77 @@
 
   <div id="connectedView" style="display:none;">
 
-    <div class="conn-bar">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span class="conn-dot on" id="connDot"></span>
-        <span class="conn-label" id="connLabel">Conectado</span>
-      </div>
-      <button class="btn-logout" id="btnLogout" type="button">Salir</button>
-    </div>
-
     <div class="banner danger" id="errorBanner"></div>
 
-    <div class="stats">
-      <div class="stat today"><div class="n" id="stat-today">–</div><div class="label">Terminan hoy</div></div>
-      <div class="stat"><div class="n" id="stat-tomorrow">–</div><div class="label">Mañana</div></div>
-      <div class="stat late"><div class="n" id="stat-late">–</div><div class="label">Sin cerrar</div></div>
+    <!-- ===== Página: Usuarios ===== -->
+    <div class="tab-page" id="page-lista">
+      <div class="stats">
+        <div class="stat today"><div class="n" id="stat-today">–</div><div class="label">Terminan hoy</div></div>
+        <div class="stat"><div class="n" id="stat-tomorrow">–</div><div class="label">Mañana</div></div>
+        <div class="stat late"><div class="n" id="stat-late">–</div><div class="label">Sin cerrar</div></div>
+      </div>
+
+      <div class="capture">
+        <h2>Agregar usuario</h2>
+        <div class="capture-grid">
+          <div class="field">
+            <label for="nombre-input">Nombre</label>
+            <input type="text" id="nombre-input" placeholder="Nombre del usuario" autocomplete="off" autocapitalize="words">
+          </div>
+          <div class="field">
+            <label for="fecha-input">Fecha de finalización</label>
+            <button type="button" class="date-btn" id="fecha-input"></button>
+          </div>
+          <div class="field">
+            <label for="nota-input">Notas (opcional)</label>
+            <textarea id="nota-input" placeholder="Diagnóstico, teléfono, sesiones…"></textarea>
+          </div>
+          <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
+        </div>
+      </div>
+
+      <input type="text" class="search" id="search-input" placeholder="Buscar usuario…" autocomplete="off">
+
+      <div id="list-root"></div>
+
+      <details class="done-box" id="done-box" hidden>
+        <summary id="done-summary">Tratamientos terminados</summary>
+        <div class="list" id="done-list"></div>
+      </details>
     </div>
 
-    <div class="capture">
-      <h2>Agregar usuario</h2>
-      <div class="capture-grid">
-        <input type="text" id="nombre-input" placeholder="Nombre del usuario" autocomplete="off" autocapitalize="words" enterkeyhint="done">
-        <div class="capture-row">
-          <input type="date" id="fecha-input" aria-label="Fecha en que termina el tratamiento">
+    <!-- ===== Página: Calendario ===== -->
+    <div class="tab-page" id="page-cal" hidden>
+      <div class="cal-head">
+        <span class="cal-title" id="cal-title"></span>
+        <div class="cal-nav">
+          <button type="button" class="cal-today-btn" id="cal-today">Hoy</button>
+          <button type="button" class="icon-btn" id="cal-prev" aria-label="Mes anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button type="button" class="icon-btn" id="cal-next" aria-label="Mes siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
-        <div class="chips" id="quick-chips">
-          <button type="button" class="chip" data-days="0">Hoy</button>
-          <button type="button" class="chip" data-days="1">Mañana</button>
-          <button type="button" class="chip" data-days="7">+1 semana</button>
-          <button type="button" class="chip" data-days="14">+2 semanas</button>
-          <button type="button" class="chip" data-days="30">+1 mes</button>
-        </div>
-        <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
       </div>
+      <div class="cal-week" id="cal-week"></div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="cal-detail" id="cal-detail"></div>
     </div>
 
-    <input type="text" class="search" id="search-input" placeholder="Buscar usuario…" autocomplete="off">
-
-    <div id="list-root"></div>
-
-    <details class="done-box" id="done-box" hidden>
-      <summary id="done-summary">Tratamientos terminados</summary>
-      <div class="list" id="done-list"></div>
-    </details>
-
-    <details class="settings">
-      <summary>⚙️ Avisos</summary>
-      <p class="set-hint">El celular te avisa los días en que hay usuarios que terminan, con sus nombres.</p>
-      <div class="set-row">
-        <label for="set-hora">Hora del aviso</label>
-        <select id="set-hora"></select>
-      </div>
-      <div class="set-row">
-        <label for="set-antes">Avisar también el día anterior</label>
-        <input type="checkbox" id="set-antes">
-      </div>
-      <div class="set-row">
-        <span>¿No te llegan avisos?</span>
-        <button type="button" class="btn" id="btn-test-notif">Probar aviso</button>
-      </div>
-    </details>
+    <nav class="bottom-nav" id="bottomNav">
+      <button type="button" data-page="lista" class="active" aria-label="Usuarios">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16.5 5.3a3.2 3.2 0 0 1 0 5.4M18.5 14.4c1.6.7 2.8 2.4 2.8 5.1"/></svg>
+        Usuarios
+      </button>
+      <button type="button" data-page="cal" aria-label="Calendario">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
+        Calendario
+      </button>
+    </nav>
   </div>
 </div>
 
 <dialog id="edit-dialog">
   <h2>Editar usuario</h2>
   <div class="field"><label for="edit-nombre">Nombre</label><input type="text" id="edit-nombre" autocomplete="off"></div>
-  <div class="field"><label for="edit-fecha">Termina el</label><input type="date" id="edit-fecha"></div>
+  <div class="field"><label for="edit-fecha">Fecha de finalización</label><button type="button" class="date-btn" id="edit-fecha"></button></div>
   <div class="field"><label for="edit-notas">Notas (opcional)</label><textarea id="edit-notas" placeholder="Diagnóstico, teléfono, sesiones…"></textarea></div>
   <div class="dlg-actions">
     <button type="button" class="btn btn-danger" id="edit-delete">Eliminar</button>
@@ -363,6 +440,42 @@
       <button type="button" class="btn" id="edit-cancel">Cancelar</button>
       <button type="button" class="btn btn-primary" id="edit-save">Guardar</button>
     </div>
+  </div>
+</dialog>
+
+<dialog id="settings-dialog">
+  <h2>Configuración</h2>
+  <p class="set-hint" id="connLabel"></p>
+  <p class="set-hint">El celular te avisa los días en que hay usuarios que terminan, con sus nombres.</p>
+  <div class="set-row">
+    <label for="set-hora">Hora del aviso</label>
+    <select id="set-hora"></select>
+  </div>
+  <div class="set-row">
+    <label for="set-antes">Avisar también el día anterior</label>
+    <input type="checkbox" id="set-antes">
+  </div>
+  <div class="set-row">
+    <span>¿No te llegan avisos?</span>
+    <button type="button" class="btn" id="btn-test-notif">Probar aviso</button>
+  </div>
+  <div class="dlg-actions">
+    <button type="button" class="btn btn-danger" id="btnLogout">Cerrar sesión</button>
+    <button type="button" class="btn btn-primary" id="settings-close">Listo</button>
+  </div>
+</dialog>
+
+<dialog id="dp-dialog">
+  <div class="dp-head">
+    <button type="button" class="icon-btn" id="dp-prev" aria-label="Mes anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <span class="dp-title" id="dp-title"></span>
+    <button type="button" class="icon-btn" id="dp-next" aria-label="Mes siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+  </div>
+  <div class="dp-week" id="dp-week"></div>
+  <div class="dp-days" id="dp-days"></div>
+  <div class="dp-foot">
+    <button type="button" class="btn" id="dp-today">Hoy</button>
+    <button type="button" class="btn" id="dp-cancel">Cancelar</button>
   </div>
 </dialog>
 
@@ -442,9 +555,10 @@
     var fecha = $("fecha-input").value;
     if (!nombre || !fecha) return;
     $("add-btn").disabled = true;
-    supabaseClient.from('tratamientos_pacientes').insert({ nombre: nombre, fecha_fin: fecha })
+    supabaseClient.from('tratamientos_pacientes').insert({ nombre: nombre, fecha_fin: fecha, notas: $("nota-input").value.trim() || null })
       .then(throwIfError).then(function(){
         $("nombre-input").value = '';
+        $("nota-input").value = '';
         // La fecha se conserva: normalmente se cargan varios usuarios seguidos con fechas parecidas.
         toast('Agregado: ' + nombre + ' · ' + longDate(fecha));
         $("nombre-input").focus();
@@ -542,6 +656,7 @@
       wrap.appendChild(r);
       dl.appendChild(wrap);
     });
+    if (!$("page-cal").hidden) renderCalendar();
   }
 
   // ---------- Edición ----------
@@ -574,6 +689,68 @@
       .catch(function(err){ showError('No se pudo eliminar: ' + err.message); $("edit-dialog").close(); });
   });
 
+  // ---------- Selector de fecha propio ----------
+  // Un <button class="date-btn"> hace de campo: expone .value (ISO yyyy-mm-dd) y dispara "change",
+  // así el resto del código lo trata como un input. El calendario es un <dialog> modal (queda por
+  // encima de otros diálogos, p. ej. el de edición) y empieza la semana en lunes.
+  var CAL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.4"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+  var WEEK_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  function isoToES(iso){ var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+
+  // Celdas de un mes (semanas completas, lunes primero): [{ iso, d, other }]
+  function monthCells(y, m){
+    var offset = (new Date(y, m, 1).getDay() + 6) % 7;
+    var total = Math.ceil((offset + new Date(y, m + 1, 0).getDate()) / 7) * 7;
+    var cells = [];
+    for (var i = 0; i < total; i++){
+      var d = new Date(y, m, 1 - offset + i);
+      cells.push({ iso: toIso(d), d: d.getDate(), other: d.getMonth() !== m });
+    }
+    return cells;
+  }
+  function monthTitle(y, m){ return MESES[m] + ' ' + y; }
+
+  var dpView = { y: 0, m: 0 }, dpTarget = null;
+  function dpRender(){
+    $("dp-title").textContent = monthTitle(dpView.y, dpView.m);
+    var cur = dpTarget.value, today = todayStr(), html = '';
+    monthCells(dpView.y, dpView.m).forEach(function(c){
+      html += '<button type="button" class="dp-day' + (c.other ? ' other' : '') + (c.iso === today ? ' today' : '') + (c.iso === cur ? ' selected' : '') + '" data-iso="' + c.iso + '">' + c.d + '</button>';
+    });
+    $("dp-days").innerHTML = html;
+  }
+  function dpPick(iso){
+    dpTarget.value = iso;
+    dpTarget.dispatchEvent(new Event('change', { bubbles: true }));
+    $("dp-dialog").close();
+  }
+  function dpShift(n){ var d = new Date(dpView.y, dpView.m + n, 1); dpView = { y: d.getFullYear(), m: d.getMonth() }; dpRender(); }
+  $("dp-week").innerHTML = WEEK_LABELS.map(function(l){ return '<span>' + l + '</span>'; }).join('');
+  $("dp-prev").addEventListener("click", function(){ dpShift(-1); });
+  $("dp-next").addEventListener("click", function(){ dpShift(1); });
+  $("dp-today").addEventListener("click", function(){ dpPick(todayStr()); });
+  $("dp-cancel").addEventListener("click", function(){ $("dp-dialog").close(); });
+  $("dp-days").addEventListener("click", function(e){ var b = e.target.closest('.dp-day'); if (b) dpPick(b.dataset.iso); });
+
+  function enhanceDateField(btn){
+    var iso = '';
+    function paint(){
+      btn.innerHTML = '<span>' + (iso ? isoToES(iso) : 'Seleccionar fecha') + '</span>' + CAL_ICON;
+      btn.classList.toggle('ph', !iso);
+    }
+    Object.defineProperty(btn, 'value', { get: function(){ return iso; }, set: function(v){ iso = v || ''; paint(); } });
+    btn.addEventListener('click', function(){
+      dpTarget = btn;
+      var base = iso ? parseIso(iso) : new Date();
+      dpView = { y: base.getFullYear(), m: base.getMonth() };
+      dpRender();
+      $("dp-dialog").showModal();
+    });
+    paint();
+  }
+  enhanceDateField($("fecha-input"));
+  enhanceDateField($("edit-fecha"));
+
   // ---------- Formulario ----------
   function refreshAddBtn(){ $("add-btn").disabled = !($("nombre-input").value.trim() && $("fecha-input").value); }
   $("fecha-input").value = todayStr();
@@ -582,12 +759,67 @@
   $("fecha-input").addEventListener("change", refreshAddBtn);
   $("nombre-input").addEventListener("keydown", function(e){ if (e.key === "Enter") addPaciente(); });
   $("add-btn").addEventListener("click", addPaciente);
-  $("quick-chips").addEventListener("click", function(e){
-    var b = e.target.closest('.chip'); if (!b) return;
-    $("fecha-input").value = addDays(todayStr(), Number(b.dataset.days));
-    refreshAddBtn();
-  });
   $("search-input").addEventListener("input", render);
+
+  // ---------- Barra inferior y calendario ----------
+  var calView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  var calSel = todayStr();
+
+  function showPage(name){
+    ['lista', 'cal'].forEach(function(p){ $("page-" + p).hidden = (p !== name); });
+    Array.prototype.forEach.call($("bottomNav").querySelectorAll('button'), function(b){
+      b.classList.toggle('active', b.dataset.page === name);
+    });
+    if (name === 'cal') renderCalendar();
+    window.scrollTo(0, 0);
+  }
+  $("bottomNav").addEventListener("click", function(e){ var b = e.target.closest('button'); if (b) showPage(b.dataset.page); });
+
+  function renderCalendar(){
+    $("cal-title").textContent = monthTitle(calView.y, calView.m);
+    var today = todayStr(), counts = {};
+    pacientes.forEach(function(p){ if (!p.terminado) counts[p.fechaFin] = (counts[p.fechaFin] || 0) + 1; });
+    var html = '';
+    monthCells(calView.y, calView.m).forEach(function(c){
+      var n = counts[c.iso] || 0;
+      html += '<button type="button" class="cal-cell' + (c.other ? ' other' : '') + (c.iso === today ? ' today' : '') + (c.iso === calSel ? ' selected' : '') + '" data-iso="' + c.iso + '">' +
+        c.d + '<span class="cal-badge' + (n ? (c.iso < today ? ' late' : '') : ' none') + '">' + (n || 0) + '</span></button>';
+    });
+    $("cal-grid").innerHTML = html;
+
+    var box = $("cal-detail");
+    box.innerHTML = '';
+    var items = pacientes.filter(function(p){ return p.fechaFin === calSel; });
+    box.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : '')));
+    if (!items.length) box.querySelector('.list').appendChild(el('div', 'empty', 'Nadie termina este día.'));
+    var add = el('button', 'btn add-day-btn', 'Agregar usuario este día');
+    add.type = 'button';
+    add.addEventListener('click', function(){
+      $("fecha-input").value = calSel;
+      refreshAddBtn();
+      showPage('lista');
+      $("nombre-input").focus();
+    });
+    box.appendChild(add);
+  }
+  $("cal-week").innerHTML = WEEK_LABELS.map(function(l){ return '<span>' + l + '</span>'; }).join('');
+  $("cal-grid").addEventListener("click", function(e){
+    var b = e.target.closest('.cal-cell'); if (!b) return;
+    calSel = b.dataset.iso;
+    var d = parseIso(calSel);
+    calView = { y: d.getFullYear(), m: d.getMonth() };
+    renderCalendar();
+  });
+  function calShift(n){ var d = new Date(calView.y, calView.m + n, 1); calView = { y: d.getFullYear(), m: d.getMonth() }; renderCalendar(); }
+  $("cal-prev").addEventListener("click", function(){ calShift(-1); });
+  $("cal-next").addEventListener("click", function(){ calShift(1); });
+  $("cal-today").addEventListener("click", function(){
+    calSel = todayStr(); calView = { y: new Date().getFullYear(), m: new Date().getMonth() }; renderCalendar();
+  });
+
+  // ---------- Configuración (menú de 3 puntos) ----------
+  $("btn-settings").addEventListener("click", function(){ $("settings-dialog").showModal(); });
+  $("settings-close").addEventListener("click", function(){ $("settings-dialog").close(); });
 
   // ---------- Notificaciones locales (Capacitor) ----------
   function getLocalNotifications(){
@@ -729,8 +961,8 @@
     setTimeout(function(){ s.style.display = "none"; }, 250);
   }
   function setConnectedUI(connected, email){
-    $("connDot").className = "conn-dot " + (connected ? "on" : "off");
-    $("connLabel").textContent = connected ? ("Conectado como " + email) : "No conectado";
+    $("connLabel").textContent = connected ? ("Sesión iniciada como " + email) : "";
+    $("btn-settings").style.display = connected ? "flex" : "none";
     $("notConnectedView").style.display = connected ? "none" : "block";
     $("connectedView").style.display = connected ? "block" : "none";
     hideSplash();
@@ -746,7 +978,7 @@
 
   // Al volver a abrir la app (otro día) se recalcula "hoy/mañana" y se reprograma.
   document.addEventListener("visibilitychange", function(){
-    if (!document.hidden && $("connectedView").style.display !== "none"){ tick(); $("fecha-input").min = ''; loadAndRender(); }
+    if (!document.hidden && $("connectedView").style.display !== "none"){ tick(); loadAndRender(); }
   });
 
   // Android 15+ dibuja el WebView detrás de la status bar por defecto.
