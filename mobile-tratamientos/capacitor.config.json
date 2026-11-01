@@ -1,0 +1,15 @@
+{
+  "appId": "com.fachetools.tratamientos",
+  "appName": "Tracker",
+  "webDir": "../Tratamientos",
+  "server": {
+    "url": "https://beowulfinho.github.io/FacheTools/Tratamientos/",
+    "cleartext": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notify",
+      "iconColor": "#2F7D79"
+    }
+  }
+}

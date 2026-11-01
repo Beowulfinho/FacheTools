@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2F7D79">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tracker">
+<title>Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232F7D79'/%3E%3Crect x='7' y='9' width='18' height='16' rx='3' fill='none' stroke='%23F4F1EA' stroke-width='2'/%3E%3Cpath d='M7 14h18M12 6v5M20 6v5M12.5 19.5l2.5 2.5 4.5-5' stroke='%23F4F1EA' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #F4F1EA;
+    --paper-2: #E8E4D8;
+    --paper-3: #DAD5C4;
+    --paper-raised: #FBFAF6;
+    --ink: #1E2A28;
+    --ink-soft: #56655F;
+    --ink-faint: #8A9590;
+    --accent: #2F7D79;
+    --accent-ink: #F4F1EA;
+    --accent-soft: #D6E8E6;
+    --good: #3F7D4A;
+    --good-soft: #E1EEE1;
+    --warn: #A8710E;
+    --warn-soft: #F3E7D0;
+    --critical: #A83636;
+    --critical-soft: #F3DEDE;
+    --line: #CBC6B0;
+    --shadow: 0 1px 2px rgba(30, 42, 40, 0.06), 0 4px 14px rgba(30, 42, 40, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #131E1B;
+      --paper-2: #1B2724;
+      --paper-3: #24322E;
+      --paper-raised: #1B2724;
+      --ink: #E9EDE9;
+      --ink-soft: #9FB0A9;
+      --ink-faint: #647169;
+      --accent: #5FBDB6;
+      --accent-ink: #0C1917;
+      --accent-soft: #1B3532;
+      --good: #7BC688;
+      --good-soft: #1F3323;
+      --warn: #E1AC55;
+      --warn-soft: #3A2E15;
+      --critical: #E28080;
+      --critical-soft: #3A2020;
+      --line: #33413C;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 18px rgba(0, 0, 0, 0.25);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; overflow-x: hidden; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, input, select, textarea { font-family: inherit; color: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button { cursor: pointer; }
+
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 18px 80px;
+  }
+
+  header.top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; margin-bottom: 18px; flex-wrap: wrap;
+  }
+
+  h1, h2 {
+    font-family: 'Archivo', sans-serif; font-weight: 800; letter-spacing: -0.01em;
+    margin: 0; text-wrap: balance; color: var(--ink);
+  }
+  h1 { font-size: 26px; display: flex; align-items: center; gap: 10px; }
+  .app-icon { display: inline-flex; flex: none; width: 26px; height: 26px; color: var(--accent); }
+  .app-icon svg { width: 100%; height: 100%; }
+
+  .clock {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--ink-faint);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  /* ---------- Splash / auth (Supabase login, mismo patrón que Finanças/Planes/Tareas) ---------- */
+  .splash {
+    position: fixed; inset: 0; background: var(--paper); z-index: 200;
+    display: flex; align-items: center; justify-content: center; transition: opacity 0.25s ease;
+  }
+  .splash.hide { opacity: 0; pointer-events: none; }
+  .splash svg { width: 44px; height: 44px; color: var(--accent); }
+
+  .auth-hero {
+    max-width: 380px; margin: 50px auto; display: flex; flex-direction: column;
+    align-items: center; gap: 12px; text-align: center;
+  }
+  .auth-hero h2 { font-size: 20px; }
+  .auth-hero p { color: var(--ink-soft); font-size: 13.5px; margin: 0; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+  .field input {
+    padding: 10px 11px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--paper-raised); color: var(--ink); width: 100%; font-size: 16px;
+  }
+  .field-error { display: none; color: var(--critical); font-size: 12.5px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 15px; border-radius: 9px; border: 1px solid var(--line);
+    background: var(--paper-raised); color: var(--ink); font-weight: 700;
+    font-family: 'Archivo', sans-serif; font-size: 13.5px; box-shadow: var(--shadow);
+  }
+  .btn:hover { border-color: var(--ink-faint); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn-primary:hover { filter: brightness(1.06); }
+  .btn-danger { color: var(--critical); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+
+  .conn-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .conn-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--ink-faint); flex: none; }
+  .conn-dot.on { background: var(--good); }
+  .conn-label { font-size: 12px; color: var(--ink-soft); }
+  .btn-logout {
+    background: none; border: none; color: var(--ink-faint);
+    font-size: 12.5px; font-weight: 600; padding: 4px 6px; text-decoration: underline;
+  }
+  .btn-logout:hover { color: var(--ink); }
+
+  .banner { padding: 10px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 14px; display: none; }
+  .banner.show { display: block; }
+  .banner.danger { background: var(--critical-soft); color: var(--critical); }
+
+  /* ---------- Resumen ---------- */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+  .stat { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .stat .n { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 500; line-height: 1; }
+  .stat .label { margin-top: 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); }
+  .stat.today .n { color: var(--accent); }
+  .stat.late .n { color: var(--critical); }
+
+  /* ---------- Captura ---------- */
+  .capture {
+    background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px; box-shadow: var(--shadow); margin-bottom: 20px;
+  }
+  .capture h2 { font-size: 15px; margin-bottom: 10px; }
+  .capture-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .capture-row { display: flex; gap: 8px; }
+  input[type="text"], input[type="date"], select, textarea {
+    font-family: inherit; font-size: 16px; color: var(--ink); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 11px; min-width: 0;
+  }
+  .capture-row input[type="text"] { flex: 1; }
+  .capture-row input[type="date"] { flex: 1; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    background: var(--paper); border: 1px solid var(--line); color: var(--ink-soft);
+    border-radius: 999px; padding: 4px 11px; font-size: 12.5px; font-weight: 600;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .add-btn { width: 100%; padding: 12px; font-size: 14.5px; }
+
+  /* ---------- Lista ---------- */
+  .search {
+    width: 100%; margin-bottom: 14px; background: var(--paper-raised);
+  }
+
+  .day { margin-bottom: 18px; }
+  .day-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    padding: 0 2px 6px; margin-bottom: 6px; border-bottom: 1px solid var(--line);
+  }
+  .day-title { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 15px; text-transform: capitalize; }
+  .day-sub { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-faint); white-space: nowrap; }
+  .day.is-today .day-title { color: var(--accent); }
+  .day.is-late .day-title { color: var(--critical); }
+
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .pac {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 8px 8px 12px;
+  }
+  .pac.finished { opacity: 0.6; }
+  .pac.finished .pac-name { text-decoration: line-through; }
+  .pac-main { flex: 1; min-width: 0; text-align: left; background: none; border: none; padding: 4px 0; }
+  .pac-name { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+  .pac-note { font-size: 12.5px; color: var(--ink-soft); overflow-wrap: anywhere; }
+  .check-btn {
+    flex: none; width: 38px; height: 38px; border-radius: 50%;
+    border: 2px solid var(--line); background: var(--paper); color: transparent;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .check-btn svg { width: 18px; height: 18px; }
+  .check-btn:hover { border-color: var(--good); color: var(--good); }
+  .pac.finished .check-btn { background: var(--good); border-color: var(--good); color: #fff; }
+
+  .empty { text-align: center; color: var(--ink-soft); font-size: 14px; padding: 28px 10px; }
+
+  details.done-box { margin-top: 8px; }
+  details.done-box summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-soft); padding: 8px 2px; }
+
+  /* ---------- Ajustes ---------- */
+  details.settings {
+    margin-top: 26px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px;
+  }
+  details.settings summary { cursor: pointer; font-weight: 600; font-size: 13.5px; padding: 10px 0; color: var(--ink-soft); }
+  .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 14px; }
+  .set-row select { padding: 7px 9px; font-size: 14px; }
+  .set-row input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
+  .set-hint { font-size: 12px; color: var(--ink-faint); margin: 0 0 10px; }
+
+  /* ---------- Modal ---------- */
+  dialog {
+    border: 1px solid var(--line); border-radius: 14px; padding: 18px; width: min(420px, calc(100vw - 32px));
+    background: var(--paper-raised); color: var(--ink); box-shadow: 0 10px 40px rgba(0,0,0,.25);
+  }
+  dialog::backdrop { background: rgba(10, 20, 18, 0.5); }
+  dialog h2 { font-size: 17px; margin-bottom: 12px; }
+  dialog .field { margin-bottom: 10px; }
+  dialog .field input, dialog .field textarea { width: 100%; }
+  dialog textarea { resize: vertical; min-height: 64px; font-size: 16px; }
+  .dlg-actions { display: flex; gap: 8px; justify-content: space-between; margin-top: 14px; }
+  .dlg-actions .right { display: flex; gap: 8px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 999px; font-size: 13px;
+    opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 300; max-width: calc(100vw - 32px); text-align: center;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="splash" id="splashView">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15.5l2.2 2.2 4-4.4"/></svg>
+</div>
+
+<div class="wrap">
+  <header class="top">
+    <h1><span class="app-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15.5l2.2 2.2 4-4.4"/></svg></span> Tracker</h1>
+    <span class="clock" id="clock"></span>
+  </header>
+
+  <div id="notConnectedView" style="display:none;">
+    <div class="auth-hero">
+      <h2>Entrar</h2>
+      <p>Ingresa con tu correo y contraseña. Si es la primera vez, toca «Crear cuenta». Tus usuarios quedan guardados de forma segura y los ves desde cualquier celular.</p>
+      <div class="field" style="width:100%; text-align:left;">
+        <label for="authEmail">Correo</label>
+        <input type="email" id="authEmail" autocomplete="username" autocapitalize="none">
+      </div>
+      <div class="field" style="width:100%; text-align:left;">
+        <label for="authPassword">Contraseña</label>
+        <div style="position:relative;">
+          <input type="password" id="authPassword" autocomplete="current-password" style="width:100%; padding-right:38px;">
+          <button type="button" id="btnToggleSenha" aria-label="Mostrar contraseña" style="position:absolute; right:6px; top:50%; transform:translateY(-50%); background:none; border:none; padding:4px; cursor:pointer; color:inherit; opacity:.65; display:flex;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="field-error" id="authError"></div>
+      <div style="display:flex; gap:10px; width:100%;">
+        <button class="btn" id="btnSignUp" type="button" style="flex:1;">Crear cuenta</button>
+        <button class="btn btn-primary" id="btnSignIn" type="button" style="flex:1;">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="connectedView" style="display:none;">
+
+    <div class="conn-bar">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="conn-dot on" id="connDot"></span>
+        <span class="conn-label" id="connLabel">Conectado</span>
+      </div>
+      <button class="btn-logout" id="btnLogout" type="button">Salir</button>
+    </div>
+
+    <div class="banner danger" id="errorBanner"></div>
+
+    <div class="stats">
+      <div class="stat today"><div class="n" id="stat-today">–</div><div class="label">Terminan hoy</div></div>
+      <div class="stat"><div class="n" id="stat-tomorrow">–</div><div class="label">Mañana</div></div>
+      <div class="stat late"><div class="n" id="stat-late">–</div><div class="label">Sin cerrar</div></div>
+    </div>
+
+    <div class="capture">
+      <h2>Agregar usuario</h2>
+      <div class="capture-grid">
+        <input type="text" id="nombre-input" placeholder="Nombre del usuario" autocomplete="off" autocapitalize="words" enterkeyhint="done">
+        <div class="capture-row">
+          <input type="date" id="fecha-input" aria-label="Fecha en que termina el tratamiento">
+        </div>
+        <div class="chips" id="quick-chips">
+          <button type="button" class="chip" data-days="0">Hoy</button>
+          <button type="button" class="chip" data-days="1">Mañana</button>
+          <button type="button" class="chip" data-days="7">+1 semana</button>
+          <button type="button" class="chip" data-days="14">+2 semanas</button>
+          <button type="button" class="chip" data-days="30">+1 mes</button>
+        </div>
+        <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
+      </div>
+    </div>
+
+    <input type="text" class="search" id="search-input" placeholder="Buscar usuario…" autocomplete="off">
+
+    <div id="list-root"></div>
+
+    <details class="done-box" id="done-box" hidden>
+      <summary id="done-summary">Tratamientos terminados</summary>
+      <div class="list" id="done-list"></div>
+    </details>
+
+    <details class="settings">
+      <summary>⚙️ Avisos</summary>
+      <p class="set-hint">El celular te avisa los días en que hay usuarios que terminan, con sus nombres.</p>
+      <div class="set-row">
+        <label for="set-hora">Hora del aviso</label>
+        <select id="set-hora"></select>
+      </div>
+      <div class="set-row">
+        <label for="set-antes">Avisar también el día anterior</label>
+        <input type="checkbox" id="set-antes">
+      </div>
+      <div class="set-row">
+        <span>¿No te llegan avisos?</span>
+        <button type="button" class="btn" id="btn-test-notif">Probar aviso</button>
+      </div>
+    </details>
+  </div>
+</div>
+
+<dialog id="edit-dialog">
+  <h2>Editar usuario</h2>
+  <div class="field"><label for="edit-nombre">Nombre</label><input type="text" id="edit-nombre" autocomplete="off"></div>
+  <div class="field"><label for="edit-fecha">Termina el</label><input type="date" id="edit-fecha"></div>
+  <div class="field"><label for="edit-notas">Notas (opcional)</label><textarea id="edit-notas" placeholder="Diagnóstico, teléfono, sesiones…"></textarea></div>
+  <div class="dlg-actions">
+    <button type="button" class="btn btn-danger" id="edit-delete">Eliminar</button>
+    <div class="right">
+      <button type="button" class="btn" id="edit-cancel">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="edit-save">Guardar</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+
+  var NOTIF_CHANNEL_ID = "tratamientos_alerts";
+  var NOTIF_HORIZON_DAYS = 90; // cuántos días hacia adelante se programan avisos locales
+  // Configuración por dispositivo (cada celular programa sus propias notificaciones locales).
+  var NOTIF_HOUR = Number(localStorage.getItem('tratNotifHora'));
+  if (!NOTIF_HOUR) NOTIF_HOUR = 8;
+  var NOTIF_ANTES = localStorage.getItem('tratNotifAntes') === '1';
+
+  // ---------- Supabase client (mismo proyecto/anon key que Finanças, Planes y Tareas) ----------
+  var SUPABASE_URL = "https://qdetwdneqncblxwylpyw.supabase.co";
+  var SUPABASE_ANON_KEY = "sb_publishable_CI3FY5MplWpHWaU25bewZg_l2YvjsmZ";
+  var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  var pacientes = [];
+  var editingId = null;
+
+  function showError(msg){ var e = $("errorBanner"); e.textContent = msg; e.classList.add("show"); }
+  function clearError(){ $("errorBanner").classList.remove("show"); }
+  function throwIfError(res){ if (res && res.error) throw res.error; return res; }
+  var toastTimer = null;
+  function toast(msg){
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+  }
+
+  // ---------- Fechas ----------
+  function pad(n){ return String(n).padStart(2, '0'); }
+  function toIso(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parseIso(s){ var p = s.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])); }
+  function todayStr(){ return toIso(new Date()); }
+  function addDays(iso, n){ var d = parseIso(iso); d.setDate(d.getDate() + n); return toIso(d); }
+  function diffDays(a, b){ return Math.round((parseIso(b) - parseIso(a)) / 86400000); }
+  var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  var DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  function longDate(iso){ var d = parseIso(iso); return DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()]; }
+
+  function dayTitle(iso){
+    var diff = diffDays(todayStr(), iso);
+    if (diff === 0) return 'Hoy · ' + longDate(iso);
+    if (diff === 1) return 'Mañana · ' + longDate(iso);
+    if (diff === -1) return 'Ayer · ' + longDate(iso);
+    return longDate(iso) + (parseIso(iso).getFullYear() !== new Date().getFullYear() ? ' ' + parseIso(iso).getFullYear() : '');
+  }
+
+  function tick(){
+    var d = new Date();
+    $("clock").textContent = DIAS[d.getDay()] + ' ' + d.getDate() + ' ' + MESES[d.getMonth()].slice(0, 3);
+  }
+
+  // ---------- Datos ----------
+  function mapRow(r){
+    return { id: r.id, nombre: r.nombre, fechaFin: r.fecha_fin, notas: r.notas || '', terminado: !!r.terminado };
+  }
+  function loadPacientes(){
+    return supabaseClient.from('tratamientos_pacientes').select('*')
+      .order('fecha_fin', { ascending: true }).order('nombre', { ascending: true })
+      .then(function(res){ throwIfError(res); pacientes = (res.data || []).map(mapRow); });
+  }
+  function loadAndRender(){
+    clearError();
+    return loadPacientes().then(function(){ render(); scheduleNotifications(); }).catch(function(err){
+      showError('No se pudo cargar la lista: ' + err.message);
+    });
+  }
+
+  function addPaciente(){
+    var nombre = $("nombre-input").value.trim();
+    var fecha = $("fecha-input").value;
+    if (!nombre || !fecha) return;
+    $("add-btn").disabled = true;
+    supabaseClient.from('tratamientos_pacientes').insert({ nombre: nombre, fecha_fin: fecha })
+      .then(throwIfError).then(function(){
+        $("nombre-input").value = '';
+        // La fecha se conserva: normalmente se cargan varios usuarios seguidos con fechas parecidas.
+        toast('Agregado: ' + nombre + ' · ' + longDate(fecha));
+        $("nombre-input").focus();
+        return loadAndRender();
+      }).catch(function(err){
+        showError('No se pudo guardar: ' + err.message);
+        $("add-btn").disabled = false;
+      });
+  }
+
+  function setTerminado(id, value){
+    supabaseClient.from('tratamientos_pacientes').update({ terminado: value, updated_at: new Date().toISOString() }).eq('id', id)
+      .then(throwIfError).then(loadAndRender)
+      .catch(function(err){ showError('No se pudo actualizar: ' + err.message); });
+  }
+
+  // ---------- Render ----------
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+  function pacRow(p){
+    var row = el('div', 'pac' + (p.terminado ? ' finished' : ''));
+    var main = el('button', 'pac-main');
+    main.type = 'button';
+    main.appendChild(el('div', 'pac-name', p.nombre));
+    if (p.notas) main.appendChild(el('div', 'pac-note', p.notas));
+    main.addEventListener('click', function(){ openEdit(p.id); });
+    var chk = el('button', 'check-btn');
+    chk.type = 'button';
+    chk.setAttribute('aria-label', p.terminado ? 'Reabrir tratamiento' : 'Marcar tratamiento como terminado');
+    chk.innerHTML = CHECK_SVG;
+    chk.addEventListener('click', function(){ setTerminado(p.id, !p.terminado); });
+    row.appendChild(main);
+    row.appendChild(chk);
+    return row;
+  }
+
+  function dayBlock(iso, items, cls){
+    var box = el('section', 'day ' + (cls || ''));
+    var head = el('div', 'day-head');
+    head.appendChild(el('span', 'day-title', dayTitle(iso)));
+    head.appendChild(el('span', 'day-sub', items.length + (items.length === 1 ? ' usuario' : ' usuarios')));
+    box.appendChild(head);
+    var list = el('div', 'list');
+    items.forEach(function(p){ list.appendChild(pacRow(p)); });
+    box.appendChild(list);
+    return box;
+  }
+
+  function norm(s){ return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+  function render(){
+    var today = todayStr();
+    var tomorrow = addDays(today, 1);
+    var active = pacientes.filter(function(p){ return !p.terminado; });
+    $("stat-today").textContent = active.filter(function(p){ return p.fechaFin === today; }).length;
+    $("stat-tomorrow").textContent = active.filter(function(p){ return p.fechaFin === tomorrow; }).length;
+    $("stat-late").textContent = active.filter(function(p){ return p.fechaFin < today; }).length;
+
+    var q = norm($("search-input").value.trim());
+    var match = function(p){ return !q || norm(p.nombre).indexOf(q) !== -1; };
+
+    var root = $("list-root");
+    root.innerHTML = '';
+    var shown = active.filter(match);
+    if (!shown.length){
+      root.appendChild(el('div', 'empty', q ? 'Nadie coincide con esa búsqueda.' : 'Aún no hay usuarios. Agrega el primero arriba 👆'));
+    } else {
+      var groups = {}, dates = [];
+      shown.forEach(function(p){
+        if (!groups[p.fechaFin]){ groups[p.fechaFin] = []; dates.push(p.fechaFin); }
+        groups[p.fechaFin].push(p);
+      });
+      dates.sort();
+      dates.forEach(function(iso){
+        var cls = iso < today ? 'is-late' : (iso === today ? 'is-today' : '');
+        root.appendChild(dayBlock(iso, groups[iso], cls));
+      });
+    }
+
+    var done = pacientes.filter(function(p){ return p.terminado; }).filter(match).sort(function(a, b){ return a.fechaFin < b.fechaFin ? 1 : -1; });
+    $("done-box").hidden = !done.length;
+    $("done-summary").textContent = 'Tratamientos terminados (' + done.length + ')';
+    var dl = $("done-list");
+    dl.innerHTML = '';
+    done.forEach(function(p){
+      var wrap = el('div');
+      var r = pacRow(p);
+      r.querySelector('.pac-main').appendChild(el('div', 'pac-note', 'Terminó el ' + longDate(p.fechaFin)));
+      wrap.appendChild(r);
+      dl.appendChild(wrap);
+    });
+  }
+
+  // ---------- Edición ----------
+  function openEdit(id){
+    var p = pacientes.filter(function(x){ return x.id === id; })[0];
+    if (!p) return;
+    editingId = id;
+    $("edit-nombre").value = p.nombre;
+    $("edit-fecha").value = p.fechaFin;
+    $("edit-notas").value = p.notas;
+    $("edit-dialog").showModal();
+  }
+  $("edit-cancel").addEventListener("click", function(){ $("edit-dialog").close(); });
+  $("edit-save").addEventListener("click", function(){
+    var nombre = $("edit-nombre").value.trim();
+    var fecha = $("edit-fecha").value;
+    if (!nombre || !fecha){ toast('Falta el nombre o la fecha'); return; }
+    supabaseClient.from('tratamientos_pacientes').update({
+      nombre: nombre, fecha_fin: fecha, notas: $("edit-notas").value.trim() || null, updated_at: new Date().toISOString()
+    }).eq('id', editingId).then(throwIfError).then(function(){
+      $("edit-dialog").close();
+      return loadAndRender();
+    }).catch(function(err){ showError('No se pudo guardar: ' + err.message); $("edit-dialog").close(); });
+  });
+  $("edit-delete").addEventListener("click", function(){
+    var p = pacientes.filter(function(x){ return x.id === editingId; })[0];
+    if (!p || !confirm('¿Eliminar a ' + p.nombre + '?')) return;
+    supabaseClient.from('tratamientos_pacientes').delete().eq('id', editingId)
+      .then(throwIfError).then(function(){ $("edit-dialog").close(); return loadAndRender(); })
+      .catch(function(err){ showError('No se pudo eliminar: ' + err.message); $("edit-dialog").close(); });
+  });
+
+  // ---------- Formulario ----------
+  function refreshAddBtn(){ $("add-btn").disabled = !($("nombre-input").value.trim() && $("fecha-input").value); }
+  $("fecha-input").value = todayStr();
+  refreshAddBtn();
+  $("nombre-input").addEventListener("input", refreshAddBtn);
+  $("fecha-input").addEventListener("change", refreshAddBtn);
+  $("nombre-input").addEventListener("keydown", function(e){ if (e.key === "Enter") addPaciente(); });
+  $("add-btn").addEventListener("click", addPaciente);
+  $("quick-chips").addEventListener("click", function(e){
+    var b = e.target.closest('.chip'); if (!b) return;
+    $("fecha-input").value = addDays(todayStr(), Number(b.dataset.days));
+    refreshAddBtn();
+  });
+  $("search-input").addEventListener("input", render);
+
+  // ---------- Notificaciones locales (Capacitor) ----------
+  function getLocalNotifications(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) return null;
+    return (window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) || null;
+  }
+  // Los ids de LocalNotifications deben ser enteros: se usa el nº de día desde 1970 (*2; +1 = aviso del día anterior).
+  function dayNotifId(iso){
+    var d = parseIso(iso);
+    return 800000000 + Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000) * 2;
+  }
+  function namesText(list){
+    var names = list.map(function(p){ return p.nombre; });
+    if (names.length <= 6) return names.join(', ');
+    return names.slice(0, 6).join(', ') + ' y ' + (names.length - 6) + ' más';
+  }
+  function plural(n){ return n === 1 ? '1 usuario termina' : n + ' usuarios terminan'; }
+
+  // Una notificación por día con terminaciones (con todos los nombres) a NOTIF_HOUR, más —si está activado—
+  // otra la víspera. Se reprograma todo en cada carga: es barato y evita duplicados o avisos viejos.
+  function scheduleNotifications(){
+    var LN = getLocalNotifications();
+    if (!LN) return;
+    LN.requestPermissions().then(function(perm){
+      if (perm.display !== "granted") return;
+      return LN.getPending().then(function(pend){
+        var old = (pend.notifications || []).map(function(n){ return { id: n.id }; });
+        return old.length ? LN.cancel({ notifications: old }) : null;
+      }).then(function(){
+        var today = todayStr();
+        var byDay = {};
+        pacientes.forEach(function(p){
+          if (p.terminado || p.fechaFin < today || diffDays(today, p.fechaFin) > NOTIF_HORIZON_DAYS) return;
+          (byDay[p.fechaFin] = byDay[p.fechaFin] || []).push(p);
+        });
+        var out = [];
+        Object.keys(byDay).forEach(function(iso){
+          var d = parseIso(iso);
+          var list = byDay[iso];
+          var at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), NOTIF_HOUR, 0, 0, 0);
+          if (at.getTime() > Date.now()){
+            out.push({ id: dayNotifId(iso), title: 'Hoy ' + plural(list.length) + ' el tratamiento', body: namesText(list), channelId: NOTIF_CHANNEL_ID, schedule: { at: at, allowWhileIdle: true } });
+          }
+          if (NOTIF_ANTES){
+            var before = new Date(at.getTime()); before.setDate(before.getDate() - 1);
+            if (before.getTime() > Date.now()){
+              out.push({ id: dayNotifId(iso) + 1, title: 'Mañana ' + plural(list.length) + ' el tratamiento', body: namesText(list), channelId: NOTIF_CHANNEL_ID, schedule: { at: before, allowWhileIdle: true } });
+            }
+          }
+        });
+        if (out.length) return LN.schedule({ notifications: out });
+      });
+    }).catch(function(){ /* las notificaciones nativas son un plus, nunca deben bloquear la app */ });
+  }
+
+  // Android 8+ solo muestra banner emergente en canales de importancia HIGH; la importancia queda fija al crear el canal.
+  (function ensureNotificationChannel(){
+    var LN = getLocalNotifications();
+    if (!LN) return;
+    LN.createChannel({
+      id: NOTIF_CHANNEL_ID, name: "Terminación de tratamientos",
+      description: "Aviso de los usuarios que terminan su tratamiento",
+      importance: 5, visibility: 1, vibration: true
+    }).catch(function(){});
+  })();
+
+  // ---------- Ajustes de avisos ----------
+  (function initSettings(){
+    var sel = $("set-hora");
+    for (var h = 5; h <= 20; h++){
+      var o = document.createElement('option');
+      o.value = h; o.textContent = (h > 12 ? h - 12 : h) + ':00 ' + (h >= 12 ? 'p. m.' : 'a. m.');
+      sel.appendChild(o);
+    }
+    sel.value = String(NOTIF_HOUR);
+    $("set-antes").checked = NOTIF_ANTES;
+    sel.addEventListener("change", function(){
+      NOTIF_HOUR = Number(sel.value);
+      try { localStorage.setItem('tratNotifHora', String(NOTIF_HOUR)); } catch(e){}
+      scheduleNotifications(); toast('Aviso a las ' + sel.options[sel.selectedIndex].textContent);
+    });
+    $("set-antes").addEventListener("change", function(){
+      NOTIF_ANTES = $("set-antes").checked;
+      try { localStorage.setItem('tratNotifAntes', NOTIF_ANTES ? '1' : '0'); } catch(e){}
+      scheduleNotifications();
+    });
+    $("btn-test-notif").addEventListener("click", function(){
+      var LN = getLocalNotifications();
+      if (!LN){ toast('Los avisos solo funcionan en la app instalada'); return; }
+      LN.requestPermissions().then(function(perm){
+        if (perm.display !== "granted"){ toast('Activa los permisos de notificaciones del celular'); return; }
+        return LN.schedule({ notifications: [{ id: 899999999, title: 'Aviso de prueba', body: 'Así te llegarán los avisos de Tracker', channelId: NOTIF_CHANNEL_ID, schedule: { at: new Date(Date.now() + 5000) } }] })
+          .then(function(){ toast('Llega en 5 segundos…'); });
+      }).catch(function(){ toast('No se pudo programar el aviso'); });
+    });
+  })();
+
+  // ---------- Auth (Supabase email/password, mismo patrón que las demás apps) ----------
+  function showAuthError(msg){ var e = $("authError"); e.textContent = msg; e.style.display = "block"; }
+  function clearAuthError(){ $("authError").style.display = "none"; }
+  function doSignIn(){
+    clearAuthError();
+    var email = $("authEmail").value.trim(), password = $("authPassword").value;
+    if (!email || !password){ showAuthError("Escribe tu correo y contraseña."); return; }
+    supabaseClient.auth.signInWithPassword({ email: email, password: password }).then(function(res){
+      if (res.error) showAuthError(res.error.message);
+    });
+  }
+  function doSignUp(){
+    clearAuthError();
+    var email = $("authEmail").value.trim(), password = $("authPassword").value;
+    if (!email || !password){ showAuthError("Escribe tu correo y contraseña."); return; }
+    if (password.length < 6){ showAuthError("La contraseña debe tener al menos 6 caracteres."); return; }
+    supabaseClient.auth.signUp({ email: email, password: password }).then(function(res){
+      if (res.error){ showAuthError(res.error.message); return; }
+      if (res.data && res.data.user && !res.data.session){
+        showAuthError("¡Cuenta creada! Revisa tu correo para confirmarla antes de entrar.");
+      }
+    });
+  }
+  $("btnSignIn").addEventListener("click", doSignIn);
+  $("btnSignUp").addEventListener("click", doSignUp);
+  $("btnLogout").addEventListener("click", function(){ supabaseClient.auth.signOut(); });
+  $("btnToggleSenha").addEventListener("click", function(){
+    var input = $("authPassword"), showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    this.setAttribute("aria-label", showing ? "Mostrar contraseña" : "Ocultar contraseña");
+  });
+  ["authEmail", "authPassword"].forEach(function(id){
+    $(id).addEventListener("keydown", function(e){ if (e.key === "Enter") doSignIn(); });
+  });
+
+  var splashHidden = false;
+  function hideSplash(){
+    if (splashHidden) return;
+    splashHidden = true;
+    var s = $("splashView");
+    s.classList.add("hide");
+    setTimeout(function(){ s.style.display = "none"; }, 250);
+  }
+  function setConnectedUI(connected, email){
+    $("connDot").className = "conn-dot " + (connected ? "on" : "off");
+    $("connLabel").textContent = connected ? ("Conectado como " + email) : "No conectado";
+    $("notConnectedView").style.display = connected ? "none" : "block";
+    $("connectedView").style.display = connected ? "block" : "none";
+    hideSplash();
+  }
+  supabaseClient.auth.onAuthStateChange(function(event, session){
+    if (session && session.user){
+      setConnectedUI(true, session.user.email);
+      loadAndRender();
+    } else {
+      setConnectedUI(false, "");
+    }
+  });
+
+  // Al volver a abrir la app (otro día) se recalcula "hoy/mañana" y se reprograma.
+  document.addEventListener("visibilitychange", function(){
+    if (!document.hidden && $("connectedView").style.display !== "none"){ tick(); $("fecha-input").min = ''; loadAndRender(); }
+  });
+
+  // Android 15+ dibuja el WebView detrás de la status bar por defecto.
+  (function configureStatusBar(){
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) return;
+    var SB = window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar;
+    if (!SB) return;
+    SB.setOverlaysWebView({ overlay: false }).catch(function(){});
+    SB.setBackgroundColor({ color: "#2F7D79" }).catch(function(){});
+    SB.setStyle({ style: "DARK" }).catch(function(){});
+  })();
+
+  tick();
+  render();
+})();
+</script>
+
+</body>
+</html>
