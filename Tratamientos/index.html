@@ -81,7 +81,7 @@
   .wrap {
     max-width: 640px;
     margin: 0 auto;
-    padding: calc(24px + env(safe-area-inset-top, 0px)) 18px 110px;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 18px 24px;
   }
 
   header.top {
@@ -156,8 +156,10 @@
   .stat { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .stat .n { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 500; line-height: 1; }
   .stat .label { margin-top: 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); }
-  .stat.today .n { color: var(--accent); }
-  .stat.late .n { color: var(--critical); }
+  .stat { text-align: left; color: inherit; font: inherit; }
+  .stat .n { color: var(--accent); }
+  .stat.selected { background: var(--accent-soft); border-color: var(--accent); }
+  .stat.selected .label { color: var(--accent); font-weight: 600; }
 
   /* ---------- Captura ---------- */
   .capture {
@@ -218,6 +220,7 @@
   .bottom-nav button.nav-add { color: var(--accent); }
   .bottom-nav button.nav-add:active .nav-add-circle { filter: brightness(0.92); }
   #add-dialog { margin: 6vh auto auto; max-height: 88vh; overflow-y: auto; }
+  .list-scroll { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-right: 2px; }
   .cal-scroll { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-right: 2px; }
   .cal-scroll .day { margin-bottom: 4px; }
 
@@ -301,15 +304,6 @@
   .badge-inf {
     display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; vertical-align: middle;
     background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
-  }
-  body { overscroll-behavior-y: contain; }
-  #ptr {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 250; display: flex; justify-content: center; pointer-events: none;
-    transform: translateY(-140px); opacity: 0; transition: transform .15s, opacity .15s;
-  }
-  #ptr span {
-    margin-top: calc(10px + env(safe-area-inset-top, 0px)); background: var(--paper-raised); color: var(--accent);
-    border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 600; box-shadow: var(--shadow);
   }
   .pac-note { font-size: 12.5px; color: var(--ink-soft); overflow-wrap: anywhere; }
   .check-btn {
@@ -409,20 +403,22 @@
 
     <!-- ===== Página: Usuarios ===== -->
     <div class="tab-page" id="page-lista">
-      <div class="stats">
-        <div class="stat today"><div class="n" id="stat-today">–</div><div class="label">Terminan hoy</div></div>
-        <div class="stat"><div class="n" id="stat-tomorrow">–</div><div class="label">Mañana</div></div>
-        <div class="stat late"><div class="n" id="stat-late">–</div><div class="label">Sin cerrar</div></div>
+      <div class="stats" id="stats">
+        <button type="button" class="stat" data-filter="hoy"><div class="n" id="stat-today">–</div><div class="label">Terminan hoy</div></button>
+        <button type="button" class="stat" data-filter="semana"><div class="n" id="stat-week">–</div><div class="label">Esta semana</div></button>
+        <button type="button" class="stat selected" data-filter="all"><div class="n" id="stat-total">–</div><div class="label">Usuarios activos</div></button>
       </div>
 
       <input type="text" class="search" id="search-input" placeholder="Buscar usuario…" autocomplete="off">
 
-      <div id="list-root"></div>
+      <div class="list-scroll" id="list-scroll">
+        <div id="list-root"></div>
 
-      <details class="done-box" id="done-box" hidden>
-        <summary id="done-summary">Tratamientos terminados</summary>
-        <div class="list" id="done-list"></div>
-      </details>
+        <details class="done-box" id="done-box" hidden>
+          <summary id="done-summary">Tratamientos terminados</summary>
+          <div class="list" id="done-list"></div>
+        </details>
+      </div>
     </div>
 
     <!-- ===== Página: Calendario ===== -->
@@ -510,6 +506,10 @@
     <input type="checkbox" id="set-antes">
   </div>
   <div class="set-row">
+    <span>Actualizar la app</span>
+    <button type="button" class="btn" id="btn-reload">Actualizar</button>
+  </div>
+  <div class="set-row">
     <span>¿No te llegan avisos?</span>
     <button type="button" class="btn" id="btn-test-notif">Probar aviso</button>
   </div>
@@ -534,7 +534,6 @@
 </dialog>
 
 <div class="toast" id="toast"></div>
-<div id="ptr"><span id="ptr-text">Suelta para actualizar</span></div>
 
 <script>
 (function(){
@@ -555,6 +554,7 @@
 
   var pacientes = [];
   var editingId = null;
+  var statFilter = 'all'; // filtro de la página Usuarios: all | hoy | semana
   // Modo admin: meId = cuenta con la sesión iniciada; viewId = cuenta cuya lista se está mirando.
   var meId = null, viewId = null, viewEmail = '', isAdmin = false;
 
@@ -704,20 +704,30 @@
 
   function render(){
     var today = todayStr();
-    var tomorrow = addDays(today, 1);
+    var weekStart = addDays(today, -((parseIso(today).getDay() + 6) % 7)), weekEnd = addDays(weekStart, 6);
     var active = pacientes.filter(function(p){ return !p.terminado; });
-    $("stat-today").textContent = active.filter(function(p){ return p.fechaFin === today; }).length;
-    $("stat-tomorrow").textContent = active.filter(function(p){ return p.fechaFin === tomorrow; }).length;
-    $("stat-late").textContent = active.filter(function(p){ return p.fechaFin < today; }).length;
+    var inFilter = {
+      all: function(){ return true; },
+      hoy: function(p){ return p.fechaFin === today; },
+      semana: function(p){ return p.fechaFin >= weekStart && p.fechaFin <= weekEnd; }
+    };
+    $("stat-today").textContent = active.filter(inFilter.hoy).length;
+    $("stat-week").textContent = active.filter(inFilter.semana).length;
+    $("stat-total").textContent = active.length;
+    Array.prototype.forEach.call($("stats").querySelectorAll('.stat'), function(b){
+      b.classList.toggle('selected', b.dataset.filter === statFilter);
+    });
 
     var q = norm($("search-input").value.trim());
     var match = function(p){ return !q || norm(p.nombre).indexOf(q) !== -1; };
 
     var root = $("list-root");
     root.innerHTML = '';
-    var shown = active.filter(match);
+    var shown = active.filter(match).filter(inFilter[statFilter]);
     if (!shown.length){
-      root.appendChild(el('div', 'empty', q ? 'Nadie coincide con esa búsqueda.' : 'Aún no hay usuarios. Agrega el primero arriba 👆'));
+      var emptyMsg = q ? 'Nadie coincide con esa búsqueda.' :
+        (statFilter === 'hoy' ? 'Nadie termina hoy.' : statFilter === 'semana' ? 'Nadie termina esta semana.' : 'Aún no hay usuarios. Toca el botón + para agregar el primero.');
+      root.appendChild(el('div', 'empty', emptyMsg));
     } else {
       var groups = {}, dates = [];
       shown.forEach(function(p){
@@ -732,7 +742,7 @@
     }
 
     var done = pacientes.filter(function(p){ return p.terminado; }).filter(match).sort(function(a, b){ return a.fechaFin < b.fechaFin ? 1 : -1; });
-    $("done-box").hidden = !done.length;
+    $("done-box").hidden = !done.length || statFilter !== 'all';
     $("done-summary").textContent = 'Tratamientos terminados (' + done.length + ')';
     var dl = $("done-list");
     dl.innerHTML = '';
@@ -745,6 +755,7 @@
     });
     if (!$("page-cal").hidden) renderCalendar();
     updateDupHint();
+    fitListScroll();
   }
 
   // ---------- Edición ----------
@@ -852,6 +863,21 @@
   $("nombre-input").addEventListener("keydown", function(e){ if (e.key === "Enter") addPaciente(); });
   $("add-btn").addEventListener("click", addPaciente);
   $("search-input").addEventListener("input", render);
+  // Las tarjetas del resumen filtran la lista; tocar la seleccionada vuelve a mostrar todos.
+  $("stats").addEventListener("click", function(e){
+    var b = e.target.closest('.stat'); if (!b) return;
+    statFilter = (b.dataset.filter === statFilter) ? 'all' : b.dataset.filter;
+    render();
+  });
+  // La lista de usuarios ocupa el espacio que queda hasta la barra inferior y se desplaza por dentro.
+  function fitListScroll(){
+    var sc = $("list-scroll");
+    if (!sc || $("page-lista").hidden || $("connectedView").style.display === 'none') return;
+    sc.style.maxHeight = 'none';
+    var avail = window.innerHeight - (sc.getBoundingClientRect().top + window.scrollY) - $("bottomNav").offsetHeight - 36;
+    sc.style.maxHeight = Math.max(150, avail) + 'px';
+  }
+  window.addEventListener('resize', fitListScroll);
 
   // ---------- Barra inferior y calendario ----------
   var calView = { y: new Date().getFullYear(), m: new Date().getMonth() };
@@ -862,7 +888,7 @@
     Array.prototype.forEach.call($("bottomNav").querySelectorAll('button'), function(b){
       b.classList.toggle('active', b.dataset.page === name);
     });
-    if (name === 'cal') renderCalendar();
+    if (name === 'cal') renderCalendar(); else fitListScroll();
     window.scrollTo(0, 0);
   }
   $("bottomNav").addEventListener("click", function(e){
@@ -930,6 +956,8 @@
 
   // ---------- Configuración (menú de 3 puntos) ----------
   $("btn-settings").addEventListener("click", function(){ $("settings-dialog").showModal(); });
+  // Recarga la página (trae la última versión publicada y los datos); la vista de admin se conserva.
+  $("btn-reload").addEventListener("click", function(){ location.reload(); });
   $("settings-close").addEventListener("click", function(){ $("settings-dialog").close(); });
 
   // ---------- Notificaciones locales (Capacitor) ----------
@@ -1098,12 +1126,17 @@
           o.textContent = (u.id === meId ? 'Mi cuenta · ' : '') + u.email + ' (' + u.total + ')';
           sel.appendChild(o);
         });
+        var saved = null;
+        try { saved = sessionStorage.getItem('tratView'); } catch(e){}
+        var opt = saved ? Array.prototype.filter.call(sel.options, function(o){ return o.value === saved; })[0] : null;
+        if (opt){ viewId = saved; viewEmail = opt.dataset.email; }
         sel.value = viewId;
       });
     }).catch(function(){ isAdmin = false; }).then(updateViewUI);
   }
   function switchView(id, email){
     viewId = id; viewEmail = email; pacientes = [];
+    try { if (id === meId) sessionStorage.removeItem('tratView'); else sessionStorage.setItem('tratView', id); } catch(e){}
     $("admin-select").value = id;
     updateViewUI();
     if ($("settings-dialog").open) $("settings-dialog").close();
@@ -1124,6 +1157,7 @@
       setTimeout(function(){ initAdmin().then(loadAndRender); }, 0);
     } else {
       meId = viewId = null; isAdmin = false; pacientes = [];
+      try { sessionStorage.removeItem('tratView'); } catch(e){}
       setConnectedUI(false, "");
       updateViewUI();
     }
@@ -1142,32 +1176,6 @@
     SB.setOverlaysWebView({ overlay: false }).catch(function(){});
     SB.setBackgroundColor({ color: "#C2417B" }).catch(function(){});
     SB.setStyle({ style: "DARK" }).catch(function(){});
-  })();
-
-  // ---------- Arrastrar para actualizar ----------
-  // Jalar la pantalla hacia abajo estando arriba del todo recarga la app (trae también la última
-  // versión publicada, porque en el celular la app carga la página desde GitHub Pages).
-  (function pullToRefresh(){
-    var startY = null, pull = 0, THRESHOLD = 90, ptr = $("ptr"), txt = $("ptr-text");
-    function blocked(){ return document.querySelector('dialog[open]') || window.scrollY > 0; }
-    document.addEventListener('touchstart', function(e){
-      startY = (!blocked() && e.touches.length === 1) ? e.touches[0].clientY : null; pull = 0;
-    }, { passive: true });
-    document.addEventListener('touchmove', function(e){
-      if (startY === null) return;
-      if (window.scrollY > 0){ startY = null; ptr.style.transform = ''; ptr.style.opacity = ''; return; }
-      pull = e.touches[0].clientY - startY;
-      if (pull <= 0){ ptr.style.transform = ''; ptr.style.opacity = ''; return; }
-      txt.textContent = pull >= THRESHOLD ? 'Suelta para actualizar' : 'Sigue bajando…';
-      ptr.style.opacity = '1'; ptr.style.transform = 'translateY(' + Math.min(pull * 0.6, 70) + 'px)';
-    }, { passive: true });
-    document.addEventListener('touchend', function(){
-      if (startY === null) return;
-      var go = pull >= THRESHOLD;
-      startY = null; pull = 0;
-      if (go){ txt.textContent = 'Actualizando…'; ptr.style.opacity = '1'; ptr.style.transform = 'translateY(60px)'; setTimeout(function(){ location.reload(); }, 150); }
-      else { ptr.style.transform = ''; ptr.style.opacity = ''; }
-    }, { passive: true });
   })();
 
   tick();
