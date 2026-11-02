@@ -299,12 +299,21 @@
   .dup-hint.exact { background: var(--critical-soft); color: var(--critical); font-weight: 600; }
   .dup-hint.ok { background: var(--good-soft); color: var(--good); font-weight: 600; }
   .dup-hint.similar { background: var(--warn-soft); color: var(--warn); }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--paper); }
+  .seg button {
+    flex: 1; padding: 10px 0; border: none; background: none; font-size: 15px; font-weight: 700; color: var(--ink-soft);
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); }
   .check-row { display: flex; align-items: center; gap: 10px; font-size: 14.5px; padding: 4px 0; }
   .check-row input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
   .badge-inf {
-    display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; vertical-align: middle;
-    background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+    display: inline-block; margin-top: 3px; padding: 1px 9px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em;
   }
+  .badge-inf.yes { background: var(--accent-soft); color: var(--accent); }
+  .badge-inf.no { background: var(--paper-3); color: var(--ink-soft); }
+  .badge-inf.none { background: var(--warn-soft); color: var(--warn); }
   .pac-note { font-size: 12.5px; color: var(--ink-soft); overflow-wrap: anywhere; }
   .check-btn {
     flex: none; width: 38px; height: 38px; border-radius: 50%;
@@ -371,7 +380,7 @@
   <div id="notConnectedView" style="display:none;">
     <div class="auth-hero">
       <h2>Entrar</h2>
-      <p>Ingresa con tu correo y contraseña. Si es la primera vez, toca «Crear cuenta». Tus usuarios quedan guardados de forma segura y los ves desde cualquier celular.</p>
+      <p>Ingresa con tu correo y contraseña. Si es la primera vez, toca «Crear cuenta». Tus pacientes quedan guardados de forma segura y los ves desde cualquier celular.</p>
       <div class="field" style="width:100%; text-align:left;">
         <label for="authEmail">Correo</label>
         <input type="email" id="authEmail" autocomplete="username" autocapitalize="none">
@@ -401,15 +410,15 @@
       <button type="button" class="btn-link" id="view-back">Volver a la mía</button>
     </div>
 
-    <!-- ===== Página: Usuarios ===== -->
+    <!-- ===== Página: Pacientes ===== -->
     <div class="tab-page" id="page-lista">
       <div class="stats" id="stats">
         <button type="button" class="stat" data-filter="hoy"><div class="n" id="stat-today">–</div><div class="label">Terminan hoy</div></button>
         <button type="button" class="stat" data-filter="semana"><div class="n" id="stat-week">–</div><div class="label">Esta semana</div></button>
-        <button type="button" class="stat selected" data-filter="all"><div class="n" id="stat-total">–</div><div class="label">Usuarios activos</div></button>
+        <button type="button" class="stat selected" data-filter="all"><div class="n" id="stat-total">–</div><div class="label">Pacientes activos</div></button>
       </div>
 
-      <input type="text" class="search" id="search-input" placeholder="Buscar usuario…" autocomplete="off">
+      <input type="text" class="search" id="search-input" placeholder="Buscar paciente…" autocomplete="off">
 
       <div class="list-scroll" id="list-scroll">
         <div id="list-root"></div>
@@ -437,11 +446,11 @@
     </div>
 
     <nav class="bottom-nav" id="bottomNav">
-      <button type="button" data-page="lista" class="active" aria-label="Usuarios">
+      <button type="button" data-page="lista" class="active" aria-label="Pacientes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16.5 5.3a3.2 3.2 0 0 1 0 5.4M18.5 14.4c1.6.7 2.8 2.4 2.8 5.1"/></svg>
-        Usuarios
+        Pacientes
       </button>
-      <button type="button" class="nav-add" data-action="add" aria-label="Agregar usuario">
+      <button type="button" class="nav-add" data-action="add" aria-label="Agregar paciente">
         <span class="nav-add-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9.5" cy="8" r="3.4"/><path d="M3 20c0-3.4 2.9-5.6 6.5-5.6 1.4 0 2.7.3 3.7.9"/><path d="M18 12.5v7M14.5 16h7"/></svg></span>
         Agregar
       </button>
@@ -454,18 +463,23 @@
 </div>
 
 <dialog id="add-dialog">
-  <h2>Agregar usuario</h2>
+  <h2>Agregar paciente</h2>
         <div class="capture-grid">
           <div class="field">
             <label for="nombre-input">Nombre</label>
-            <input type="text" id="nombre-input" placeholder="Nombre del usuario" autocomplete="off" autocapitalize="words">
+            <input type="text" id="nombre-input" placeholder="Nombre del paciente" autocomplete="off" autocapitalize="words">
             <div class="dup-hint" id="dup-hint" hidden></div>
           </div>
           <div class="field">
             <label for="fecha-input">Fecha de finalización</label>
             <button type="button" class="date-btn" id="fecha-input"></button>
           </div>
-          <label class="check-row"><input type="checkbox" id="informe-input"> Necesita informe terapéutico</label>
+          <div class="field">
+            <label>¿Necesita informe terapéutico?</label>
+            <div class="seg" id="informe-input" role="group" aria-label="Necesita informe terapéutico">
+              <button type="button" data-v="1">Sí</button><button type="button" data-v="0">No</button>
+            </div>
+          </div>
           <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
           <div class="dup-hint ok" id="add-ok" hidden></div>
           <button type="button" class="btn" id="add-close">Listo</button>
@@ -473,10 +487,15 @@
 </dialog>
 
 <dialog id="edit-dialog">
-  <h2>Editar usuario</h2>
+  <h2>Editar paciente</h2>
   <div class="field"><label for="edit-nombre">Nombre</label><input type="text" id="edit-nombre" autocomplete="off"></div>
   <div class="field"><label for="edit-fecha">Fecha de finalización</label><button type="button" class="date-btn" id="edit-fecha"></button></div>
-  <label class="check-row"><input type="checkbox" id="edit-informe"> Necesita informe terapéutico</label>
+  <div class="field">
+            <label>¿Necesita informe terapéutico?</label>
+            <div class="seg" id="edit-informe" role="group" aria-label="Necesita informe terapéutico">
+              <button type="button" data-v="1">Sí</button><button type="button" data-v="0">No</button>
+            </div>
+          </div>
   <div class="dlg-actions">
     <button type="button" class="btn btn-danger" id="edit-delete">Eliminar</button>
     <div class="right">
@@ -496,7 +515,7 @@
     </div>
     <p class="set-hint">Modo admin: ves y editas la lista de la cuenta que elijas.</p>
   </div>
-  <p class="set-hint">El celular te avisa los días en que hay usuarios que terminan, con sus nombres.</p>
+  <p class="set-hint">El celular te avisa los días en que hay pacientes que terminan, con sus nombres.</p>
   <div class="set-row">
     <label for="set-hora">Hora del aviso</label>
     <select id="set-hora"></select>
@@ -554,7 +573,7 @@
 
   var pacientes = [];
   var editingId = null;
-  var statFilter = 'all'; // filtro de la página Usuarios: all | hoy | semana
+  var statFilter = 'all'; // filtro de la página Pacientes: all | hoy | semana
   // Modo admin: meId = cuenta con la sesión iniciada; viewId = cuenta cuya lista se está mirando.
   var meId = null, viewId = null, viewEmail = '', isAdmin = false;
 
@@ -593,7 +612,7 @@
 
   // ---------- Datos ----------
   function mapRow(r){
-    return { id: r.id, nombre: r.nombre, fechaFin: r.fecha_fin, informe: !!r.informe, terminado: !!r.terminado };
+    return { id: r.id, nombre: r.nombre, fechaFin: r.fecha_fin, informe: r.informe === true ? true : (r.informe === false ? false : null), terminado: !!r.terminado };
   }
   function loadPacientes(){
     return supabaseClient.from('tratamientos_pacientes').select('*').eq('user_id', viewId)
@@ -611,14 +630,14 @@
     var nombre = $("nombre-input").value.trim();
     var fecha = $("fecha-input").value;
     if (!nombre || !fecha) return;
-    if (findExact(nombre)){ updateDupHint(); toast('Ese usuario ya existe'); return; }
+    if (findExact(nombre)){ updateDupHint(); toast('Ese paciente ya existe'); return; }
     $("add-btn").disabled = true;
-    supabaseClient.from('tratamientos_pacientes').insert({ user_id: viewId, nombre: nombre, fecha_fin: fecha, informe: $("informe-input").checked })
+    supabaseClient.from('tratamientos_pacientes').insert({ user_id: viewId, nombre: nombre, fecha_fin: fecha, informe: $("informe-input").value })
       .then(throwIfError).then(function(){
         $("nombre-input").value = '';
-        $("informe-input").checked = false;
+        $("informe-input").value = null;
         updateDupHint();
-        // La fecha se conserva: normalmente se cargan varios usuarios seguidos con fechas parecidas.
+        // La fecha se conserva: normalmente se cargan varios pacientes seguidos con fechas parecidas.
         toast('Agregado: ' + nombre + ' · ' + longDate(fecha));
         // El toast queda detrás del diálogo (capa superior), así que la confirmación va dentro del formulario.
         $("add-ok").textContent = '✓ Agregado: ' + nombre + ' · ' + longDate(fecha);
@@ -650,9 +669,9 @@
     var row = el('div', 'pac' + (p.terminado ? ' finished' : ''));
     var main = el('button', 'pac-main');
     main.type = 'button';
-    var nameEl = el('div', 'pac-name', p.nombre);
-    if (p.informe) nameEl.appendChild(el('span', 'badge-inf', 'Informe'));
-    main.appendChild(nameEl);
+    main.appendChild(el('div', 'pac-name', p.nombre));
+    var tag = p.informe === true ? ['Con informe', 'yes'] : (p.informe === false ? ['Sin informe', 'no'] : ['Sin registrar', 'none']);
+    main.appendChild(el('span', 'badge-inf ' + tag[1], tag[0]));
     main.addEventListener('click', function(){ openEdit(p.id); });
     var chk = el('button', 'check-btn');
     chk.type = 'button';
@@ -668,7 +687,7 @@
     var box = el('section', 'day ' + (cls || ''));
     var head = el('div', 'day-head');
     head.appendChild(el('span', 'day-title', dayTitle(iso)));
-    head.appendChild(el('span', 'day-sub', items.length + (items.length === 1 ? ' usuario' : ' usuarios')));
+    head.appendChild(el('span', 'day-sub', items.length + (items.length === 1 ? ' paciente' : ' pacientes')));
     box.appendChild(head);
     var list = el('div', 'list');
     items.forEach(function(p){ list.appendChild(pacRow(p)); });
@@ -726,7 +745,7 @@
     var shown = active.filter(match).filter(inFilter[statFilter]);
     if (!shown.length){
       var emptyMsg = q ? 'Nadie coincide con esa búsqueda.' :
-        (statFilter === 'hoy' ? 'Nadie termina hoy.' : statFilter === 'semana' ? 'Nadie termina esta semana.' : 'Aún no hay usuarios. Toca el botón + para agregar el primero.');
+        (statFilter === 'hoy' ? 'Nadie termina hoy.' : statFilter === 'semana' ? 'Nadie termina esta semana.' : 'Aún no hay pacientes. Toca el botón + para agregar el primero.');
       root.appendChild(el('div', 'empty', emptyMsg));
     } else {
       var groups = {}, dates = [];
@@ -765,7 +784,7 @@
     editingId = id;
     $("edit-nombre").value = p.nombre;
     $("edit-fecha").value = p.fechaFin;
-    $("edit-informe").checked = p.informe;
+    $("edit-informe").value = p.informe;
     $("edit-dialog").showModal();
   }
   $("edit-cancel").addEventListener("click", function(){ $("edit-dialog").close(); });
@@ -773,9 +792,9 @@
     var nombre = $("edit-nombre").value.trim();
     var fecha = $("edit-fecha").value;
     if (!nombre || !fecha){ toast('Falta el nombre o la fecha'); return; }
-    if (findExact(nombre, editingId)){ toast('Ya existe otro usuario con ese nombre'); return; }
+    if (findExact(nombre, editingId)){ toast('Ya existe otro paciente con ese nombre'); return; }
     supabaseClient.from('tratamientos_pacientes').update({
-      nombre: nombre, fecha_fin: fecha, informe: $("edit-informe").checked, updated_at: new Date().toISOString()
+      nombre: nombre, fecha_fin: fecha, informe: $("edit-informe").value, updated_at: new Date().toISOString()
     }).eq('id', editingId).then(throwIfError).then(function(){
       $("edit-dialog").close();
       return loadAndRender();
@@ -788,6 +807,27 @@
       .then(throwIfError).then(function(){ $("edit-dialog").close(); return loadAndRender(); })
       .catch(function(err){ showError('No se pudo eliminar: ' + err.message); $("edit-dialog").close(); });
   });
+
+  // ---------- Control Sí / No (mitad y mitad) ----------
+  // .value es true (Sí), false (No) o null (sin seleccionar = «Sin registrar»); tocar de nuevo lo deselecciona.
+  function enhanceSeg(box){
+    var val = null;
+    function paint(){
+      Array.prototype.forEach.call(box.querySelectorAll('button'), function(b){
+        b.classList.toggle('on', val !== null && (b.dataset.v === '1') === val);
+      });
+    }
+    Object.defineProperty(box, 'value', { get: function(){ return val; }, set: function(v){ val = (v === true || v === false) ? v : null; paint(); } });
+    box.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      var v = b.dataset.v === '1';
+      val = (val === v) ? null : v;
+      paint();
+    });
+    paint();
+  }
+  enhanceSeg($("informe-input"));
+  enhanceSeg($("edit-informe"));
 
   // ---------- Selector de fecha propio ----------
   // Un <button class="date-btn"> hace de campo: expone .value (ISO yyyy-mm-dd) y dispara "change",
@@ -869,7 +909,7 @@
     statFilter = (b.dataset.filter === statFilter) ? 'all' : b.dataset.filter;
     render();
   });
-  // La lista de usuarios ocupa el espacio que queda hasta la barra inferior y se desplaza por dentro.
+  // La lista de pacientes ocupa el espacio que queda hasta la barra inferior y se desplaza por dentro.
   function fitListScroll(){
     var sc = $("list-scroll");
     if (!sc || $("page-lista").hidden || $("connectedView").style.display === 'none') return;
@@ -895,7 +935,7 @@
     var b = e.target.closest('button'); if (!b) return;
     if (b.dataset.action === 'add') openAdd(); else showPage(b.dataset.page);
   });
-  // Formulario de agregar: diálogo que se queda abierto para cargar varios usuarios seguidos.
+  // Formulario de agregar: diálogo que se queda abierto para cargar varios pacientes seguidos.
   function openAdd(iso){
     if (iso) $("fecha-input").value = iso;
     $("add-ok").hidden = true;
@@ -924,7 +964,7 @@
     scroll.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : '')));
     if (!items.length) scroll.querySelector('.list').appendChild(el('div', 'empty', 'Nadie termina este día.'));
     box.appendChild(scroll);
-    var add = el('button', 'btn add-day-btn', 'Agregar usuario este día');
+    var add = el('button', 'btn add-day-btn', 'Agregar paciente este día');
     add.type = 'button';
     add.addEventListener('click', function(){ openAdd(calSel); });
     box.appendChild(add);
@@ -975,7 +1015,7 @@
     if (names.length <= 6) return names.join(', ');
     return names.slice(0, 6).join(', ') + ' y ' + (names.length - 6) + ' más';
   }
-  function plural(n){ return n === 1 ? '1 usuario termina' : n + ' usuarios terminan'; }
+  function plural(n){ return n === 1 ? '1 paciente termina' : n + ' pacientes terminan'; }
 
   // Una notificación por día con terminaciones (con todos los nombres) a NOTIF_HOUR, más —si está activado—
   // otra la víspera. Se reprograma todo en cada carga: es barato y evita duplicados o avisos viejos.
@@ -1021,7 +1061,7 @@
     if (!LN) return;
     LN.createChannel({
       id: NOTIF_CHANNEL_ID, name: "Terminación de tratamientos",
-      description: "Aviso de los usuarios que terminan su tratamiento",
+      description: "Aviso de los pacientes que terminan su tratamiento",
       importance: 5, visibility: 1, vibration: true
     }).catch(function(){});
   })();
