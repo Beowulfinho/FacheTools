@@ -284,7 +284,7 @@
   body { overscroll-behavior-y: contain; }
   #ptr {
     position: fixed; top: 0; left: 0; right: 0; z-index: 250; display: flex; justify-content: center; pointer-events: none;
-    transform: translateY(-60px); transition: transform .15s;
+    transform: translateY(-140px); opacity: 0; transition: transform .15s, opacity .15s;
   }
   #ptr span {
     margin-top: calc(10px + env(safe-area-inset-top, 0px)); background: var(--paper-raised); color: var(--accent);
@@ -1051,18 +1051,18 @@
     }, { passive: true });
     document.addEventListener('touchmove', function(e){
       if (startY === null) return;
-      if (window.scrollY > 0){ startY = null; ptr.style.transform = ''; return; }
+      if (window.scrollY > 0){ startY = null; ptr.style.transform = ''; ptr.style.opacity = ''; return; }
       pull = e.touches[0].clientY - startY;
-      if (pull <= 0){ ptr.style.transform = ''; return; }
+      if (pull <= 0){ ptr.style.transform = ''; ptr.style.opacity = ''; return; }
       txt.textContent = pull >= THRESHOLD ? 'Suelta para actualizar' : 'Sigue bajando…';
-      ptr.style.transform = 'translateY(' + Math.min(pull * 0.6, 70) + 'px)';
+      ptr.style.opacity = '1'; ptr.style.transform = 'translateY(' + Math.min(pull * 0.6, 70) + 'px)';
     }, { passive: true });
     document.addEventListener('touchend', function(){
       if (startY === null) return;
       var go = pull >= THRESHOLD;
       startY = null; pull = 0;
-      if (go){ txt.textContent = 'Actualizando…'; ptr.style.transform = 'translateY(60px)'; setTimeout(function(){ location.reload(); }, 150); }
-      else ptr.style.transform = '';
+      if (go){ txt.textContent = 'Actualizando…'; ptr.style.opacity = '1'; ptr.style.transform = 'translateY(60px)'; setTimeout(function(){ location.reload(); }, 150); }
+      else { ptr.style.transform = ''; ptr.style.opacity = ''; }
     }, { passive: true });
   })();
 
