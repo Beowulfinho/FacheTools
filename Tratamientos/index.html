@@ -208,6 +208,18 @@
   .bottom-nav button.active { color: var(--accent); }
   .bottom-nav button:active { background: var(--paper); }
   .tab-page[hidden] { display: none; }
+  .bottom-nav button.nav-add { position: relative; }
+  .nav-add-circle {
+    width: 58px; height: 58px; border-radius: 50%; margin-top: -30px; background: var(--accent); color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center; border: 4px solid var(--paper-raised);
+    box-shadow: 0 4px 12px rgba(30, 42, 40, 0.28);
+  }
+  .bottom-nav button.nav-add svg { width: 30px; height: 30px; }
+  .bottom-nav button.nav-add { color: var(--accent); }
+  .bottom-nav button.nav-add:active .nav-add-circle { filter: brightness(0.92); }
+  #add-dialog { margin: 6vh auto auto; max-height: 88vh; overflow-y: auto; }
+  .cal-scroll { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-right: 2px; }
+  .cal-scroll .day { margin-bottom: 4px; }
 
   /* ---------- Calendario ---------- */
   .cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
@@ -217,7 +229,7 @@
   .cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
   .cal-week span { text-align: center; font-size: 11.5px; font-weight: 600; text-transform: uppercase; color: var(--ink-faint); padding-bottom: 4px; }
   .cal-cell {
-    position: relative; aspect-ratio: 1 / 1.05; border-radius: 10px; border: 1px solid var(--line);
+    position: relative; aspect-ratio: 1 / 0.92; border-radius: 10px; border: 1px solid var(--line);
     background: var(--paper-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     padding: 2px; font-size: 14.5px; font-weight: 600;
   }
@@ -231,7 +243,7 @@
   .cal-badge.none { visibility: hidden; }
   .cal-badge.late { background: var(--critical); color: #fff; }
   .cal-cell.selected .cal-badge { background: var(--accent-ink); color: var(--accent); }
-  .cal-detail { margin-top: 18px; }
+  .cal-detail { margin-top: 14px; }
   .cal-detail .add-day-btn { width: 100%; margin-top: 10px; }
 
   /* Diálogo del selector de fecha */
@@ -282,6 +294,7 @@
   .btn-link { background: none; border: none; color: inherit; font-weight: 700; text-decoration: underline; font-size: 13px; flex: none; }
   .dup-hint { font-size: 12.5px; border-radius: 8px; padding: 7px 10px; margin-top: 2px; }
   .dup-hint.exact { background: var(--critical-soft); color: var(--critical); font-weight: 600; }
+  .dup-hint.ok { background: var(--good-soft); color: var(--good); font-weight: 600; }
   .dup-hint.similar { background: var(--warn-soft); color: var(--warn); }
   .check-row { display: flex; align-items: center; gap: 10px; font-size: 14.5px; padding: 4px 0; }
   .check-row input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
@@ -402,23 +415,6 @@
         <div class="stat late"><div class="n" id="stat-late">–</div><div class="label">Sin cerrar</div></div>
       </div>
 
-      <div class="capture">
-        <h2>Agregar usuario</h2>
-        <div class="capture-grid">
-          <div class="field">
-            <label for="nombre-input">Nombre</label>
-            <input type="text" id="nombre-input" placeholder="Nombre del usuario" autocomplete="off" autocapitalize="words">
-            <div class="dup-hint" id="dup-hint" hidden></div>
-          </div>
-          <div class="field">
-            <label for="fecha-input">Fecha de finalización</label>
-            <button type="button" class="date-btn" id="fecha-input"></button>
-          </div>
-          <label class="check-row"><input type="checkbox" id="informe-input"> Necesita informe terapéutico</label>
-          <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
-        </div>
-      </div>
-
       <input type="text" class="search" id="search-input" placeholder="Buscar usuario…" autocomplete="off">
 
       <div id="list-root"></div>
@@ -449,6 +445,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16.5 5.3a3.2 3.2 0 0 1 0 5.4M18.5 14.4c1.6.7 2.8 2.4 2.8 5.1"/></svg>
         Usuarios
       </button>
+      <button type="button" class="nav-add" data-action="add" aria-label="Agregar usuario">
+        <span class="nav-add-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9.5" cy="8" r="3.4"/><path d="M3 20c0-3.4 2.9-5.6 6.5-5.6 1.4 0 2.7.3 3.7.9"/><path d="M18 12.5v7M14.5 16h7"/></svg></span>
+        Agregar
+      </button>
       <button type="button" data-page="cal" aria-label="Calendario">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
         Calendario
@@ -456,6 +456,25 @@
     </nav>
   </div>
 </div>
+
+<dialog id="add-dialog">
+  <h2>Agregar usuario</h2>
+        <div class="capture-grid">
+          <div class="field">
+            <label for="nombre-input">Nombre</label>
+            <input type="text" id="nombre-input" placeholder="Nombre del usuario" autocomplete="off" autocapitalize="words">
+            <div class="dup-hint" id="dup-hint" hidden></div>
+          </div>
+          <div class="field">
+            <label for="fecha-input">Fecha de finalización</label>
+            <button type="button" class="date-btn" id="fecha-input"></button>
+          </div>
+          <label class="check-row"><input type="checkbox" id="informe-input"> Necesita informe terapéutico</label>
+          <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
+          <div class="dup-hint ok" id="add-ok" hidden></div>
+          <button type="button" class="btn" id="add-close">Listo</button>
+        </div>
+</dialog>
 
 <dialog id="edit-dialog">
   <h2>Editar usuario</h2>
@@ -601,6 +620,9 @@
         updateDupHint();
         // La fecha se conserva: normalmente se cargan varios usuarios seguidos con fechas parecidas.
         toast('Agregado: ' + nombre + ' · ' + longDate(fecha));
+        // El toast queda detrás del diálogo (capa superior), así que la confirmación va dentro del formulario.
+        $("add-ok").textContent = '✓ Agregado: ' + nombre + ' · ' + longDate(fecha);
+        $("add-ok").hidden = false;
         $("nombre-input").focus();
         return loadAndRender();
       }).catch(function(err){
@@ -825,7 +847,7 @@
   }
   $("fecha-input").value = todayStr();
   refreshAddBtn();
-  $("nombre-input").addEventListener("input", updateDupHint);
+  $("nombre-input").addEventListener("input", function(){ $("add-ok").hidden = true; updateDupHint(); });
   $("fecha-input").addEventListener("change", refreshAddBtn);
   $("nombre-input").addEventListener("keydown", function(e){ if (e.key === "Enter") addPaciente(); });
   $("add-btn").addEventListener("click", addPaciente);
@@ -843,7 +865,19 @@
     if (name === 'cal') renderCalendar();
     window.scrollTo(0, 0);
   }
-  $("bottomNav").addEventListener("click", function(e){ var b = e.target.closest('button'); if (b) showPage(b.dataset.page); });
+  $("bottomNav").addEventListener("click", function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.action === 'add') openAdd(); else showPage(b.dataset.page);
+  });
+  // Formulario de agregar: diálogo que se queda abierto para cargar varios usuarios seguidos.
+  function openAdd(iso){
+    if (iso) $("fecha-input").value = iso;
+    $("add-ok").hidden = true;
+    refreshAddBtn();
+    $("add-dialog").showModal();
+    $("nombre-input").focus();
+  }
+  $("add-close").addEventListener("click", function(){ $("add-dialog").close(); });
 
   function renderCalendar(){
     $("cal-title").textContent = monthTitle(calView.y, calView.m);
@@ -860,18 +894,25 @@
     var box = $("cal-detail");
     box.innerHTML = '';
     var items = pacientes.filter(function(p){ return p.fechaFin === calSel; });
-    box.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : '')));
-    if (!items.length) box.querySelector('.list').appendChild(el('div', 'empty', 'Nadie termina este día.'));
+    var scroll = el('div', 'cal-scroll');
+    scroll.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : '')));
+    if (!items.length) scroll.querySelector('.list').appendChild(el('div', 'empty', 'Nadie termina este día.'));
+    box.appendChild(scroll);
     var add = el('button', 'btn add-day-btn', 'Agregar usuario este día');
     add.type = 'button';
-    add.addEventListener('click', function(){
-      $("fecha-input").value = calSel;
-      refreshAddBtn();
-      showPage('lista');
-      $("nombre-input").focus();
-    });
+    add.addEventListener('click', function(){ openAdd(calSel); });
     box.appendChild(add);
+    fitCalScroll();
   }
+  // La lista del día ocupa solo el espacio que queda en pantalla bajo el calendario y se desplaza por dentro.
+  function fitCalScroll(){
+    var sc = document.querySelector('.cal-scroll');
+    if (!sc || $("page-cal").hidden) return;
+    sc.style.maxHeight = 'none';
+    var below = $("bottomNav").offsetHeight + sc.nextElementSibling.offsetHeight + 56;
+    sc.style.maxHeight = Math.max(130, window.innerHeight - (sc.getBoundingClientRect().top + window.scrollY) - below) + 'px';
+  }
+  window.addEventListener('resize', fitCalScroll);
   $("cal-week").innerHTML = WEEK_LABELS.map(function(l){ return '<span>' + l + '</span>'; }).join('');
   $("cal-grid").addEventListener("click", function(e){
     var b = e.target.closest('.cal-cell'); if (!b) return;
