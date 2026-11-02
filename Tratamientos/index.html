@@ -272,6 +272,24 @@
   .pac.finished .pac-name { text-decoration: line-through; }
   .pac-main { flex: 1; min-width: 0; text-align: left; background: none; border: none; padding: 4px 0; }
   .pac-name { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+  .dup-hint { font-size: 12.5px; border-radius: 8px; padding: 7px 10px; margin-top: 2px; }
+  .dup-hint.exact { background: var(--critical-soft); color: var(--critical); font-weight: 600; }
+  .dup-hint.similar { background: var(--warn-soft); color: var(--warn); }
+  .check-row { display: flex; align-items: center; gap: 10px; font-size: 14.5px; padding: 4px 0; }
+  .check-row input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+  .badge-inf {
+    display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; vertical-align: middle;
+    background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  }
+  body { overscroll-behavior-y: contain; }
+  #ptr {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 250; display: flex; justify-content: center; pointer-events: none;
+    transform: translateY(-60px); transition: transform .15s;
+  }
+  #ptr span {
+    margin-top: calc(10px + env(safe-area-inset-top, 0px)); background: var(--paper-raised); color: var(--accent);
+    border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 600; box-shadow: var(--shadow);
+  }
   .pac-note { font-size: 12.5px; color: var(--ink-soft); overflow-wrap: anywhere; }
   .check-btn {
     flex: none; width: 38px; height: 38px; border-radius: 50%;
@@ -378,15 +396,13 @@
           <div class="field">
             <label for="nombre-input">Nombre</label>
             <input type="text" id="nombre-input" placeholder="Nombre del usuario" autocomplete="off" autocapitalize="words">
+            <div class="dup-hint" id="dup-hint" hidden></div>
           </div>
           <div class="field">
             <label for="fecha-input">Fecha de finalización</label>
             <button type="button" class="date-btn" id="fecha-input"></button>
           </div>
-          <div class="field">
-            <label for="nota-input">Notas (opcional)</label>
-            <textarea id="nota-input" placeholder="Diagnóstico, teléfono, sesiones…"></textarea>
-          </div>
+          <label class="check-row"><input type="checkbox" id="informe-input"> Necesita informe terapéutico</label>
           <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
         </div>
       </div>
@@ -433,7 +449,7 @@
   <h2>Editar usuario</h2>
   <div class="field"><label for="edit-nombre">Nombre</label><input type="text" id="edit-nombre" autocomplete="off"></div>
   <div class="field"><label for="edit-fecha">Fecha de finalización</label><button type="button" class="date-btn" id="edit-fecha"></button></div>
-  <div class="field"><label for="edit-notas">Notas (opcional)</label><textarea id="edit-notas" placeholder="Diagnóstico, teléfono, sesiones…"></textarea></div>
+  <label class="check-row"><input type="checkbox" id="edit-informe"> Necesita informe terapéutico</label>
   <div class="dlg-actions">
     <button type="button" class="btn btn-danger" id="edit-delete">Eliminar</button>
     <div class="right">
@@ -480,6 +496,7 @@
 </dialog>
 
 <div class="toast" id="toast"></div>
+<div id="ptr"><span id="ptr-text">Suelta para actualizar</span></div>
 
 <script>
 (function(){
@@ -536,7 +553,7 @@
 
   // ---------- Datos ----------
   function mapRow(r){
-    return { id: r.id, nombre: r.nombre, fechaFin: r.fecha_fin, notas: r.notas || '', terminado: !!r.terminado };
+    return { id: r.id, nombre: r.nombre, fechaFin: r.fecha_fin, informe: !!r.informe, terminado: !!r.terminado };
   }
   function loadPacientes(){
     return supabaseClient.from('tratamientos_pacientes').select('*')
@@ -554,11 +571,13 @@
     var nombre = $("nombre-input").value.trim();
     var fecha = $("fecha-input").value;
     if (!nombre || !fecha) return;
+    if (findExact(nombre)){ updateDupHint(); toast('Ese usuario ya existe'); return; }
     $("add-btn").disabled = true;
-    supabaseClient.from('tratamientos_pacientes').insert({ nombre: nombre, fecha_fin: fecha, notas: $("nota-input").value.trim() || null })
+    supabaseClient.from('tratamientos_pacientes').insert({ nombre: nombre, fecha_fin: fecha, informe: $("informe-input").checked })
       .then(throwIfError).then(function(){
         $("nombre-input").value = '';
-        $("nota-input").value = '';
+        $("informe-input").checked = false;
+        updateDupHint();
         // La fecha se conserva: normalmente se cargan varios usuarios seguidos con fechas parecidas.
         toast('Agregado: ' + nombre + ' · ' + longDate(fecha));
         $("nombre-input").focus();
@@ -588,8 +607,9 @@
     var row = el('div', 'pac' + (p.terminado ? ' finished' : ''));
     var main = el('button', 'pac-main');
     main.type = 'button';
-    main.appendChild(el('div', 'pac-name', p.nombre));
-    if (p.notas) main.appendChild(el('div', 'pac-note', p.notas));
+    var nameEl = el('div', 'pac-name', p.nombre);
+    if (p.informe) nameEl.appendChild(el('span', 'badge-inf', 'Informe'));
+    main.appendChild(nameEl);
     main.addEventListener('click', function(){ openEdit(p.id); });
     var chk = el('button', 'check-btn');
     chk.type = 'button';
@@ -614,6 +634,30 @@
   }
 
   function norm(s){ return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  // Clave para comparar nombres: sin tildes, mayúsculas ni espacios de más.
+  function nameKey(n){ return norm(n).replace(/\s+/g, ' ').trim(); }
+  function findExact(nombre, exceptId){
+    var k = nameKey(nombre);
+    return pacientes.filter(function(p){ return p.id !== exceptId && nameKey(p.nombre) === k; })[0] || null;
+  }
+  function dupLabel(p){
+    return p.nombre + (p.terminado ? ' (terminó el ' : ' (termina el ') + isoToES(p.fechaFin) + ')';
+  }
+  // Aviso mientras se escribe: rojo si ya existe igual, ámbar si hay nombres que contienen lo digitado.
+  function updateDupHint(){
+    var box = $("dup-hint"), k = nameKey($("nombre-input").value);
+    var exact = k ? findExact(k) : null;
+    var similar = (k.length >= 2 && !exact) ? pacientes.filter(function(p){ return nameKey(p.nombre).indexOf(k) !== -1; }) : [];
+    if (exact){
+      box.className = 'dup-hint exact';
+      box.textContent = 'Ya existe: ' + dupLabel(exact) + (exact.terminado ? '. Búscalo en «Tratamientos terminados».' : '');
+    } else if (similar.length){
+      box.className = 'dup-hint similar';
+      box.textContent = 'Ya registrado' + (similar.length > 1 ? 's' : '') + ': ' + similar.slice(0, 3).map(dupLabel).join(' · ') + (similar.length > 3 ? ' · y ' + (similar.length - 3) + ' más' : '');
+    } else { box.hidden = true; refreshAddBtn(); return; }
+    box.hidden = false;
+    refreshAddBtn();
+  }
 
   function render(){
     var today = todayStr();
@@ -657,6 +701,7 @@
       dl.appendChild(wrap);
     });
     if (!$("page-cal").hidden) renderCalendar();
+    updateDupHint();
   }
 
   // ---------- Edición ----------
@@ -666,7 +711,7 @@
     editingId = id;
     $("edit-nombre").value = p.nombre;
     $("edit-fecha").value = p.fechaFin;
-    $("edit-notas").value = p.notas;
+    $("edit-informe").checked = p.informe;
     $("edit-dialog").showModal();
   }
   $("edit-cancel").addEventListener("click", function(){ $("edit-dialog").close(); });
@@ -674,8 +719,9 @@
     var nombre = $("edit-nombre").value.trim();
     var fecha = $("edit-fecha").value;
     if (!nombre || !fecha){ toast('Falta el nombre o la fecha'); return; }
+    if (findExact(nombre, editingId)){ toast('Ya existe otro usuario con ese nombre'); return; }
     supabaseClient.from('tratamientos_pacientes').update({
-      nombre: nombre, fecha_fin: fecha, notas: $("edit-notas").value.trim() || null, updated_at: new Date().toISOString()
+      nombre: nombre, fecha_fin: fecha, informe: $("edit-informe").checked, updated_at: new Date().toISOString()
     }).eq('id', editingId).then(throwIfError).then(function(){
       $("edit-dialog").close();
       return loadAndRender();
@@ -752,10 +798,13 @@
   enhanceDateField($("edit-fecha"));
 
   // ---------- Formulario ----------
-  function refreshAddBtn(){ $("add-btn").disabled = !($("nombre-input").value.trim() && $("fecha-input").value); }
+  function refreshAddBtn(){
+    var n = $("nombre-input").value.trim();
+    $("add-btn").disabled = !(n && $("fecha-input").value) || !!findExact(n);
+  }
   $("fecha-input").value = todayStr();
   refreshAddBtn();
-  $("nombre-input").addEventListener("input", refreshAddBtn);
+  $("nombre-input").addEventListener("input", updateDupHint);
   $("fecha-input").addEventListener("change", refreshAddBtn);
   $("nombre-input").addEventListener("keydown", function(e){ if (e.key === "Enter") addPaciente(); });
   $("add-btn").addEventListener("click", addPaciente);
@@ -989,6 +1038,32 @@
     SB.setOverlaysWebView({ overlay: false }).catch(function(){});
     SB.setBackgroundColor({ color: "#C2417B" }).catch(function(){});
     SB.setStyle({ style: "DARK" }).catch(function(){});
+  })();
+
+  // ---------- Arrastrar para actualizar ----------
+  // Jalar la pantalla hacia abajo estando arriba del todo recarga la app (trae también la última
+  // versión publicada, porque en el celular la app carga la página desde GitHub Pages).
+  (function pullToRefresh(){
+    var startY = null, pull = 0, THRESHOLD = 90, ptr = $("ptr"), txt = $("ptr-text");
+    function blocked(){ return document.querySelector('dialog[open]') || window.scrollY > 0; }
+    document.addEventListener('touchstart', function(e){
+      startY = (!blocked() && e.touches.length === 1) ? e.touches[0].clientY : null; pull = 0;
+    }, { passive: true });
+    document.addEventListener('touchmove', function(e){
+      if (startY === null) return;
+      if (window.scrollY > 0){ startY = null; ptr.style.transform = ''; return; }
+      pull = e.touches[0].clientY - startY;
+      if (pull <= 0){ ptr.style.transform = ''; return; }
+      txt.textContent = pull >= THRESHOLD ? 'Suelta para actualizar' : 'Sigue bajando…';
+      ptr.style.transform = 'translateY(' + Math.min(pull * 0.6, 70) + 'px)';
+    }, { passive: true });
+    document.addEventListener('touchend', function(){
+      if (startY === null) return;
+      var go = pull >= THRESHOLD;
+      startY = null; pull = 0;
+      if (go){ txt.textContent = 'Actualizando…'; ptr.style.transform = 'translateY(60px)'; setTimeout(function(){ location.reload(); }, 150); }
+      else ptr.style.transform = '';
+    }, { passive: true });
   })();
 
   tick();
