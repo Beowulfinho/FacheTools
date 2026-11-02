@@ -272,6 +272,14 @@
   .pac.finished .pac-name { text-decoration: line-through; }
   .pac-main { flex: 1; min-width: 0; text-align: left; background: none; border: none; padding: 4px 0; }
   .pac-name { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+  .view-banner {
+    position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); border-radius: 10px;
+    padding: 8px 12px; margin-bottom: 14px; font-size: 13px;
+  }
+  .view-banner[hidden] { display: none; }
+  .view-banner b { overflow-wrap: anywhere; }
+  .btn-link { background: none; border: none; color: inherit; font-weight: 700; text-decoration: underline; font-size: 13px; flex: none; }
   .dup-hint { font-size: 12.5px; border-radius: 8px; padding: 7px 10px; margin-top: 2px; }
   .dup-hint.exact { background: var(--critical-soft); color: var(--critical); font-weight: 600; }
   .dup-hint.similar { background: var(--warn-soft); color: var(--warn); }
@@ -381,6 +389,10 @@
   <div id="connectedView" style="display:none;">
 
     <div class="banner danger" id="errorBanner"></div>
+    <div class="view-banner" id="view-banner" hidden>
+      <span>Viendo la cuenta de <b id="view-email"></b></span>
+      <button type="button" class="btn-link" id="view-back">Volver a la mía</button>
+    </div>
 
     <!-- ===== Página: Usuarios ===== -->
     <div class="tab-page" id="page-lista">
@@ -462,6 +474,13 @@
 <dialog id="settings-dialog">
   <h2>Configuración</h2>
   <p class="set-hint" id="connLabel"></p>
+  <div id="admin-box" hidden>
+    <div class="set-row">
+      <label for="admin-select">Ver como</label>
+      <select id="admin-select"></select>
+    </div>
+    <p class="set-hint">Modo admin: ves y editas la lista de la cuenta que elijas.</p>
+  </div>
   <p class="set-hint">El celular te avisa los días en que hay usuarios que terminan, con sus nombres.</p>
   <div class="set-row">
     <label for="set-hora">Hora del aviso</label>
@@ -517,6 +536,8 @@
 
   var pacientes = [];
   var editingId = null;
+  // Modo admin: meId = cuenta con la sesión iniciada; viewId = cuenta cuya lista se está mirando.
+  var meId = null, viewId = null, viewEmail = '', isAdmin = false;
 
   function showError(msg){ var e = $("errorBanner"); e.textContent = msg; e.classList.add("show"); }
   function clearError(){ $("errorBanner").classList.remove("show"); }
@@ -556,7 +577,7 @@
     return { id: r.id, nombre: r.nombre, fechaFin: r.fecha_fin, informe: !!r.informe, terminado: !!r.terminado };
   }
   function loadPacientes(){
-    return supabaseClient.from('tratamientos_pacientes').select('*')
+    return supabaseClient.from('tratamientos_pacientes').select('*').eq('user_id', viewId)
       .order('fecha_fin', { ascending: true }).order('nombre', { ascending: true })
       .then(function(res){ throwIfError(res); pacientes = (res.data || []).map(mapRow); });
   }
@@ -573,7 +594,7 @@
     if (!nombre || !fecha) return;
     if (findExact(nombre)){ updateDupHint(); toast('Ese usuario ya existe'); return; }
     $("add-btn").disabled = true;
-    supabaseClient.from('tratamientos_pacientes').insert({ nombre: nombre, fecha_fin: fecha, informe: $("informe-input").checked })
+    supabaseClient.from('tratamientos_pacientes').insert({ user_id: viewId, nombre: nombre, fecha_fin: fecha, informe: $("informe-input").checked })
       .then(throwIfError).then(function(){
         $("nombre-input").value = '';
         $("informe-input").checked = false;
@@ -890,6 +911,7 @@
   // Una notificación por día con terminaciones (con todos los nombres) a NOTIF_HOUR, más —si está activado—
   // otra la víspera. Se reprograma todo en cada carga: es barato y evita duplicados o avisos viejos.
   function scheduleNotifications(){
+    if (viewId !== meId) return; // mirando la cuenta de otra persona: no tocar los avisos de este celular
     var LN = getLocalNotifications();
     if (!LN) return;
     LN.requestPermissions().then(function(perm){
@@ -1016,12 +1038,53 @@
     $("connectedView").style.display = connected ? "block" : "none";
     hideSplash();
   }
+  function updateViewUI(){
+    $("admin-box").hidden = !isAdmin;
+    $("view-banner").hidden = !(viewId && viewId !== meId);
+    $("view-email").textContent = viewEmail;
+  }
+  // Pregunta al servidor si esta cuenta es admin (tabla tratamientos_admins) y, si lo es, llena el selector.
+  function initAdmin(){
+    return supabaseClient.rpc('tratamientos_es_admin').then(function(res){
+      isAdmin = !res.error && res.data === true;
+      if (!isAdmin) return;
+      return supabaseClient.rpc('tratamientos_listar_usuarios').then(function(r2){
+        var sel = $("admin-select");
+        sel.innerHTML = '';
+        (r2.data || []).forEach(function(u){
+          var o = document.createElement('option');
+          o.value = u.id; o.dataset.email = u.email;
+          o.textContent = (u.id === meId ? 'Mi cuenta · ' : '') + u.email + ' (' + u.total + ')';
+          sel.appendChild(o);
+        });
+        sel.value = viewId;
+      });
+    }).catch(function(){ isAdmin = false; }).then(updateViewUI);
+  }
+  function switchView(id, email){
+    viewId = id; viewEmail = email; pacientes = [];
+    $("admin-select").value = id;
+    updateViewUI();
+    if ($("settings-dialog").open) $("settings-dialog").close();
+    $("search-input").value = '';
+    loadAndRender();
+  }
+  $("admin-select").addEventListener("change", function(){
+    switchView(this.value, this.options[this.selectedIndex].dataset.email);
+  });
+  $("view-back").addEventListener("click", function(){ switchView(meId, myEmail); });
+
+  var myEmail = '';
   supabaseClient.auth.onAuthStateChange(function(event, session){
     if (session && session.user){
       setConnectedUI(true, session.user.email);
-      loadAndRender();
+      if (meId !== session.user.id){ meId = viewId = session.user.id; myEmail = viewEmail = session.user.email; isAdmin = false; }
+      // setTimeout: no llamar a Supabase de forma síncrona dentro del callback de auth (puede bloquearse).
+      setTimeout(function(){ initAdmin().then(loadAndRender); }, 0);
     } else {
+      meId = viewId = null; isAdmin = false; pacientes = [];
       setConnectedUI(false, "");
+      updateViewUI();
     }
   });
 
