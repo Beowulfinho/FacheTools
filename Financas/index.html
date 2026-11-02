@@ -1415,6 +1415,33 @@
         </div>
       </div>
 
+      <div class="field">
+        <label class="out-check" style="cursor:pointer;">
+          <input type="checkbox" id="fDividir">
+          <span>Dividir entre duas pessoas</span>
+        </label>
+      </div>
+      <div id="fDivisaoWrap" style="display:none;">
+        <div class="field-row">
+          <div class="field">
+            <label for="fDivisaoModo">Como dividir</label>
+            <select id="fDivisaoModo">
+              <option value="metade">Metade de cada parcela</option>
+              <option value="parcelas">Cada pessoa paga certas parcelas</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="fPessoa2Sel">Segunda pessoa</label>
+            <select id="fPessoa2Sel"></select>
+          </div>
+        </div>
+        <div class="field" id="fDivisaoParcelasWrap" style="display:none;">
+          <label id="fDivisaoParcelasLabel">Parcelas pagas pela segunda pessoa</label>
+          <div class="antecip-parcelas-list" id="fDivisaoParcelasList"></div>
+          <span class="opt">As parcelas desmarcadas ficam com a primeira pessoa (campo Pessoa).</span>
+        </div>
+      </div>
+
       <div class="field-row">
         <div class="field">
           <label for="fValor">Valor total</label>
@@ -2220,7 +2247,7 @@
     }
     var hay = (
       String(r.descricao||"") + " " +
-      String(r.pessoa||"") + " " +
+      String(r.divisao ? pessoaDisplay(r) : (r.pessoa||"")) + " " +
       String(r.cartao||"") + " " +
       String(r.tipo||"") + " " +
       String(r.comerciante||"") + " " +
@@ -2338,7 +2365,10 @@
           reembolso_out: !!rec.reembolsoOut,
           reembolso_mes: (rec.reembolsoValor && rec.reembolsoValor > 0) ? (rec.reembolsoMes || null) : null,
           previsao: !!rec.previsao,
-          hora: rec.hora || null
+          hora: rec.hora || null,
+          divisao: (rec.divisao && rec.divisao.length) ? rec.divisao.map(function(d){
+            return {pessoa_id: idByName("pessoas", d.pessoa), parcelas: d.parcelas || null, pct: d.pct};
+          }) : null
         };
       case "debito":
         return {
@@ -2540,11 +2570,14 @@
           reembolsoOut: r.reembolso_out ? 1 : 0,
           reembolsoMes: r.reembolso_mes || null,
           hora: horaFromDb(r.hora),
+          divisao: Array.isArray(r.divisao) && r.divisao.length ? r.divisao.map(function(d){
+            return {pessoa: pessoaNameById[d.pessoa_id] || "", parcelas: Array.isArray(d.parcelas) ? d.parcelas.slice() : null, pct: d.pct===undefined ? 100 : Number(d.pct)};
+          }) : null,
           previsao: !!r.previsao
         };
       });
 
-      var debito = debitoRows.map(function(r){
+      var debito =debitoRows.map(function(r){
         return {
           row: r.id,
           tipo: r.tipo,
@@ -2803,6 +2836,43 @@
     });
     return map;
   }
+  // ---------- Divisão entre pessoas ----------
+  // r.divisao (null = compra de uma pessoa só) lista quem paga o quê: {pessoa, parcelas, pct}, onde
+  // parcelas null = todas e pct é a fração dessa parcela. "Metade": duas entradas a 50% em todas as
+  // parcelas; "por parcelas": cada pessoa com a sua lista, a 100%. A linha da compra continua única
+  // (r.pessoa = primeira pessoa); a divisão só reparte o valor entre pessoas nos somatórios.
+  // idx = número da parcela (null = visão sem mês: todas as entradas).
+  function getPessoaShares(r, idx){
+    if (!r.divisao || !r.divisao.length) return [{pessoa: r.pessoa, frac: 1}];
+    var out = [];
+    r.divisao.forEach(function(d){
+      if (d.parcelas && idx && d.parcelas.indexOf(idx) === -1) return;
+      out.push({pessoa: d.pessoa, frac: (d.pct === undefined ? 100 : d.pct) / 100});
+    });
+    return out.length ? out : [{pessoa: r.pessoa, frac: 1}];
+  }
+  // Pessoas da linha (ou da compra) — uma antecipação com pessoa própria conta só essa.
+  function getRowPessoas(r){
+    if (r.antecipacao || !r.divisao || !r.divisao.length) return [r.pessoa];
+    var out = [];
+    r.divisao.forEach(function(d){ if (out.indexOf(d.pessoa) === -1) out.push(d.pessoa); });
+    return out;
+  }
+  function pessoaDisplay(r){ return getRowPessoas(r).join(" + "); }
+  function rowMatchesPessoas(r, nomesSel){ return getRowPessoas(r).some(function(p){ return nomesSel.indexOf(p) !== -1; }); }
+  // Texto da divisão para tooltip/modal, ex.: "Mãe: 50% de cada parcela · Tchuka: 50% de cada parcela".
+  function divisaoResumo(r){
+    return (r.divisao || []).map(function(d){
+      if (d.parcelas && d.parcelas.length) return d.pessoa + ": parcela" + (d.parcelas.length > 1 ? "s " : " ") + d.parcelas.join(", ");
+      return d.pessoa + ": " + d.pct + "% de cada parcela";
+    }).join(" · ");
+  }
+  // Cota de cada pessoa na linha deste mês (antecipação/crédito de reembolso: só a pessoa da linha).
+  function getRowShares(r){
+    if (r.antecipacao || r.reembolsoCredito) return [{pessoa: r.pessoa, frac: 1}];
+    return getPessoaShares(r, r.parcelaAtual);
+  }
+
   // ---------- Trocar cartão ----------
   // A purchase (typically an assinatura) can move to a different card partway through its life
   // — e.g. the old card was cancelled — without rewriting history: each troca just says "from
@@ -3045,7 +3115,7 @@
     var recs = getMonthFilteredRecords();
 
     var filtered = recs.filter(function(r){
-      if (fPersona.length && fPersona.indexOf(r.pessoa) === -1) return false;
+      if (fPersona.length && !rowMatchesPessoas(r, fPersona)) return false;
       if (fCartao.length && fCartao.indexOf(r.cartaoEfetivo) === -1) return false;
       if (fTipo.length && fTipo.indexOf(r.tipo) === -1) return false;
       if (!matchesSearch(r, search)) return false;
@@ -3115,7 +3185,7 @@
         '<input type="checkbox" class="row-select f-select" '+(isSpecialRow ? 'disabled title="'+selectDisabledTitle+'"' : (selectedCompras.has(r.row)?"checked":""))+'>'+
         '<label class="out-check f-out" title="Desmarque para excluir dos balances e gráficos"><input type="checkbox" class="out-toggle" '+(r.out?"":"checked")+'><span class="out-label">'+(r.out?"Out":"Inside")+'</span></label>'+
         '<span class="tx-desc f-desc">'+escapeHtml(r.descricao)+(r.antecipacao?'<span class="tag-auto">antecipação</span>':'')+(r.reembolsoCredito?'<span class="tag-auto" title="Crédito de reembolso recebido">reembolso</span>':'')+((!isSpecialRow && reembolsoAbatimento(r)) ? '<span class="tag-auto" title="Reembolso que abateu as parcelas">abatido '+fmtBRL(reembolsoAbatimento(r))+'</span>' : '')+((r.reembolsoInfo!==null&&r.reembolsoInfo!==undefined)?'<span class="tag-auto" title="Reembolso recebido, já refletido no total">reemb. '+fmtBRL(r.reembolsoInfo)+'</span>':'')+'</span>'+
-        '<span class="f-pessoa" data-label="Pessoa">'+escapeHtml(r.pessoa)+'</span>'+
+        '<span class="f-pessoa" data-label="Pessoa"'+(!r.antecipacao && r.divisao ? ' title="'+escapeHtml(divisaoResumo(r))+'"' : '')+'>'+escapeHtml(pessoaDisplay(r))+'</span>'+
         '<span class="f-cartao" data-label="Cartão">'+escapeHtml(r.cartaoEfetivo)+(r.cartaoEfetivo!==r.cartao?'<span class="tag-auto" title="Cartão original: '+escapeHtml(r.cartao)+'">trocado</span>':'')+'</span>'+
         '<span class="tx-amt num f-valor">'+fmtBRL(r.valorMes !== undefined ? r.valorMes : r.valorTotal)+'</span>'+
         '<span class="num f-pvalor" data-label="Parcela R$">'+fmtBRL(r.effectiveValor)+'</span>'+
@@ -3178,7 +3248,16 @@
     adiRows.forEach(function(a){ listEl.appendChild(a.virtual ? buildSaldoAnteriorRow(a) : buildAdiantamentoRow(a)); });
 
     var faturaRecs = recs.filter(function(r){ return !r.out; });
-    if (READONLY_MAE) faturaRecs = faturaRecs.filter(function(r){ return r.pessoa === MAE_PESSOA_NAME; });
+    if (READONLY_MAE){
+      // Só a cota dela nas compras divididas.
+      faturaRecs = faturaRecs.filter(function(r){ return getRowPessoas(r).indexOf(MAE_PESSOA_NAME) !== -1; }).map(function(r){
+        if (!r.divisao || r.antecipacao) return r;
+        var frac = getRowShares(r).filter(function(s){ return s.pessoa === MAE_PESSOA_NAME; }).reduce(function(a, s){ return a + s.frac; }, 0);
+        var c = {}; for (var k in r) c[k] = r[k];
+        c.effectiveValor = (r.effectiveValor||0) * frac;
+        return c;
+      }).filter(function(r){ return r.effectiveValor !== 0 || !r.divisao; });
+    }
     renderCompFatura(faturaRecs);
   }
 
@@ -3553,7 +3632,7 @@
     // Rows/totals reflect only the pessoa/cartão/search-filtered subset — the column
     // range above never changes because of these filters, only which rows appear.
     var decorated = decoratedAll.filter(function(d){
-      if (calPersona.length && calPersona.indexOf(d.rec.pessoa) === -1) return false;
+      if (calPersona.length && !rowMatchesPessoas(d.rec, calPersona)) return false;
       if (calCartao.length && calCartao.indexOf(d.rec.cartao) === -1) return false;
       if (calTipo.length && calTipo.indexOf(d.rec.tipo) === -1) return false;
       if (!matchesSearch(d.rec, calSearch)) return false;
@@ -4334,8 +4413,10 @@
 
     var individualAj = 0, individualGab = 0;
     recs.forEach(function(r){
-      if (r.pessoa === "Aj") individualAj += (r.effectiveValor||0);
-      else if (r.pessoa === "Gab") individualGab += (r.effectiveValor||0);
+      getRowShares(r).forEach(function(s){
+        if (s.pessoa === "Aj") individualAj += (r.effectiveValor||0) * s.frac;
+        else if (s.pessoa === "Gab") individualGab += (r.effectiveValor||0) * s.frac;
+      });
     });
     // "restante" already nets out each person's individual spending once (it's part of Total
     // compras). Subtracting the individual amount again at the split step would double-count it,
@@ -4517,15 +4598,22 @@
     // seu mês original.
     monthRecs.forEach(function(r){
       if (r.out || r.antecipacao) return;
-      if (flagged.indexOf(r.pessoa) === -1) return;
-      sums[r.pessoa] = (sums[r.pessoa]||0) + (r.effectiveValor||0);
+      getRowShares(r).forEach(function(s){
+        if (flagged.indexOf(s.pessoa) === -1) return;
+        sums[s.pessoa] = (sums[s.pessoa]||0) + (r.effectiveValor||0) * s.frac;
+      });
     });
     if (filterMonth){
       state.compras.records.forEach(function(r){
-        if (r.out || !r.dataSerial || isAssinaturaTipo(r.tipo) || flagged.indexOf(r.pessoa) === -1) return;
+        if (r.out || !r.dataSerial || isAssinaturaTipo(r.tipo)) return;
         var total = r.parcelas || 1;
         var idx = monthsBetween(getFaturaStartYM(r.dataSerial, r.cartao), filterMonth) + 1;
-        if (idx >= 1 && idx <= total && getAntecipatedIndexMap(r)[idx]) sums[r.pessoa] = (sums[r.pessoa]||0) + getParcelaValor(r, total);
+        if (idx >= 1 && idx <= total && getAntecipatedIndexMap(r)[idx]){
+          getPessoaShares(r, idx).forEach(function(s){
+            if (flagged.indexOf(s.pessoa) === -1) return;
+            sums[s.pessoa] = (sums[s.pessoa]||0) + getParcelaValor(r, total) * s.frac;
+          });
+        }
       });
     }
     var debRecs = getDebitoMonthFiltered();
@@ -5667,6 +5755,56 @@
   // Keep the tipo in sync with the parcelas count while the user hasn't deliberately picked
   // something else (Assinatura, Estorno, a custom tipo...) — only auto-switches between the two
   // "quantity" defaults, "Á vista" (1 parcela) and "Parcelado" (2+).
+  // Divisão da compra entre duas pessoas: "metade" de cada parcela, ou "parcelas" (a segunda pessoa
+  // paga as parcelas marcadas, a primeira as demais).
+  var divisaoSel = [];
+  function updateDivisaoVisibility(){
+    var on = $("fDividir").checked;
+    $("fDivisaoWrap").style.display = on ? "block" : "none";
+    var show = on && $("fDivisaoModo").value === "parcelas";
+    $("fDivisaoParcelasWrap").style.display = show ? "block" : "none";
+    if (!show) return;
+    var total = parseInt($("fParcelas").value, 10) || 1;
+    divisaoSel = divisaoSel.filter(function(n){ return n <= total; });
+    var html = "";
+    for (var i = 1; i <= total; i++){
+      html += '<label class="antecip-parcela-chip"><input type="checkbox" value="'+i+'"'+(divisaoSel.indexOf(i) !== -1 ? " checked" : "")+'><span>'+i+'/'+total+'</span></label>';
+    }
+    $("fDivisaoParcelasList").innerHTML = html;
+  }
+  $("fDivisaoParcelasList").addEventListener("change", function(){
+    divisaoSel = Array.prototype.slice.call($("fDivisaoParcelasList").querySelectorAll("input:checked")).map(function(c){ return parseInt(c.value, 10); });
+  });
+  $("fDividir").addEventListener("change", updateDivisaoVisibility);
+  $("fDivisaoModo").addEventListener("change", updateDivisaoVisibility);
+  $("fParcelas").addEventListener("input", updateDivisaoVisibility);
+  function setDivisaoFromRecord(r){
+    var d = r && r.divisao;
+    divisaoSel = [];
+    $("fDividir").checked = !!(d && d.length >= 2);
+    $("fDivisaoModo").value = "metade";
+    populateSelect($("fPessoa2Sel"), nomes("pessoas"), null, true);
+    if (d && d.length >= 2){
+      $("fPessoa2Sel").value = d[1].pessoa;
+      if (d[1].parcelas){ $("fDivisaoModo").value = "parcelas"; divisaoSel = d[1].parcelas.slice(); }
+    }
+    updateDivisaoVisibility();
+  }
+  // null = sem divisão; string = erro de validação.
+  function buildDivisaoFromForm(){
+    if (!$("fDividir").checked) return null;
+    var p1 = $("fPessoaSel").value, p2 = $("fPessoa2Sel").value;
+    if (!p2 || p2 === p1) return "Escolha uma segunda pessoa diferente da primeira.";
+    if ($("fDivisaoModo").value === "metade"){
+      return [{pessoa: p1, parcelas: null, pct: 50}, {pessoa: p2, parcelas: null, pct: 50}];
+    }
+    var total = parseInt($("fParcelas").value, 10) || 1;
+    var seg = divisaoSel.filter(function(n){ return n >= 1 && n <= total; }).sort(function(a,b){ return a-b; });
+    var prim = [];
+    for (var i = 1; i <= total; i++) if (seg.indexOf(i) === -1) prim.push(i);
+    if (!seg.length || !prim.length) return "Marque ao menos uma parcela para cada pessoa.";
+    return [{pessoa: p1, parcelas: prim, pct: 100}, {pessoa: p2, parcelas: seg, pct: 100}];
+  }
   $("fParcelas").addEventListener("input", function(){
     var cur = $("fTipoSel").value;
     if (cur !== "Á vista" && cur !== "Parcelado") return;
@@ -5709,6 +5847,7 @@ $("txError").style.display = "none";
     $("fReembolsoMes").value = "";
     $("fReembolsoTipo").value = "credito";
     updateReembolsoVisibility();
+    setDivisaoFromRecord(null);
     $("fPrevisao").checked = !!(opts && opts.previsao === true);
     txOverlay.classList.add("show");
     setTimeout(function(){ $("fDescricao").focus(); }, 30);
@@ -5747,6 +5886,7 @@ $("txError").style.display = "none";
     $("fReembolsoTipo").value = reembAbate ? "abate" : "credito";
     $("fReembolsoMes").value = reembAbate ? "" : (r.reembolsoMes || "");
     updateReembolsoVisibility();
+    setDivisaoFromRecord(r);
     txOverlay.classList.add("show");
   }
   function closeTxModal(){ txOverlay.classList.remove("show"); }
@@ -5783,6 +5923,8 @@ $("txError").style.display = "none";
     if (reembolsado && !reembolsoMes){
       errEl.textContent = "Informe o mês em que o reembolso entra como crédito."; errEl.style.display="block"; return;
     }
+    var divisao = buildDivisaoFromForm();
+    if (typeof divisao === "string"){ errEl.textContent = divisao; errEl.style.display="block"; return; }
     errEl.style.display = "none";
 
     var comercianteInput = $("fComerciante").value.trim();
@@ -5803,7 +5945,8 @@ $("txError").style.display = "none";
       reembolsoOut: reembolsado ? editingRowReembolsoOut : 0,
       reembolsoMes: reembolsoMes,
       previsao: $("fPrevisao").checked,
-      hora: $("fHora").value || ""
+      hora: $("fHora").value || "",
+      divisao: divisao
     };
 
     var action = editingRow ? "update" : "insert";
