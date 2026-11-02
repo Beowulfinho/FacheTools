@@ -1514,6 +1514,14 @@
         </div>
       </div>
       <div class="field">
+        <label for="antecipPessoa">Pessoa responsável</label>
+        <select id="antecipPessoa"></select>
+      </div>
+      <div class="field" id="antecipPessoaEscopoWrap" style="display:none;">
+        <label for="antecipPessoaEscopo">Aplicar a</label>
+        <select id="antecipPessoaEscopo"></select>
+      </div>
+      <div class="field">
         <label class="out-check" style="cursor:pointer;">
           <input type="checkbox" id="antecipPrevisao">
           <span>Previsão — só aparece em Previsões</span>
@@ -2347,7 +2355,7 @@
       case "diario":
         return { mes: rec.mes, valor: rec.valor };
       case "antecipacoes":
-        return { compra_id: rec.compraRow, mes: rec.mes, indices: rec.indices, valor: rec.valor, out: !!rec.out, previsao: !!rec.previsao };
+        return { compra_id: rec.compraRow, mes: rec.mes, indices: rec.indices, valor: rec.valor, out: !!rec.out, previsao: !!rec.previsao, pessoa_id: rec.pessoa ? idByName("pessoas", rec.pessoa) : null };
       case "reservas":
         return { descricao: rec.descricao || null, valor: rec.valor, mes_origem: rec.mesOrigem, mes_destino: rec.mesDestino, out: !!rec.out, soma_balance: rec.somaBalance !== false };
       case "adiantamentos":
@@ -2555,7 +2563,7 @@
       var diario = diarioRows.map(function(r){ return {row:r.id, mes:r.mes, valor: r.valor===null?0:Number(r.valor)}; });
 
       var antecipacoes = antecipacoesRows.map(function(r){
-        return {row:r.id, compraRow:r.compra_id, mes:r.mes, indices: (r.indices||[]).slice().sort(function(a,b){ return a-b; }), valor: r.valor===null?0:Number(r.valor), out: r.out ? 1 : 0, previsao: !!r.previsao};
+        return {row:r.id, compraRow:r.compra_id, mes:r.mes, indices: (r.indices||[]).slice().sort(function(a,b){ return a-b; }), valor: r.valor===null?0:Number(r.valor), out: r.out ? 1 : 0, previsao: !!r.previsao, pessoa: pessoaNameById[r.pessoa_id] || ""};
       });
 
       var reservas = reservasRows.map(function(r){
@@ -2941,7 +2949,7 @@
         var indices = (a.indices||[]).slice();
         entries.push({
           effectiveValor: a.valor||0, parcelaAtual: null, parcelaTotal: total,
-          antecipacao: {indices: indices, count: indices.length, row: a.row},
+          antecipacao: {indices: indices, count: indices.length, row: a.row, pessoa: a.pessoa || ""},
           outOverride: !!a.out
         });
       }
@@ -2993,6 +3001,8 @@
         // An antecipação lump sum, and a reembolso credit, each carry their own Inside/Out flag,
         // independent from the purchase they belong to — don't let either inherit r.out here.
         if (e.antecipacao || e.reembolsoCredito) rec.out = e.outOverride ? 1 : 0;
+        // A antecipação pode ser responsabilidade de outra pessoa que a da compra.
+        if (e.antecipacao && e.antecipacao.pessoa) rec.pessoa = e.antecipacao.pessoa;
         rec.cartaoEfetivo = getEffectiveCartaoNome(r, filterMonth);
         if (isAssinaturaTipo(r.tipo)) rec.valorMes = getAssinaturaValorForMonth(r, filterMonth);
         out.push(rec);
@@ -5933,6 +5943,30 @@ $("txError").style.display = "none";
   $("antecipParcelasList").addEventListener("change", function(){
     if (!antecipEditingRow) recomputeAntecipValorSuggestion();
   });
+  // Pessoa da antecipação: por padrão a da compra, mas pode ser outra (ex.: compra dos Padres,
+  // antecipação paga pelos facheros). Ao mudar numa antecipação existente, pergunta o alcance.
+  var antecipPessoaOriginal = "";
+  function antecipEffectivePessoa(a){
+    if (a.pessoa) return a.pessoa;
+    var c = state.compras.records.filter(function(x){ return x.row === a.compraRow; })[0];
+    return c ? c.pessoa : "";
+  }
+  function setupAntecipPessoa(pessoa, editing){
+    populateSelect($("antecipPessoa"), nomes("pessoas"), null, false);
+    $("antecipPessoa").value = pessoa;
+    antecipPessoaOriginal = pessoa;
+    $("antecipPessoaEscopo").innerHTML = "";
+    updateAntecipPessoaEscopo(editing);
+  }
+  function updateAntecipPessoaEscopo(editing){
+    var changed = editing && $("antecipPessoa").value !== antecipPessoaOriginal;
+    $("antecipPessoaEscopoWrap").style.display = changed ? "block" : "none";
+    if (!changed) return;
+    var sel = $("antecipPessoaEscopo");
+    sel.innerHTML = '<option value="one">Só esta antecipação</option>' +
+      '<option value="all">Todas as antecipações de ' + escapeHtml(antecipPessoaOriginal) + '</option>';
+  }
+  $("antecipPessoa").addEventListener("change", function(){ updateAntecipPessoaEscopo(!!antecipEditingRow); });
   function openAntecipModalForCompra(r, opts){
     if (READONLY_MAE) return;
     var avail = getAntecipacaoAvailability(r);
@@ -5945,6 +5979,7 @@ $("txError").style.display = "none";
     $("antecipHint").textContent = "Escolha quais parcelas quer anticipar. O valor abaixo será cobrado em " + formatMonthLabel(getRefMonth()) + ".";
     buildAntecipParcelasChips(avail.available, parcelaValor, avail.available, false);
     recomputeAntecipValorSuggestion();
+    setupAntecipPessoa(r.pessoa, false);
     $("antecipPrevisao").checked = !!(opts && opts.previsao === true);
     $("antecipMes").value = monthKey(getRefMonth());
     updateAntecipPrevisaoVisibility();
@@ -5967,6 +6002,7 @@ $("txError").style.display = "none";
       ". Para mudar quais parcelas, exclua e crie uma nova.";
     buildAntecipParcelasChips(indices, parcelaValor, indices, true);
     $("antecipValor").value = String(a.valor).replace(".", ",");
+    setupAntecipPessoa(antecipEffectivePessoa(a), true);
     $("antecipPrevisao").checked = !!a.previsao;
     $("antecipMes").value = a.mes || monthKey(getRefMonth());
     updateAntecipPrevisaoVisibility();
@@ -6006,11 +6042,25 @@ $("txError").style.display = "none";
       indices: indices,
       valor: Math.round(valor*100)/100,
       out: existing ? (existing.out || 0) : 0,
-      previsao: asPrevisao
+      previsao: asPrevisao,
+      pessoa: $("antecipPessoa").value
     };
     var action = antecipEditingRow ? "update" : "insert";
     var rowNum = antecipEditingRow;
+    var novaPessoa = $("antecipPessoa").value;
+    var applyAll = antecipEditingRow && novaPessoa !== antecipPessoaOriginal && $("antecipPessoaEscopo").value === "all";
     saveTableRow("antecipacoes", action, rowNum, rec).then(function(){
+      if (!applyAll) return;
+      // Todas as outras antecipações cuja pessoa efetiva é a anterior passam à nova pessoa.
+      var others = state.antecipacoes.records.concat(state.previsoes.antecipacoes).filter(function(a){
+        return a.row !== antecipEditingRow && antecipEffectivePessoa(a) === antecipPessoaOriginal;
+      });
+      return Promise.all(others.map(function(a){
+        var copy = {}; for (var k in a) copy[k] = a[k];
+        copy.pessoa = novaPessoa;
+        return saveTableRow("antecipacoes", "update", a.row, copy);
+      }));
+    }).then(function(){
       closeAntecipModal();
       return loadAndRender();
     }).catch(function(err){
