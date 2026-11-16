@@ -399,6 +399,49 @@
   .grp-head h3 { margin: 0; font-size: 13px; font-family: 'Archivo', sans-serif; }
   .grp-head .btn { padding: 5px 10px; font-size: 12.5px; }
 
+  [hidden] { display: none !important; }
+  dialog { position: relative; }
+  .dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .dlg-head h2 { margin: 0; }
+  .dlg-x { flex: none; width: 36px; height: 36px; margin: -6px -8px 0 0; border-radius: 50%; border: none; background: none; color: var(--ink-soft); display: flex; align-items: center; justify-content: center; }
+  .dlg-x:hover { background: var(--paper-2); color: var(--ink); }
+  .dlg-x svg { width: 20px; height: 20px; }
+  .search-wrap { position: relative; margin-bottom: 14px; }
+  .search-wrap .search { margin-bottom: 0; padding-right: 40px; }
+  .search-clear { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; border: none; background: none; color: var(--ink-faint); display: flex; align-items: center; justify-content: center; }
+  .search-clear:hover { color: var(--ink); background: var(--paper-2); }
+  .search-clear svg { width: 18px; height: 18px; }
+  .sel-btn { cursor: pointer; }
+  .set-row .sel-btn { width: auto; min-width: 130px; font-size: 14px; padding: 7px 10px; }
+  #sel-dialog { width: min(360px, calc(100vw - 32px)); max-height: 80vh; overflow-y: auto; margin: 8vh auto auto; }
+  .sel-opt { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; padding: 11px 12px; margin-bottom: 4px; border-radius: 9px; border: 1px solid transparent; background: none; font-size: 15px; }
+  .sel-opt:hover { background: var(--paper-2); }
+  .sel-opt.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  #confirm-dialog { width: min(340px, calc(100vw - 32px)); }
+  #confirm-dialog p { margin: 0 0 4px; font-size: 15px; }
+  .pac.done-ses { opacity: 0.8; }
+  .pac.done-ses .check-btn { background: var(--good); border-color: var(--good); color: #fff; }
+  /* ---------- Dashboard ---------- */
+  #page-dash, #page-pat { padding-bottom: 96px; }
+  .dash-modes { margin-bottom: 10px; }
+  .dash-range { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 10px; }
+  .dash-range .dr-title { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 16px; text-align: center; flex: 1; }
+  .dash-custom { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .dash-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .dash-card { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .dash-card .n { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 500; line-height: 1; color: var(--accent); }
+  .dash-card .label { margin-top: 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); }
+  .dash-sec { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 14px; margin: 16px 0 8px; }
+  .dash-avg { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 4px 14px; margin-bottom: 8px; }
+  .dash-avg .row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; font-size: 14px; border-top: 1px dashed var(--line); }
+  .dash-avg .row:first-child { border-top: none; }
+  .dash-avg .row b { font-family: 'IBM Plex Mono', monospace; font-weight: 500; color: var(--accent); font-size: 16px; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 90px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 8px 4px; }
+  .bars .bar { flex: 1; min-width: 3px; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .bars .bar.zero { background: var(--paper-3); }
+  .bars-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-faint); padding: 2px 4px 0; font-family: 'IBM Plex Mono', monospace; }
+  .dash-note { font-size: 12px; color: var(--ink-faint); margin: 4px 2px 0; }
+
   .toast {
     position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
     background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 999px; font-size: 13px;
@@ -467,7 +510,10 @@
 
       <div class="hito-box" id="hito-box" hidden></div>
 
-      <input type="text" class="search" id="search-input" placeholder="Buscar paciente…" autocomplete="off">
+      <div class="search-wrap">
+        <input type="text" class="search" id="search-input" placeholder="Buscar paciente…" autocomplete="off">
+        <button type="button" class="search-clear" id="search-clear" aria-label="Borrar búsqueda" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
 
       <div class="list-scroll" id="list-scroll">
         <div id="list-root"></div>
@@ -494,25 +540,68 @@
       <div class="cal-detail" id="cal-detail"></div>
     </div>
 
+    <!-- ===== Página: Protocolos (patologías y ejercicios) ===== -->
+    <div class="tab-page" id="page-pat" hidden>
+      <div class="cal-head"><span class="cal-title">Protocolos</span></div>
+      <p class="set-hint">Cada patología tiene su calentamiento, sus ejercicios base y los extras que se suman en las sesiones 3, 7, 10 y 13.</p>
+      <div id="pat-list"></div>
+      <div class="capture" style="margin-top:14px;">
+        <div class="field">
+          <label for="pat-new-name">Nueva patología</label>
+          <input type="text" id="pat-new-name" placeholder="Ej. Lumbalgia" autocomplete="off">
+        </div>
+        <button type="button" class="btn btn-primary add-btn" id="pat-new-btn" style="margin-top:8px;">Crear patología</button>
+      </div>
+    </div>
+
+    <!-- ===== Página: Dashboard ===== -->
+    <div class="tab-page" id="page-dash" hidden>
+      <div class="cal-head"><span class="cal-title">Resumen</span></div>
+      <div class="seg dash-modes" id="dash-modes" role="group" aria-label="Intervalo">
+        <button type="button" data-m="dia">Día</button><button type="button" data-m="semana">Semana</button><button type="button" data-m="mes">Mes</button><button type="button" data-m="rango">Rango</button>
+      </div>
+      <div class="dash-range" id="dash-range">
+        <button type="button" class="icon-btn" id="dash-prev" aria-label="Anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button type="button" class="dr-title" id="dash-title" style="background:none;border:none;color:inherit;"></button>
+        <button type="button" class="icon-btn" id="dash-next" aria-label="Siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <div class="dash-custom" id="dash-custom" hidden>
+        <button type="button" class="date-btn" id="dash-from"></button>
+        <button type="button" class="date-btn" id="dash-to"></button>
+      </div>
+      <div id="dash-body"></div>
+    </div>
+
     <nav class="bottom-nav" id="bottomNav">
       <button type="button" data-page="lista" class="active" aria-label="Pacientes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16.5 5.3a3.2 3.2 0 0 1 0 5.4M18.5 14.4c1.6.7 2.8 2.4 2.8 5.1"/></svg>
         Pacientes
       </button>
+      <button type="button" data-page="cal" aria-label="Calendario">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
+        Calendario
+      </button>
       <button type="button" class="nav-add" data-action="add" aria-label="Agregar paciente">
         <span class="nav-add-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9.5" cy="8" r="3.4"/><path d="M3 20c0-3.4 2.9-5.6 6.5-5.6 1.4 0 2.7.3 3.7.9"/><path d="M18 12.5v7M14.5 16h7"/></svg></span>
         Agregar
       </button>
-      <button type="button" data-page="cal" aria-label="Calendario">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
-        Calendario
+      <button type="button" data-page="pat" aria-label="Protocolos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.2"/><path d="M9 8.5h6M9 12.5h6M9 16.5h3.5"/></svg>
+        Protocolos
+      </button>
+      <button type="button" data-page="dash" aria-label="Resumen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>
+        Resumen
       </button>
     </nav>
   </div>
 </div>
 
 <dialog id="add-dialog">
-  <h2>Agregar paciente</h2>
+  <div class="dlg-head">
+    <h2>Agregar paciente</h2>
+    <button type="button" class="dlg-x" id="add-x" aria-label="Cerrar sin guardar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
         <div class="capture-grid">
           <div class="field">
             <label for="nombre-input">Nombre</label>
@@ -532,8 +621,6 @@
             </div>
           </div>
           <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
-          <div class="dup-hint ok" id="add-ok" hidden></div>
-          <button type="button" class="btn" id="add-close">Listo</button>
         </div>
 </dialog>
 
@@ -577,10 +664,6 @@
   <div class="set-row">
     <label for="set-antes">Avisar también el día anterior</label>
     <input type="checkbox" id="set-antes">
-  </div>
-  <div class="set-row">
-    <span>Patologías y ejercicios</span>
-    <button type="button" class="btn" id="btn-pat">Editar</button>
   </div>
   <div class="set-row">
     <span>Actualizar la app</span>
@@ -642,15 +725,17 @@
   </div>
 </dialog>
 
-<dialog id="pat-dialog">
-  <h2>Patologías y ejercicios</h2>
-  <div id="pat-list"></div>
-  <div class="field" style="margin-top:12px;">
-    <label for="pat-new-name">Nueva patología</label>
-    <input type="text" id="pat-new-name" placeholder="Ej. Lumbalgia" autocomplete="off">
+<dialog id="sel-dialog">
+  <h2 id="sel-title">Seleccionar</h2>
+  <div id="sel-list"></div>
+</dialog>
+
+<dialog id="confirm-dialog">
+  <p id="confirm-msg"></p>
+  <div class="dlg-actions">
+    <button type="button" class="btn" id="confirm-no">Cancelar</button>
+    <button type="button" class="btn btn-danger" id="confirm-yes">Eliminar</button>
   </div>
-  <button type="button" class="btn btn-primary" id="pat-new-btn" style="width:100%;">Crear patología</button>
-  <div class="dlg-actions"><span></span><button type="button" class="btn" id="pat-close">Cerrar</button></div>
 </dialog>
 
 <dialog id="patedit-dialog">
@@ -773,7 +858,8 @@
       renderPatSelects(); render(); scheduleNotifications();
       if ($("ses-list-dialog").open) renderSesList();
       if ($("patedit-dialog").open) renderPatEx();
-      if ($("pat-dialog").open) renderPatList();
+      if (!$("page-pat").hidden) renderPatList();
+      if (!$("page-dash").hidden) renderDash();
     }).catch(function(err){
       showError('No se pudo cargar la lista: ' + err.message);
     });
@@ -789,20 +875,12 @@
     row.user_id = viewId; row.nombre = nombre; row.fecha_fin = fecha; row.informe = $("informe-input").value;
     supabaseClient.from('tratamientos_pacientes').insert(row)
       .then(throwIfError).then(function(){
-        $("nombre-input").value = '';
-        $("add-obs").value = '';
-        $("informe-input").value = null;
-        updateDupHint();
-        // La fecha se conserva: normalmente se cargan varios pacientes seguidos con fechas parecidas.
+        $("add-dialog").close();
         toast('Agregado: ' + nombre + ' · ' + longDate(fecha));
-        // El toast queda detrás del diálogo (capa superior), así que la confirmación va dentro del formulario.
-        $("add-ok").textContent = '✓ Agregado: ' + nombre + ' · ' + longDate(fecha);
-        $("add-ok").hidden = false;
-        $("nombre-input").focus();
         return loadAndRender();
       }).catch(function(err){
         showError('No se pudo guardar: ' + err.message);
-        $("add-btn").disabled = false;
+        $("add-dialog").close();
       });
   }
 
@@ -841,9 +919,16 @@
     main.addEventListener('click', function(){ if (info) openSession(p.id, info.numero); else openEdit(p.id); });
     var chk = el('button', 'check-btn');
     chk.type = 'button';
-    chk.setAttribute('aria-label', p.terminado ? 'Reabrir tratamiento' : 'Marcar tratamiento como terminado');
     chk.innerHTML = CHECK_SVG;
-    chk.addEventListener('click', function(){ setTerminado(p.id, !p.terminado); });
+    if (info){
+      // En el calendario el check marca la SESIÓN como realizada (alimenta el resumen).
+      if (info.hecha) row.classList.add('done-ses');
+      chk.setAttribute('aria-label', info.hecha ? 'Desmarcar sesión realizada' : 'Marcar sesión como realizada');
+      chk.addEventListener('click', function(){ setHecha(p.id, info.numero, !info.hecha); });
+    } else {
+      chk.setAttribute('aria-label', p.terminado ? 'Reabrir tratamiento' : 'Marcar tratamiento como terminado');
+      chk.addEventListener('click', function(){ setTerminado(p.id, !p.terminado); });
+    }
     row.appendChild(main);
     row.appendChild(chk);
     return row;
@@ -970,10 +1055,14 @@
   });
   $("edit-delete").addEventListener("click", function(){
     var p = pacientes.filter(function(x){ return x.id === editingId; })[0];
-    if (!p || !confirm('¿Eliminar a ' + p.nombre + '?')) return;
-    supabaseClient.from('tratamientos_pacientes').delete().eq('id', editingId)
-      .then(throwIfError).then(function(){ $("edit-dialog").close(); return loadAndRender(); })
-      .catch(function(err){ showError('No se pudo eliminar: ' + err.message); $("edit-dialog").close(); });
+    if (!p) return;
+    var id = editingId;
+    askConfirm('¿Eliminar a ' + p.nombre + '?').then(function(ok){
+      if (!ok) return;
+      supabaseClient.from('tratamientos_pacientes').delete().eq('id', id)
+        .then(throwIfError).then(function(){ $("edit-dialog").close(); return loadAndRender(); })
+        .catch(function(err){ showError('No se pudo eliminar: ' + err.message); $("edit-dialog").close(); });
+    });
   });
 
   // ---------- Control Sí / No (mitad y mitad) ----------
@@ -1060,17 +1149,22 @@
   enhanceDateField($("edit-fecha"));
 
   // ---------- Formulario ----------
+  // «Agregar» solo se habilita con todo lleno (la valoración es lo único opcional).
   function refreshAddBtn(){
     var n = $("nombre-input").value.trim();
-    $("add-btn").disabled = !(n && $("fecha-input").value) || !!findExact(n);
+    var ok = n && $("add-pat").value && $("add-inicio").value && Number($("add-total").value) > 0 &&
+      $("add-dias").value.length && $("fecha-input").value && $("informe-input").value !== null;
+    $("add-btn").disabled = !ok || !!findExact(n);
   }
   $("fecha-input").value = todayStr();
-  refreshAddBtn();
-  $("nombre-input").addEventListener("input", function(){ $("add-ok").hidden = true; updateDupHint(); });
+  $("nombre-input").addEventListener("input", function(){ updateDupHint(); });
   $("fecha-input").addEventListener("change", refreshAddBtn);
   $("nombre-input").addEventListener("keydown", function(e){ if (e.key === "Enter") addPaciente(); });
   $("add-btn").addEventListener("click", addPaciente);
-  $("search-input").addEventListener("input", render);
+  $("search-input").addEventListener("input", function(){ $("search-clear").hidden = !$("search-input").value; render(); });
+  $("search-clear").addEventListener("click", function(){
+    $("search-input").value = ''; $("search-clear").hidden = true; render(); $("search-input").focus();
+  });
   // Las tarjetas del resumen filtran la lista; tocar la seleccionada vuelve a mostrar todos.
   $("stats").addEventListener("click", function(e){
     var b = e.target.closest('.stat'); if (!b) return;
@@ -1092,11 +1186,14 @@
   var calSel = todayStr();
 
   function showPage(name){
-    ['lista', 'cal'].forEach(function(p){ $("page-" + p).hidden = (p !== name); });
+    ['lista', 'cal', 'pat', 'dash'].forEach(function(p){ $("page-" + p).hidden = (p !== name); });
     Array.prototype.forEach.call($("bottomNav").querySelectorAll('button'), function(b){
       b.classList.toggle('active', b.dataset.page === name);
     });
-    if (name === 'cal') renderCalendar(); else fitListScroll();
+    if (name === 'cal') renderCalendar();
+    else if (name === 'pat') renderPatList();
+    else if (name === 'dash') renderDash();
+    else fitListScroll();
     window.scrollTo(0, 0);
   }
   $("bottomNav").addEventListener("click", function(e){
@@ -1104,14 +1201,20 @@
     if (b.dataset.action === 'add') openAdd(); else showPage(b.dataset.page);
   });
   // Formulario de agregar: diálogo que se queda abierto para cargar varios pacientes seguidos.
+  // Se abre siempre con el formulario vacío; la X cierra sin guardar y «Agregar» cierra al guardar.
   function openAdd(iso){
-    if (iso) $("fecha-input").value = iso;
-    $("add-ok").hidden = true;
-    refreshAddBtn();
+    $("nombre-input").value = '';
+    $("add-pat").value = '';
+    $("add-inicio").value = iso || todayStr();
+    $("add-total").value = '';
+    $("add-dias").value = [];
+    $("add-obs").value = '';
+    $("informe-input").value = null;
+    refreshFin('add');
+    updateDupHint();
     $("add-dialog").showModal();
-    $("nombre-input").focus();
   }
-  $("add-close").addEventListener("click", function(){ $("add-dialog").close(); });
+  $("add-x").addEventListener("click", function(){ $("add-dialog").close(); });
 
   function renderCalendar(){
     $("cal-title").textContent = monthTitle(calView.y, calView.m);
@@ -1310,8 +1413,72 @@
     $(pfx + '-obs').value = p.obs;
     refreshFin(pfx);
   }
+  // --- Select propio: el <select> nativo abre un panel sin el estilo de la app, así que se reemplaza por un botón + diálogo. ---
+  var SEL_VALUE = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  var CHEV_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  var selTarget = null;
+  function selLabel(sel){
+    var l = sel.id && document.querySelector('label[for="' + sel.id + '"]');
+    if (!l){ var f = sel.closest('.field'); l = f && f.querySelector('label'); }
+    return (l && l.textContent.trim()) || 'Seleccionar';
+  }
+  function enhanceSelect(sel){
+    if (sel.dataset.enh) return;
+    sel.dataset.enh = '1';
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'date-btn sel-btn';
+    sel.style.display = 'none';
+    sel.parentNode.insertBefore(btn, sel.nextSibling);
+    function paint(){
+      var o = sel.options[sel.selectedIndex];
+      btn.innerHTML = '<span></span>' + CHEV_SVG;
+      btn.firstChild.textContent = o ? o.textContent : '';
+    }
+    Object.defineProperty(sel, 'value', { configurable: true, get: function(){ return SEL_VALUE.get.call(sel); }, set: function(v){ SEL_VALUE.set.call(sel, v); paint(); } });
+    new MutationObserver(paint).observe(sel, { childList: true });
+    btn.addEventListener('click', function(){
+      selTarget = sel;
+      $("sel-title").textContent = selLabel(sel);
+      var box = $("sel-list"); box.innerHTML = '';
+      Array.prototype.forEach.call(sel.options, function(o){
+        var b = el('button', 'sel-opt' + (o.value === sel.value ? ' on' : ''), o.textContent);
+        b.type = 'button'; b.dataset.v = o.value;
+        box.appendChild(b);
+      });
+      $("sel-dialog").showModal();
+    });
+    paint();
+  }
+  $("sel-list").addEventListener("click", function(e){
+    var b = e.target.closest('.sel-opt'); if (!b || !selTarget) return;
+    selTarget.value = b.dataset.v;
+    selTarget.dispatchEvent(new Event('change', { bubbles: true }));
+    $("sel-dialog").close();
+  });
+  $("sel-dialog").addEventListener("click", function(e){ if (e.target === $("sel-dialog")) $("sel-dialog").close(); });
+  ["set-hora", "admin-select", "ex-hito", "ex-dia"].forEach(function(id){ enhanceSelect($(id)); });
+
+  // --- Confirmación propia (en vez de confirm() nativo) ---
+  var confirmResolve = null;
+  function askConfirm(msg, okLabel){
+    $("confirm-msg").textContent = msg;
+    $("confirm-yes").textContent = okLabel || 'Eliminar';
+    return new Promise(function(res){ confirmResolve = res; $("confirm-dialog").showModal(); });
+  }
+  function answerConfirm(v){ var r = confirmResolve; confirmResolve = null; if ($("confirm-dialog").open) $("confirm-dialog").close(); if (r) r(v); }
+  $("confirm-yes").addEventListener("click", function(){ answerConfirm(true); });
+  $("confirm-no").addEventListener("click", function(){ answerConfirm(false); });
+  $("confirm-dialog").addEventListener("cancel", function(){ answerConfirm(false); });
+
   buildExtra('add');
   buildExtra('edit');
+  enhanceSelect($("add-pat"));
+  enhanceSelect($("edit-pat"));
+  ["add-pat", "add-inicio", "add-total", "add-dias", "informe-input"].forEach(function(id){
+    $(id).addEventListener("change", refreshAddBtn);
+    $(id).addEventListener("input", refreshAddBtn);
+    $(id).addEventListener("click", refreshAddBtn); // se registra después del propio del control, así ya tiene el valor nuevo
+  });
   $("add-inicio").value = todayStr();
   refreshFin('add');
 
@@ -1495,7 +1662,6 @@
 
   // --- Patologías y ejercicios (editor) ---
   var patEditId = null, exEditId = null, exPat = null;
-  function openPatList(){ renderPatList(); $("pat-dialog").showModal(); }
   function renderPatList(){
     var root = $("pat-list"); root.innerHTML = '';
     if (!patologias.length) root.appendChild(el('div', 'empty', 'Aún no hay patologías.'));
@@ -1509,8 +1675,6 @@
       root.appendChild(b);
     });
   }
-  $("btn-pat").addEventListener("click", function(){ $("settings-dialog").close(); openPatList(); });
-  $("pat-close").addEventListener("click", function(){ $("pat-dialog").close(); });
   $("pat-new-btn").addEventListener("click", function(){
     var nombre = $("pat-new-name").value.trim(); if (!nombre) return;
     supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre }).select().then(throwIfError).then(function(res){
@@ -1557,10 +1721,14 @@
   });
   $("pe-delete").addEventListener("click", function(){
     var pt = patById(patEditId);
-    if (!pt || !confirm('¿Eliminar la patología «' + pt.nombre + '» y todos sus ejercicios? Los pacientes que la tengan quedarán sin patología.')) return;
-    supabaseClient.from('tratamientos_patologias').delete().eq('id', patEditId)
-      .then(throwIfError).then(function(){ $("patedit-dialog").close(); return loadAndRender(); })
-      .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
+    if (!pt) return;
+    var id = patEditId;
+    askConfirm('¿Eliminar la patología «' + pt.nombre + '» y todos sus ejercicios? Los pacientes que la tengan quedarán sin patología.').then(function(ok){
+      if (!ok) return;
+      supabaseClient.from('tratamientos_patologias').delete().eq('id', id)
+        .then(throwIfError).then(function(){ $("patedit-dialog").close(); return loadAndRender(); })
+        .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
+    });
   });
   function openEx(id, hito){
     exEditId = id;
@@ -1596,11 +1764,141 @@
       .catch(function(err){ showError('No se pudo guardar el ejercicio: ' + err.message); });
   });
   $("ex-delete").addEventListener("click", function(){
-    if (!confirm('¿Eliminar este ejercicio?')) return;
-    supabaseClient.from('tratamientos_ejercicios').delete().eq('id', exEditId)
-      .then(throwIfError).then(function(){ $("ex-dialog").close(); return loadAndRender(); })
-      .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
+    var id = exEditId;
+    askConfirm('¿Eliminar este ejercicio?').then(function(ok){
+      if (!ok) return;
+      supabaseClient.from('tratamientos_ejercicios').delete().eq('id', id)
+        .then(throwIfError).then(function(){ $("ex-dialog").close(); return loadAndRender(); })
+        .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
+    });
   });
+
+  // ---------- Sesión realizada (check del calendario) ----------
+  function setHecha(pid, numero, value){
+    supabaseClient.from('tratamientos_sesiones').upsert({ paciente_id: pid, user_id: viewId, numero: numero, hecha: value, updated_at: new Date().toISOString() }, { onConflict: 'paciente_id,numero' })
+      .then(throwIfError).then(loadAndRender)
+      .catch(function(err){ showError('No se pudo actualizar la sesión: ' + err.message); });
+  }
+
+  // ---------- Dashboard ----------
+  // «Atendido» = sesión marcada como realizada. Las fechas salen de la agenda de cada paciente.
+  var dash = { mode: 'semana', anchor: todayStr(), from: todayStr(), to: todayStr() };
+  function dashRange(){
+    var a = dash.anchor, d = parseIso(a);
+    if (dash.mode === 'dia') return [a, a];
+    if (dash.mode === 'semana'){ var ws = addDays(a, -((d.getDay() + 6) % 7)); return [ws, addDays(ws, 6)]; }
+    if (dash.mode === 'mes') return [toIso(new Date(d.getFullYear(), d.getMonth(), 1)), toIso(new Date(d.getFullYear(), d.getMonth() + 1, 0))];
+    return dash.from <= dash.to ? [dash.from, dash.to] : [dash.to, dash.from];
+  }
+  function shortDate(iso){ var p = iso.split('-'); return p[2] + '/' + p[1]; }
+  function allSessions(){
+    var out = [];
+    pacientes.forEach(function(p){
+      var sc = scheduleOf(p); if (!sc) return;
+      sc.forEach(function(s){ out.push({ p: p, numero: s.numero, fecha: s.fecha, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha }); });
+    });
+    return out;
+  }
+  function fmt1(n){ return (Math.round(n * 10) / 10).toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 1 }); }
+  function dashCard(n, label){
+    var c = el('div', 'dash-card'); c.appendChild(el('div', 'n', String(n))); c.appendChild(el('div', 'label', label)); return c;
+  }
+  function renderDash(){
+    Array.prototype.forEach.call($("dash-modes").querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.m === dash.mode); });
+    var r = dashRange(), a = r[0], b = r[1], today = todayStr();
+    $("dash-range").hidden = dash.mode === 'rango';
+    $("dash-custom").hidden = dash.mode !== 'rango';
+    $("dash-from").value = dash.from; $("dash-to").value = dash.to;
+    $("dash-title").textContent = dash.mode === 'dia' ? dayTitle(a) : dash.mode === 'mes' ? monthTitle(parseIso(a).getFullYear(), parseIso(a).getMonth()) : shortDate(a) + ' – ' + shortDate(b) + ' · ' + parseIso(b).getFullYear();
+
+    var all = allSessions();
+    var inR = function(f){ return f >= a && f <= b; };
+    var prog = all.filter(function(s){ return inR(s.fecha); });
+    var hechas = prog.filter(function(s){ return s.hecha; });
+    var atendidos = {}; hechas.forEach(function(s){ atendidos[s.p.id] = 1; });
+    var sinMarcar = prog.filter(function(s){ return !s.hecha && s.fecha <= today; }).length;
+    var hitosN = prog.filter(function(s){ return AVISO_SESIONES.indexOf(s.numero) !== -1; }).length;
+    var activos = pacientes.filter(function(p){ return !p.terminado; }).length;
+    var terminados = pacientes.length - activos;
+    var terminanEn = pacientes.filter(function(p){ return inR(p.fechaFin); }).length;
+    var inicianEn = pacientes.filter(function(p){ return p.fechaInicio && inR(p.fechaInicio); }).length;
+
+    var body = $("dash-body"); body.innerHTML = '';
+    body.appendChild(el('div', 'dash-sec', 'En el período'));
+    var g = el('div', 'dash-grid');
+    g.appendChild(dashCard(Object.keys(atendidos).length, 'Pacientes atendidos'));
+    g.appendChild(dashCard(hechas.length, 'Sesiones realizadas'));
+    g.appendChild(dashCard(prog.length, 'Sesiones programadas'));
+    g.appendChild(dashCard(sinMarcar, 'Pasadas sin marcar'));
+    g.appendChild(dashCard(inicianEn, 'Inician tratamiento'));
+    g.appendChild(dashCard(terminanEn, 'Terminan tratamiento'));
+    g.appendChild(dashCard(hitosN, 'Sesiones 2, 3, 7, 10, 13'));
+    body.appendChild(g);
+
+    if (dash.mode !== 'dia' && diffDays(a, b) <= 31){
+      body.appendChild(el('div', 'dash-sec', 'Atendidos por día'));
+      var counts = {}; hechas.forEach(function(s){ counts[s.fecha] = (counts[s.fecha] || 0) + 1; });
+      var max = 1, days = [];
+      for (var d = a; d <= b; d = addDays(d, 1)){ days.push(d); max = Math.max(max, counts[d] || 0); }
+      var bars = el('div', 'bars');
+      days.forEach(function(d){
+        var n = counts[d] || 0, bar = el('div', 'bar' + (n ? '' : ' zero'));
+        bar.style.height = Math.max(3, Math.round(n / max * 100)) + '%';
+        bar.title = longDate(d) + ': ' + n;
+        bars.appendChild(bar);
+      });
+      body.appendChild(bars);
+      var ax = el('div', 'bars-axis'); ax.appendChild(el('span', null, shortDate(a))); ax.appendChild(el('span', null, 'máx. ' + max)); ax.appendChild(el('span', null, shortDate(b)));
+      body.appendChild(ax);
+    }
+
+    body.appendChild(el('div', 'dash-sec', 'Pacientes en general'));
+    var g2 = el('div', 'dash-grid');
+    g2.appendChild(dashCard(activos, 'Pacientes activos'));
+    g2.appendChild(dashCard(terminados, 'Ya terminaron'));
+    g2.appendChild(dashCard(pacientes.length, 'Pacientes en total'));
+    g2.appendChild(dashCard(pacientes.filter(function(p){ return !p.terminado && !scheduleOf(p); }).length, 'Activos sin agenda'));
+    body.appendChild(g2);
+
+    body.appendChild(el('div', 'dash-sec', 'Promedio de atención'));
+    var done = all.filter(function(s){ return s.hecha; });
+    var avg = el('div', 'dash-avg');
+    if (!done.length){
+      avg.appendChild(el('div', 'row', 'Aún no hay sesiones realizadas.'));
+    } else {
+      var first = done.reduce(function(m, s){ return s.fecha < m ? s.fecha : m; }, done[0].fecha);
+      var last = done.reduce(function(m, s){ return s.fecha > m ? s.fecha : m; }, done[0].fecha);
+      var end = last > today ? last : today;
+      var span = diffDays(first, end) + 1, actDays = {};
+      done.forEach(function(s){ actDays[s.fecha] = 1; });
+      [['Pacientes por día de atención', done.length / Object.keys(actDays).length],
+       ['Pacientes por semana', done.length / Math.max(1, span / 7)],
+       ['Pacientes por mes', done.length / Math.max(1, span / 30.44)]].forEach(function(x){
+        var row = el('div', 'row'); row.appendChild(el('span', null, x[0])); row.appendChild(el('b', null, fmt1(x[1]))); avg.appendChild(row);
+      });
+    }
+    body.appendChild(avg);
+    body.appendChild(el('div', 'dash-note', 'Cuenta como atendida cada sesión marcada como realizada (check en el calendario o dentro de la sesión). Promedios desde la primera sesión realizada hasta hoy.'));
+  }
+  $("dash-modes").addEventListener("click", function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.m === 'rango' && dash.mode !== 'rango'){ var r = dashRange(); dash.from = r[0]; dash.to = r[1]; }
+    dash.mode = b.dataset.m; renderDash();
+  });
+  function dashShift(n){
+    var d = parseIso(dash.anchor);
+    if (dash.mode === 'dia') dash.anchor = addDays(dash.anchor, n);
+    else if (dash.mode === 'semana') dash.anchor = addDays(dash.anchor, 7 * n);
+    else if (dash.mode === 'mes') dash.anchor = toIso(new Date(d.getFullYear(), d.getMonth() + n, 1));
+    renderDash();
+  }
+  $("dash-prev").addEventListener("click", function(){ dashShift(-1); });
+  $("dash-next").addEventListener("click", function(){ dashShift(1); });
+  $("dash-title").addEventListener("click", function(){ dash.anchor = todayStr(); renderDash(); });
+  enhanceDateField($("dash-from"));
+  enhanceDateField($("dash-to"));
+  $("dash-from").addEventListener("change", function(){ dash.from = $("dash-from").value; renderDash(); });
+  $("dash-to").addEventListener("change", function(){ dash.to = $("dash-to").value; renderDash(); });
 
   // ---------- Configuración (menú de 3 puntos) ----------
   $("btn-settings").addEventListener("click", function(){ $("settings-dialog").showModal(); });
