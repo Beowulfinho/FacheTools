@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tracker">
 <title>Tracker</title>
+<script>try { var t = localStorage.getItem('tratTema'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23C2417B'/%3E%3Crect x='7' y='9' width='18' height='16' rx='3' fill='none' stroke='%23FFFFFF' stroke-width='2'/%3E%3Cpath d='M7 14h18M12 6v5M20 6v5M12.5 19.5l2.5 2.5 4.5-5' stroke='%23FFFFFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E">
@@ -370,6 +371,25 @@
   .badge-inf.ses { background: var(--paper-3); color: var(--ink); }
   .badge-inf.hito { background: var(--warn-soft); color: var(--warn); }
   .badge-inf.done { background: var(--good-soft); color: var(--good); }
+  .dcard { background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+  .dcard.has-extra { background: var(--warn-soft); border-color: var(--warn); }
+  .dcard-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .dcard-title { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 15px; }
+  .dcard-title::first-letter { text-transform: uppercase; }
+  .dcard-sub { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--warn); }
+  .dcard-row { display: block; width: 100%; text-align: left; background: var(--paper-raised); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; margin-top: 6px; font-size: 14.5px; }
+  .dcard-row b { font-weight: 700; }
+  .dcard-extra { font-size: 13px; color: var(--warn); font-weight: 600; }
+  .dcard-rest { margin-top: 8px; font-size: 13px; color: var(--ink-soft); }
+  .dcard-link { background: none; border: none; padding: 0; font-size: 13px; color: var(--ink); text-decoration: underline; }
+  .fechas-list { display: flex; flex-direction: column; gap: 6px; }
+  .fecha-row { display: flex; align-items: center; gap: 8px; }
+  .fecha-n { flex: none; width: 86px; font-size: 12.5px; color: var(--ink-soft); font-weight: 600; }
+  .fecha-row .date-btn { flex: 1; }
+  .cal-filters { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; padding-bottom: 2px; scrollbar-width: none; }
+  .cal-filters::-webkit-scrollbar { display: none; }
+  .cal-filters button { flex: none; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper-raised); font-size: 13px; font-weight: 700; color: var(--ink-soft); }
+  .cal-filters button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .hito-box {
     background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 12px; padding: 10px 12px; margin-bottom: 14px;
   }
@@ -399,6 +419,30 @@
   .grp-head h3 { margin: 0; font-size: 13px; font-family: 'Archivo', sans-serif; }
   .grp-head .btn { padding: 5px 10px; font-size: 12.5px; }
 
+  /* Tema oscuro forzado desde Configuración (el automático sigue al celular) */
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #1E1518; --paper-2: #2A1E22; --paper-3: #36272C; --paper-raised: #2A1E22;
+    --ink: #E9EDE9; --ink-soft: #9FB0A9; --ink-faint: #647169;
+    --accent: #F28DB6; --accent-ink: #2A0F1B; --accent-soft: #3A1F2D;
+    --good: #7BC688; --good-soft: #1F3323; --warn: #E1AC55; --warn-soft: #3A2E15;
+    --critical: #E28080; --critical-soft: #3A2020; --line: #46343A;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+  .set-menu { display: flex; flex-direction: column; gap: 8px; }
+  .set-item {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px;
+  }
+  .set-item:hover { border-color: var(--ink-faint); }
+  .set-ico { flex: none; width: 38px; height: 38px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; }
+  .set-ico svg { width: 21px; height: 21px; }
+  .set-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .set-txt b { font-weight: 600; font-size: 15px; }
+  .set-txt small { font-size: 12.5px; color: var(--ink-soft); }
+  .set-chev { flex: none; width: 18px; height: 18px; color: var(--ink-faint); }
+  .set-item.danger .set-ico { background: var(--critical-soft); color: var(--critical); }
+  .set-item.danger b { color: var(--critical); }
   [hidden] { display: none !important; }
   dialog { position: relative; }
   .dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
@@ -502,13 +546,7 @@
 
     <!-- ===== Página: Pacientes ===== -->
     <div class="tab-page" id="page-lista">
-      <div class="stats" id="stats">
-        <button type="button" class="stat" data-filter="hoy"><div class="n" id="stat-today">–</div><div class="label">Terminan hoy</div></button>
-        <button type="button" class="stat" data-filter="semana"><div class="n" id="stat-week">–</div><div class="label">Esta semana</div></button>
-        <button type="button" class="stat selected" data-filter="all"><div class="n" id="stat-total">–</div><div class="label">Pacientes activos</div></button>
-      </div>
-
-      <div class="hito-box" id="hito-box" hidden></div>
+      <div id="day-cards"></div>
 
       <div class="search-wrap">
         <input type="text" class="search" id="search-input" placeholder="Buscar paciente…" autocomplete="off">
@@ -534,6 +572,14 @@
           <button type="button" class="icon-btn" id="cal-prev" aria-label="Mes anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
           <button type="button" class="icon-btn" id="cal-next" aria-label="Mes siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
+      </div>
+      <div class="cal-filters" id="cal-filters" role="group" aria-label="Filtrar sesiones">
+        <button type="button" data-f="all">Todas</button>
+        <button type="button" data-f="extra">Con ejercicio extra</button>
+        <button type="button" data-f="3">Sesión 3</button>
+        <button type="button" data-f="7">Sesión 7</button>
+        <button type="button" data-f="10">Sesión 10</button>
+        <button type="button" data-f="13">Sesión 13</button>
       </div>
       <div class="cal-week" id="cal-week"></div>
       <div class="cal-grid" id="cal-grid"></div>
@@ -647,36 +693,52 @@
 </dialog>
 
 <dialog id="settings-dialog">
-  <h2>Configuración</h2>
-  <p class="set-hint" id="connLabel"></p>
-  <div id="admin-box" hidden>
-    <div class="set-row">
-      <label for="admin-select">Ver como</label>
-      <select id="admin-select"></select>
-    </div>
-    <p class="set-hint">Modo admin: ves y editas la lista de la cuenta que elijas.</p>
+  <div class="dlg-head">
+    <h2>Configuración</h2>
+    <button type="button" class="dlg-x" id="settings-close" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
-  <p class="set-hint">El celular te avisa los días en que hay pacientes que terminan, con sus nombres.</p>
-  <div class="set-row">
+  <p class="set-hint" id="connLabel"></p>
+  <div class="set-menu">
+    <button type="button" class="set-item" id="menu-viewas" hidden>
+      <span class="set-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg></span>
+      <span class="set-txt"><b>Ver como</b><small id="viewas-sub">Mi cuenta</small></span>
+      <svg class="set-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <button type="button" class="set-item" id="menu-notif">
+      <span class="set-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16zM10 21h4"/></svg></span>
+      <span class="set-txt"><b>Notificaciones</b><small id="notif-sub"></small></span>
+      <svg class="set-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <button type="button" class="set-item" id="menu-tema">
+      <span class="set-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6L7 7M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></svg></span>
+      <span class="set-txt"><b>Tema</b><small id="tema-sub"></small></span>
+      <svg class="set-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <button type="button" class="set-item" id="btn-reload">
+      <span class="set-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></span>
+      <span class="set-txt"><b>Actualizar la app</b><small>Trae la última versión y los datos</small></span>
+    </button>
+    <button type="button" class="set-item danger" id="btnLogout">
+      <span class="set-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/></svg></span>
+      <span class="set-txt"><b>Cerrar sesión</b></span>
+    </button>
+  </div>
+  <div hidden><select id="admin-select" data-title="Ver como"></select><select id="set-tema" data-title="Tema"><option value="auto">Automático (como el celular)</option><option value="light">Claro</option><option value="dark">Oscuro</option></select></div>
+</dialog>
+
+<dialog id="notif-dialog">
+  <div class="dlg-head">
+    <h2>Notificaciones</h2>
+    <button type="button" class="dlg-x" id="notif-close" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <p class="set-hint">El celular te avisa los días en que hay pacientes que terminan y cuando alguien entra a una sesión 2, 3, 7, 10 o 13, con sus nombres.</p>
+  <div class="field">
     <label for="set-hora">Hora del aviso</label>
     <select id="set-hora"></select>
   </div>
-  <div class="set-row">
-    <label for="set-antes">Avisar también el día anterior</label>
-    <input type="checkbox" id="set-antes">
-  </div>
-  <div class="set-row">
-    <span>Actualizar la app</span>
-    <button type="button" class="btn" id="btn-reload">Actualizar</button>
-  </div>
-  <div class="set-row">
-    <span>¿No te llegan avisos?</span>
-    <button type="button" class="btn" id="btn-test-notif">Probar aviso</button>
-  </div>
-  <div class="dlg-actions">
-    <button type="button" class="btn btn-danger" id="btnLogout">Cerrar sesión</button>
-    <button type="button" class="btn btn-primary" id="settings-close">Listo</button>
-  </div>
+  <label class="check-row"><input type="checkbox" id="set-antes"> Avisar también el día anterior</label>
+  <button type="button" class="btn" id="btn-test-notif" style="width:100%; margin-top:10px;">Probar aviso</button>
+  <p class="set-hint" style="margin-top:8px;">¿No te llegan avisos? Toca «Probar aviso»: debe llegar en 5 segundos.</p>
 </dialog>
 
 <dialog id="dp-dialog">
@@ -705,7 +767,6 @@
   <div class="field">
     <label>Fecha de la sesión</label>
     <button type="button" class="date-btn" id="ses-fecha"></button>
-    <div class="fin-hint"><button type="button" class="btn-link" id="ses-fecha-auto" hidden>Volver a la fecha automática</button></div>
   </div>
   <div id="ses-proto"></div>
   <div class="field"><label for="ses-obs">Observaciones de la sesión</label><textarea id="ses-obs" placeholder="Escribe aquí cómo fue la sesión…"></textarea></div>
@@ -871,10 +932,12 @@
     if (!nombre || !fecha) return;
     if (findExact(nombre)){ updateDupHint(); toast('Ese paciente ya existe'); return; }
     $("add-btn").disabled = true;
-    var row = formVals('add');
+    var row = formVals('add'), fechas = fechasVals('add');
     row.user_id = viewId; row.nombre = nombre; row.fecha_fin = fecha; row.informe = $("informe-input").value;
-    supabaseClient.from('tratamientos_pacientes').insert(row)
-      .then(throwIfError).then(function(){
+    supabaseClient.from('tratamientos_pacientes').insert(row).select('id')
+      .then(throwIfError).then(function(res){
+        return fechas && res.data && res.data[0] ? saveFechas(res.data[0].id, fechas) : null;
+      }).then(function(){
         $("add-dialog").close();
         toast('Agregado: ' + nombre + ' · ' + longDate(fecha));
         return loadAndRender();
@@ -911,6 +974,7 @@
       if (HITOS.indexOf(info.numero) !== -1) main.appendChild(el('span', 'badge-inf hito', 'Ejercicio nuevo'));
       else if (info.numero === 2) main.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
       if (info.hecha) main.appendChild(el('span', 'badge-inf done', 'Realizada'));
+      if (info.extra) main.appendChild(el('div', 'dcard-extra', info.extra));
     } else {
       main.appendChild(el('span', 'badge-inf ' + tag[1], tag[0]));
       var cur = !p.terminado ? currentSession(p) : null;
@@ -974,29 +1038,16 @@
 
   function render(){
     var today = todayStr();
-    var weekStart = addDays(today, -((parseIso(today).getDay() + 6) % 7)), weekEnd = addDays(weekStart, 6);
     var active = pacientes.filter(function(p){ return !p.terminado; });
-    var inFilter = {
-      all: function(){ return true; },
-      hoy: function(p){ return p.fechaFin === today; },
-      semana: function(p){ return p.fechaFin >= weekStart && p.fechaFin <= weekEnd; }
-    };
-    $("stat-today").textContent = active.filter(inFilter.hoy).length;
-    $("stat-week").textContent = active.filter(inFilter.semana).length;
-    $("stat-total").textContent = active.length;
-    Array.prototype.forEach.call($("stats").querySelectorAll('.stat'), function(b){
-      b.classList.toggle('selected', b.dataset.filter === statFilter);
-    });
 
     var q = norm($("search-input").value.trim());
     var match = function(p){ return !q || norm(p.nombre).indexOf(q) !== -1; };
 
     var root = $("list-root");
     root.innerHTML = '';
-    var shown = active.filter(match).filter(inFilter[statFilter]);
+    var shown = active.filter(match);
     if (!shown.length){
-      var emptyMsg = q ? 'Nadie coincide con esa búsqueda.' :
-        (statFilter === 'hoy' ? 'Nadie termina hoy.' : statFilter === 'semana' ? 'Nadie termina esta semana.' : 'Aún no hay pacientes. Toca el botón + para agregar el primero.');
+      var emptyMsg = q ? 'Nadie coincide con esa búsqueda.' : 'Aún no hay pacientes. Toca el botón + para agregar el primero.';
       root.appendChild(el('div', 'empty', emptyMsg));
     } else {
       var groups = {}, dates = [];
@@ -1012,7 +1063,7 @@
     }
 
     var done = pacientes.filter(function(p){ return p.terminado; }).filter(match).sort(function(a, b){ return a.fechaFin < b.fechaFin ? 1 : -1; });
-    $("done-box").hidden = !done.length || statFilter !== 'all';
+    $("done-box").hidden = !done.length;
     $("done-summary").textContent = 'Tratamientos terminados (' + done.length + ')';
     var dl = $("done-list");
     dl.innerHTML = '';
@@ -1023,7 +1074,7 @@
       wrap.appendChild(r);
       dl.appendChild(wrap);
     });
-    renderHitos();
+    renderDayCards();
     if (!$("page-cal").hidden) renderCalendar();
     updateDupHint();
     fitListScroll();
@@ -1046,9 +1097,12 @@
     var fecha = $("edit-fecha").value;
     if (!nombre || !fecha){ toast('Falta el nombre o la fecha'); return; }
     if (findExact(nombre, editingId)){ toast('Ya existe otro paciente con ese nombre'); return; }
-    var upd = formVals('edit');
+    if (fechasTotal('edit') && !fechasComplete('edit')){ toast('Falta la fecha de alguna sesión'); return; }
+    var upd = formVals('edit'), fechas = fechasVals('edit'), pid = editingId;
     upd.nombre = nombre; upd.fecha_fin = fecha; upd.informe = $("edit-informe").value; upd.updated_at = new Date().toISOString();
-    supabaseClient.from('tratamientos_pacientes').update(upd).eq('id', editingId).then(throwIfError).then(function(){
+    supabaseClient.from('tratamientos_pacientes').update(upd).eq('id', pid).then(throwIfError).then(function(){
+      return fechas ? saveFechas(pid, fechas) : null;
+    }).then(function(){
       $("edit-dialog").close();
       return loadAndRender();
     }).catch(function(err){ showError('No se pudo guardar: ' + err.message); $("edit-dialog").close(); });
@@ -1152,8 +1206,7 @@
   // «Agregar» solo se habilita con todo lleno (la valoración es lo único opcional).
   function refreshAddBtn(){
     var n = $("nombre-input").value.trim();
-    var ok = n && $("add-pat").value && $("add-inicio").value && Number($("add-total").value) > 0 &&
-      $("add-dias").value.length && $("fecha-input").value && $("informe-input").value !== null;
+    var ok = n && $("add-pat").value && Number($("add-total").value) > 0 && fechasComplete('add') && $("informe-input").value !== null;
     $("add-btn").disabled = !ok || !!findExact(n);
   }
   $("fecha-input").value = todayStr();
@@ -1164,12 +1217,6 @@
   $("search-input").addEventListener("input", function(){ $("search-clear").hidden = !$("search-input").value; render(); });
   $("search-clear").addEventListener("click", function(){
     $("search-input").value = ''; $("search-clear").hidden = true; render(); $("search-input").focus();
-  });
-  // Las tarjetas del resumen filtran la lista; tocar la seleccionada vuelve a mostrar todos.
-  $("stats").addEventListener("click", function(e){
-    var b = e.target.closest('.stat'); if (!b) return;
-    statFilter = (b.dataset.filter === statFilter) ? 'all' : b.dataset.filter;
-    render();
   });
   // La lista de pacientes ocupa el espacio que queda hasta la barra inferior y se desplaza por dentro.
   function fitListScroll(){
@@ -1184,6 +1231,11 @@
   // ---------- Barra inferior y calendario ----------
   var calView = { y: new Date().getFullYear(), m: new Date().getMonth() };
   var calSel = todayStr();
+  var calFilter = 'all'; // all | extra | 3 | 7 | 10 | 13
+  $("cal-filters").addEventListener("click", function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    calFilter = b.dataset.f; renderCalendar();
+  });
 
   function showPage(name){
     ['lista', 'cal', 'pat', 'dash'].forEach(function(p){ $("page-" + p).hidden = (p !== name); });
@@ -1205,11 +1257,11 @@
   function openAdd(iso){
     $("nombre-input").value = '';
     $("add-pat").value = '';
-    $("add-inicio").value = iso || todayStr();
     $("add-total").value = '';
-    $("add-dias").value = [];
+    fechasSt.add = iso ? [iso] : [];   // si se abre desde un día del calendario, esa fecha queda para la sesión 1
     $("add-obs").value = '';
     $("informe-input").value = null;
+    renderFechas('add');
     refreshFin('add');
     updateDupHint();
     $("add-dialog").showModal();
@@ -1219,12 +1271,15 @@
   function renderCalendar(){
     $("cal-title").textContent = monthTitle(calView.y, calView.m);
     var today = todayStr(), counts = {};
-    // Con agenda: cuenta las sesiones de cada día. Sin agenda (pacientes antiguos): el día de fin.
+    Array.prototype.forEach.call($("cal-filters").querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.f === calFilter); });
+    var filtering = calFilter !== 'all';
+    function pasa(n){ return calFilter === 'all' || (calFilter === 'extra' ? HITOS.indexOf(n) !== -1 : n === Number(calFilter)); }
+    // Con agenda: cuenta las sesiones de cada día (con filtro, solo las que pasan). Sin agenda (pacientes antiguos): el día de fin.
     pacientes.forEach(function(p){
       if (p.terminado) return;
       var sc = scheduleOf(p);
-      if (sc) sc.forEach(function(s){ counts[s.fecha] = (counts[s.fecha] || 0) + 1; });
-      else counts[p.fechaFin] = (counts[p.fechaFin] || 0) + 1;
+      if (sc) sc.forEach(function(s){ if (pasa(s.numero)) counts[s.fecha] = (counts[s.fecha] || 0) + 1; });
+      else if (!filtering) counts[p.fechaFin] = (counts[p.fechaFin] || 0) + 1;
     });
     var html = '';
     monthCells(calView.y, calView.m).forEach(function(c){
@@ -1236,18 +1291,37 @@
 
     var box = $("cal-detail");
     box.innerHTML = '';
-    var infos = {}, items = [];
-    pacientes.forEach(function(p){
-      var sc = p.terminado ? null : scheduleOf(p);
-      if (sc){
-        sc.forEach(function(s){
-          if (s.fecha === calSel){ infos[p.id] = { numero: s.numero, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha }; items.push(p); }
-        });
-      } else if (!scheduleOf(p) && p.fechaFin === calSel) items.push(p);
-    });
     var scroll = el('div', 'cal-scroll');
-    scroll.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : ''), function(p){ return infos[p.id] || null; }));
-    if (!items.length) scroll.querySelector('.list').appendChild(el('div', 'empty', 'Nadie tiene sesión ni termina este día.'));
+    function sesInfo(p, s){
+      var x = extraNuevo(p, s.numero, s.fecha);
+      return { numero: s.numero, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha, extra: x ? (x.all ? 'Elige uno: ' : 'Extra: ') + extraText(x) : '' };
+    }
+    if (filtering){
+      // Con filtro se muestra la SEMANA del día elegido, agrupada por día, para ver de un vistazo quién lleva extra.
+      var ws = addDays(calSel, -((parseIso(calSel).getDay() + 6) % 7)), we = addDays(ws, 6), total = 0;
+      scroll.appendChild(el('div', 'dash-sec', 'Semana ' + shortDate(ws) + ' – ' + shortDate(we)));
+      for (var d = ws; d <= we; d = addDays(d, 1)){
+        var dayItems = [], dayInfo = {};
+        pacientes.forEach(function(p){
+          var sc = p.terminado ? null : scheduleOf(p); if (!sc) return;
+          sc.forEach(function(s){ if (s.fecha === d && pasa(s.numero)){ dayItems.push(p); dayInfo[p.id] = sesInfo(p, s); } });
+        });
+        if (!dayItems.length) continue;
+        total += dayItems.length;
+        scroll.appendChild(dayBlock(d, dayItems, d === today ? 'is-today' : (d < today ? 'is-late' : ''), function(p){ return dayInfo[p.id]; }));
+      }
+      if (!total) scroll.appendChild(el('div', 'empty', 'Nadie tiene ese ejercicio extra esta semana.'));
+    } else {
+      var infos = {}, items = [];
+      pacientes.forEach(function(p){
+        var sc = p.terminado ? null : scheduleOf(p);
+        if (sc){
+          sc.forEach(function(s){ if (s.fecha === calSel){ infos[p.id] = sesInfo(p, s); items.push(p); } });
+        } else if (p.fechaFin === calSel) items.push(p);
+      });
+      scroll.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : ''), function(p){ return infos[p.id] || null; }));
+      if (!items.length) scroll.querySelector('.list').appendChild(el('div', 'empty', 'Nadie tiene sesión ni termina este día.'));
+    }
     box.appendChild(scroll);
     var add = el('button', 'btn add-day-btn', 'Agregar paciente este día');
     add.type = 'button';
@@ -1314,26 +1388,24 @@
 
   // Fechas de las sesiones: la 1ª es el primer día de asistencia desde el inicio; cada una siguiente, el
   // siguiente día de asistencia. Una sesión reprogramada a mano (overrides) fija su fecha y las demás continúan desde ahí.
-  function computeDates(inicio, dias, total, overrides){
-    if (!inicio || !dias || !dias.length || !total) return null;
-    var out = [], prev = null;
-    for (var n = 1; n <= total; n++){
-      var d;
-      if (overrides && overrides[n]) d = overrides[n];
-      else {
-        d = prev ? addDays(prev, 1) : inicio;
-        for (var g = 0; g < 14 && dias.indexOf(parseIso(d).getDay()) === -1; g++) d = addDays(d, 1);
-      }
-      out.push({ numero: n, fecha: d }); prev = d;
+  // Cada sesión tiene su propia fecha (no hay días fijos): la agenda de un paciente está completa
+  // cuando sus sesiones 1..total tienen fecha; si falta alguna, el paciente se trata como «sin agenda».
+  function scheduleOf(p){
+    if (!p.total) return null;
+    var s = sesMap[p.id] || {}, out = [];
+    for (var n = 1; n <= p.total; n++){
+      if (!s[n] || !s[n].fecha) return null;
+      out.push({ numero: n, fecha: s[n].fecha });
     }
     return out;
   }
-  function overridesOf(pid, skipNum){
-    var m = {}, s = sesMap[pid] || {};
-    Object.keys(s).forEach(function(k){ if (s[k].fecha && Number(k) !== skipNum) m[k] = s[k].fecha; });
-    return m;
+  // Guarda las fechas de las sesiones (solo la columna fecha; notas, foto y «realizada» no se tocan).
+  function saveFechas(pid, fechas){
+    var rows = fechas.map(function(f, i){ return { paciente_id: pid, user_id: viewId, numero: i + 1, fecha: f, updated_at: new Date().toISOString() }; });
+    return supabaseClient.from('tratamientos_sesiones').upsert(rows, { onConflict: 'paciente_id,numero' }).then(throwIfError);
   }
-  function scheduleOf(p){ return computeDates(p.fechaInicio, p.dias, p.total, overridesOf(p.id)); }
+  function maxDate(arr){ return arr.reduce(function(m, d){ return d > m ? d : m; }, arr[0]); }
+  function minDate(arr){ return arr.reduce(function(m, d){ return d < m ? d : m; }, arr[0]); }
   function currentSession(p){
     var sc = scheduleOf(p), pat = patById(p.patologiaId), tail = pat ? ' · ' + pat.nombre : '';
     if (!sc) return pat ? pat.nombre : null;
@@ -1350,39 +1422,47 @@
   }
 
   // --- Campos de agenda compartidos entre «Agregar» y «Editar» ---
-  function enhanceDias(box){
-    var val = [];
-    box.innerHTML = DIAS_CHIP.map(function(c){ return '<button type="button" data-d="' + c[0] + '" aria-label="' + DIAS_LARGO[c[0]] + '">' + c[1] + '</button>'; }).join('');
-    function paint(){ Array.prototype.forEach.call(box.querySelectorAll('button'), function(b){ b.classList.toggle('on', val.indexOf(Number(b.dataset.d)) !== -1); }); }
-    Object.defineProperty(box, 'value', { get: function(){ return val.slice(); }, set: function(v){ val = (v || []).slice(); paint(); } });
-    box.addEventListener('click', function(e){
-      var b = e.target.closest('button'); if (!b) return;
-      var d = Number(b.dataset.d), i = val.indexOf(d);
-      if (i === -1) val.push(d); else val.splice(i, 1);
-      paint(); box.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    paint();
-  }
+  var fechasSt = { add: [], edit: [] }; // fecha elegida para cada sesión (índice 0 = sesión 1)
   function buildExtra(pfx){
     $(pfx + '-extra').innerHTML =
       '<div class="field"><label for="' + pfx + '-pat">Patología</label><select id="' + pfx + '-pat"></select></div>' +
-      '<div class="field"><label>Fecha de inicio</label><button type="button" class="date-btn" id="' + pfx + '-inicio"></button></div>' +
       '<div class="field"><label for="' + pfx + '-total">Total de sesiones</label><input type="number" id="' + pfx + '-total" min="1" max="60" inputmode="numeric" placeholder="Ej. 15"></div>' +
-      '<div class="field"><label>Días de asistencia</label><div class="dias" id="' + pfx + '-dias"></div></div>' +
+      '<div class="field"><label>Fecha de cada sesión</label><div class="fechas-list" id="' + pfx + '-fechas"></div></div>' +
       '<div class="field"><label for="' + pfx + '-obs">Observaciones de la valoración</label><textarea id="' + pfx + '-obs"></textarea></div>';
-    enhanceDateField($(pfx + '-inicio'));
-    enhanceDias($(pfx + '-dias'));
-    $(pfx + '-inicio').addEventListener('change', function(){ refreshFin(pfx); });
-    $(pfx + '-total').addEventListener('input', function(){ refreshFin(pfx); });
-    $(pfx + '-dias').addEventListener('change', function(){ refreshFin(pfx); });
+    $(pfx + '-total').addEventListener('input', function(){ renderFechas(pfx); refreshFin(pfx); });
   }
-  // Con inicio + días + total, la fecha de finalización se calcula sola y el campo se bloquea.
+  function fechasTotal(pfx){ var n = Math.floor(Number($(pfx + '-total').value)); return n > 0 ? Math.min(n, 60) : 0; }
+  function fechasComplete(pfx){
+    var n = fechasTotal(pfx), a = fechasSt[pfx];
+    if (!n) return false;
+    for (var i = 0; i < n; i++) if (!a[i]) return false;
+    return true;
+  }
+  // Un selector de fecha por sesión: la mamá elige cada fecha (no hay días fijos por paciente).
+  function renderFechas(pfx){
+    var box = $(pfx + '-fechas'), n = fechasTotal(pfx);
+    box.innerHTML = '';
+    if (!n){ box.appendChild(el('div', 'fin-hint', 'Indica el total de sesiones para elegir la fecha de cada una.')); return; }
+    for (var i = 0; i < n; i++){
+      (function(i){
+        var row = el('div', 'fecha-row');
+        row.appendChild(el('span', 'fecha-n', 'Sesión ' + (i + 1) + (i === 0 ? ' · valoración' : '')));
+        var btn = el('button', 'date-btn'); btn.type = 'button';
+        row.appendChild(btn);
+        box.appendChild(row);
+        enhanceDateField(btn);
+        btn.value = fechasSt[pfx][i] || '';
+        btn.addEventListener('change', function(){ fechasSt[pfx][i] = btn.value; refreshFin(pfx); });
+      })(i);
+    }
+  }
+  // Con todas las fechas elegidas, la fecha de finalización es la de la última sesión y se bloquea.
   function refreshFin(pfx){
-    var sc = computeDates($(pfx + '-inicio').value, $(pfx + '-dias').value, Number($(pfx + '-total').value), pfx === 'edit' ? overridesOf(editingId) : null);
+    var done = fechasComplete(pfx);
     var fin = $(pfx === 'add' ? 'fecha-input' : 'edit-fecha');
-    if (sc){ fin.value = sc[sc.length - 1].fecha; }
-    fin.disabled = !!sc;
-    $(pfx + '-finhint').hidden = !sc;
+    if (done){ fin.value = maxDate(fechasSt[pfx].slice(0, fechasTotal(pfx))); }
+    fin.disabled = done;
+    $(pfx + '-finhint').hidden = !done;
     if (pfx === 'add') refreshAddBtn();
   }
   function renderPatSelects(){
@@ -1394,23 +1474,27 @@
       if (sel.value !== cur) sel.value = '';
     });
   }
+  // Las fechas elegidas (solo las de la sesión 1..total) en orden de sesión; null si falta alguna.
+  function fechasVals(pfx){ return fechasComplete(pfx) ? fechasSt[pfx].slice(0, fechasTotal(pfx)) : null; }
   function formVals(pfx){
-    var dias = $(pfx + '-dias').value;
+    var f = fechasVals(pfx);
     return {
       patologia_id: $(pfx + '-pat').value || null,
-      fecha_inicio: $(pfx + '-inicio').value || null,
-      total_sesiones: Number($(pfx + '-total').value) || null,
-      dias_asistencia: dias.length ? dias : null,
+      fecha_inicio: f ? minDate(f) : null,
+      total_sesiones: fechasTotal(pfx) || null,
+      dias_asistencia: null,
       obs_valoracion: $(pfx + '-obs').value.trim() || null
     };
   }
   function fillForm(pfx, p){
     renderPatSelects();
     $(pfx + '-pat').value = p.patologiaId || '';
-    $(pfx + '-inicio').value = p.fechaInicio || '';
     $(pfx + '-total').value = p.total || '';
-    $(pfx + '-dias').value = p.dias;
+    var s = sesMap[p.id] || {};
+    fechasSt[pfx] = [];
+    for (var n = 1; n <= (p.total || 0); n++) fechasSt[pfx].push((s[n] && s[n].fecha) || '');
     $(pfx + '-obs').value = p.obs;
+    renderFechas(pfx);
     refreshFin(pfx);
   }
   // --- Select propio: el <select> nativo abre un panel sin el estilo de la app, así que se reemplaza por un botón + diálogo. ---
@@ -1418,6 +1502,7 @@
   var CHEV_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
   var selTarget = null;
   function selLabel(sel){
+    if (sel.dataset.title) return sel.dataset.title;
     var l = sel.id && document.querySelector('label[for="' + sel.id + '"]');
     if (!l){ var f = sel.closest('.field'); l = f && f.querySelector('label'); }
     return (l && l.textContent.trim()) || 'Seleccionar';
@@ -1456,7 +1541,7 @@
     $("sel-dialog").close();
   });
   $("sel-dialog").addEventListener("click", function(e){ if (e.target === $("sel-dialog")) $("sel-dialog").close(); });
-  ["set-hora", "admin-select", "ex-hito", "ex-dia"].forEach(function(id){ enhanceSelect($(id)); });
+  ["set-hora", "admin-select", "set-tema", "ex-hito", "ex-dia"].forEach(function(id){ enhanceSelect($(id)); });
 
   // --- Confirmación propia (en vez de confirm() nativo) ---
   var confirmResolve = null;
@@ -1474,38 +1559,72 @@
   buildExtra('edit');
   enhanceSelect($("add-pat"));
   enhanceSelect($("edit-pat"));
-  ["add-pat", "add-inicio", "add-total", "add-dias", "informe-input"].forEach(function(id){
+  ["add-pat", "add-total", "informe-input"].forEach(function(id){
     $(id).addEventListener("change", refreshAddBtn);
     $(id).addEventListener("input", refreshAddBtn);
     $(id).addEventListener("click", refreshAddBtn); // se registra después del propio del control, así ya tiene el valor nuevo
   });
-  $("add-inicio").value = todayStr();
+  renderFechas('add'); renderFechas('edit');
   refreshFin('add');
 
-  // --- Aviso en la lista: pacientes en sesión a destacar hoy y mañana ---
-  function renderHitos(){
-    var box = $("hito-box"), today = todayStr(), tomorrow = addDays(today, 1), rows = [];
-    pacientes.forEach(function(p){
-      if (p.terminado) return;
-      var sc = scheduleOf(p); if (!sc) return;
-      sc.forEach(function(s){ if (AVISO_SESIONES.indexOf(s.numero) !== -1 && (s.fecha === today || s.fecha === tomorrow)) rows.push({ p: p, s: s }); });
-    });
-    if (!rows.length){ box.hidden = true; box.innerHTML = ''; return; }
-    box.hidden = false; box.innerHTML = '';
-    box.appendChild(el('h3', null, 'Sesiones a destacar'));
-    [[today, 'Hoy'], [tomorrow, 'Mañana']].forEach(function(g){
-      var list = rows.filter(function(r){ return r.s.fecha === g[0]; });
-      if (!list.length) return;
-      box.appendChild(el('div', 'hito-day', g[1]));
-      list.forEach(function(r){
-        var b = el('button', 'hito-row');
-        b.type = 'button';
-        var strong = el('b', null, r.p.nombre);
-        b.appendChild(strong);
-        b.appendChild(document.createTextNode(' · sesión ' + r.s.numero + (HITOS.indexOf(r.s.numero) !== -1 ? ' (ejercicio nuevo)' : ' (inician los ejercicios)')));
-        b.addEventListener('click', function(){ openSession(r.p.id, r.s.numero); });
-        box.appendChild(b);
+  // Ejercicio(s) extra NUEVO de una sesión hito (3, 7, 10, 13) en una fecha: el del día de la semana, o todas las
+  // opciones (all = true) si ese día no tiene una fija. Devuelve null si la sesión no suma extra o no hay protocolo.
+  function extraNuevo(p, numero, fecha){
+    if (HITOS.indexOf(numero) === -1 || !p.patologiaId) return null;
+    var opts = ejercicios.filter(function(e){ return e.patologiaId === p.patologiaId && e.tipo === 'extra' && e.hito === numero; });
+    if (!opts.length) return null;
+    var dow = parseIso(fecha).getDay();
+    var pick = opts.filter(function(e){ return e.dia === dow; });
+    if (!pick.length) pick = opts.filter(function(e){ return e.dia == null; });
+    var all = !pick.length;
+    return { list: all ? opts : pick, all: all };
+  }
+  function extraText(x){ return x.list.map(function(e){ return e.nombre; }).join(' / '); }
+
+  // --- Cards de la lista de pacientes: quién viene hoy y mañana, y a quién le toca ejercicio extra (y cuál) ---
+  function renderDayCards(){
+    var root = $("day-cards"), today = todayStr();
+    root.innerHTML = '';
+    [[today, 'Hoy'], [addDays(today, 1), 'Mañana']].forEach(function(g){
+      var rows = [];
+      pacientes.forEach(function(p){
+        if (p.terminado) return;
+        var sc = scheduleOf(p); if (!sc) return;
+        sc.forEach(function(s){ if (s.fecha === g[0]) rows.push({ p: p, numero: s.numero, x: extraNuevo(p, s.numero, g[0]) }); });
       });
+      var conExtra = rows.filter(function(r){ return HITOS.indexOf(r.numero) !== -1 || r.numero === 2; });
+      var resto = rows.filter(function(r){ return conExtra.indexOf(r) === -1; });
+      var card = el('section', 'dcard' + (conExtra.length ? ' has-extra' : ''));
+      var head = el('div', 'dcard-head');
+      head.appendChild(el('span', 'dcard-title', g[1] + ' · ' + longDate(g[0])));
+      head.appendChild(el('span', 'day-sub', rows.length + (rows.length === 1 ? ' paciente' : ' pacientes')));
+      card.appendChild(head);
+      if (!rows.length){
+        card.appendChild(el('div', 'pac-note', 'Sin pacientes con sesión.'));
+      } else {
+        if (conExtra.length) card.appendChild(el('div', 'dcard-sub', 'Ejercicio extra'));
+        conExtra.forEach(function(r){
+          var b = el('button', 'dcard-row'); b.type = 'button';
+          var top = el('div'); top.appendChild(el('b', null, r.p.nombre)); top.appendChild(document.createTextNode(' · sesión ' + r.numero));
+          b.appendChild(top);
+          var what = r.numero === 2 ? 'Inician los ejercicios base' : (r.x ? (r.x.all ? 'Elige uno: ' : '') + extraText(r.x) : 'Extra nuevo (sin ejercicio cargado en el protocolo)');
+          b.appendChild(el('div', 'dcard-extra', what));
+          b.addEventListener('click', function(){ openSession(r.p.id, r.numero); });
+          card.appendChild(b);
+        });
+        if (resto.length){
+          var line = el('div', 'dcard-rest');
+          line.appendChild(el('span', 'dcard-sub', 'Sin extra nuevo: '));
+          resto.forEach(function(r, i){
+            var a = el('button', 'dcard-link', r.p.nombre + ' (' + r.numero + ')'); a.type = 'button';
+            a.addEventListener('click', function(){ openSession(r.p.id, r.numero); });
+            line.appendChild(a);
+            if (i < resto.length - 1) line.appendChild(document.createTextNode(', '));
+          });
+          card.appendChild(line);
+        }
+      }
+      root.appendChild(card);
     });
   }
 
@@ -1564,7 +1683,6 @@
       if (HITOS.indexOf(s.numero) !== -1) tags.appendChild(el('span', 'badge-inf hito', 'Ejercicio nuevo'));
       else if (s.numero === 2) tags.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
       if (d.hecha) tags.appendChild(el('span', 'badge-inf done', 'Realizada'));
-      if (d.fecha) tags.appendChild(el('span', 'badge-inf ses', 'Reprogramada'));
       if (d.obs) tags.appendChild(el('span', 'badge-inf ses', 'Con notas'));
       if (d.foto) tags.appendChild(el('span', 'badge-inf ses', 'Con foto'));
       if (tags.childNodes.length) b.appendChild(tags);
@@ -1577,10 +1695,6 @@
 
   // --- Detalle de una sesión ---
   var ses = null; // { pid, numero, fechaOv, pendingBlob, delFoto, fotoPath }
-  function sesDefaultDate(p, numero){
-    var sc = computeDates(p.fechaInicio, p.dias, p.total, overridesOf(p.id, numero));
-    return sc ? sc[numero - 1].fecha : null;
-  }
   function openSession(pid, numero){
     var p = pacById(pid); if (!p) return;
     var d = (sesMap[pid] || {})[numero] || {};
@@ -1592,10 +1706,9 @@
     paintSesPhoto();
     $("ses-dialog").showModal();
   }
-  function sesDate(){ var p = pacById(ses.pid); return ses.fechaOv || sesDefaultDate(p, ses.numero) || todayStr(); }
+  function sesDate(){ return ses.fechaOv || todayStr(); }
   function paintSesFecha(){
     $("ses-fecha").value = sesDate();
-    $("ses-fecha-auto").hidden = !ses.fechaOv;
     var box = $("ses-proto"); box.innerHTML = '';
     box.appendChild(buildProtocol(pacById(ses.pid), ses.numero, sesDate()));
   }
@@ -1617,7 +1730,6 @@
   }
   enhanceDateField($("ses-fecha"));
   $("ses-fecha").addEventListener("change", function(){ ses.fechaOv = $("ses-fecha").value; paintSesFecha(); });
-  $("ses-fecha-auto").addEventListener("click", function(){ ses.fechaOv = null; paintSesFecha(); });
   $("ses-foto-btn").addEventListener("click", function(){ $("ses-foto-file").click(); });
   $("ses-foto-del").addEventListener("click", function(){ ses.pendingBlob = null; ses.delFoto = true; paintSesPhoto(); });
   // La foto se reduce (máx. 1280 px, JPEG) antes de subirla para que pese poco.
@@ -1905,6 +2017,24 @@
   // Recarga la página (trae la última versión publicada y los datos); la vista de admin se conserva.
   $("btn-reload").addEventListener("click", function(){ location.reload(); });
   $("settings-close").addEventListener("click", function(){ $("settings-dialog").close(); });
+  $("notif-close").addEventListener("click", function(){ $("notif-dialog").close(); });
+  $("menu-notif").addEventListener("click", function(){ $("notif-dialog").showModal(); });
+  // «Ver como» y «Tema» reutilizan el selector propio de sus <select> ocultos.
+  $("menu-viewas").addEventListener("click", function(){ $("admin-select").nextElementSibling.click(); });
+  $("menu-tema").addEventListener("click", function(){ $("set-tema").nextElementSibling.click(); });
+  var TEMA_TXT = { auto: 'Automático', light: 'Claro', dark: 'Oscuro' };
+  (function initTema(){
+    var t = 'auto';
+    try { var s = localStorage.getItem('tratTema'); if (s === 'light' || s === 'dark') t = s; } catch(e){}
+    $("set-tema").value = t;
+    $("tema-sub").textContent = TEMA_TXT[t];
+    $("set-tema").addEventListener("change", function(){
+      var v = $("set-tema").value;
+      if (v === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v);
+      try { if (v === 'auto') localStorage.removeItem('tratTema'); else localStorage.setItem('tratTema', v); } catch(e){}
+      $("tema-sub").textContent = TEMA_TXT[v];
+    });
+  })();
 
   // ---------- Notificaciones locales (Capacitor) ----------
   function getLocalNotifications(){
@@ -1999,14 +2129,18 @@
     }
     sel.value = String(NOTIF_HOUR);
     $("set-antes").checked = NOTIF_ANTES;
+    function notifSub(){ $("notif-sub").textContent = 'Aviso a las ' + sel.options[sel.selectedIndex].textContent + (NOTIF_ANTES ? ' · y el día anterior' : ''); }
+    notifSub();
     sel.addEventListener("change", function(){
       NOTIF_HOUR = Number(sel.value);
       try { localStorage.setItem('tratNotifHora', String(NOTIF_HOUR)); } catch(e){}
+      notifSub();
       scheduleNotifications(); toast('Aviso a las ' + sel.options[sel.selectedIndex].textContent);
     });
     $("set-antes").addEventListener("change", function(){
       NOTIF_ANTES = $("set-antes").checked;
       try { localStorage.setItem('tratNotifAntes', NOTIF_ANTES ? '1' : '0'); } catch(e){}
+      notifSub();
       scheduleNotifications();
     });
     $("btn-test-notif").addEventListener("click", function(){
@@ -2071,7 +2205,8 @@
     hideSplash();
   }
   function updateViewUI(){
-    $("admin-box").hidden = !isAdmin;
+    $("menu-viewas").hidden = !isAdmin;
+    $("viewas-sub").textContent = (viewId && viewId !== meId) ? viewEmail : 'Mi cuenta';
     $("view-banner").hidden = !(viewId && viewId !== meId);
     $("view-email").textContent = viewEmail;
   }
