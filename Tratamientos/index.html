@@ -280,6 +280,13 @@
   .day.is-late .day-title { color: var(--critical); }
 
   .list { display: flex; flex-direction: column; gap: 6px; }
+  .pac .ficha-btn {
+    flex-basis: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; margin-top: 2px;
+    border-radius: 8px; border: 1px solid var(--line); background: var(--paper-raised); color: var(--accent); font-size: 13px; font-weight: 700;
+  }
+  .pac .ficha-btn svg { width: 17px; height: 17px; }
+  .pac { flex-wrap: wrap; }
+  .pac-main { flex: 1 1 0; }
   .pac {
     display: flex; align-items: center; gap: 10px;
     background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 8px 8px 12px;
@@ -675,7 +682,7 @@
 </dialog>
 
 <dialog id="edit-dialog">
-  <h2>Editar paciente</h2>
+  <h2>Ficha del paciente</h2>
   <div class="field"><label for="edit-nombre">Nombre</label><input type="text" id="edit-nombre" autocomplete="off"></div>
   <div id="edit-extra"></div>
   <div class="field"><label for="edit-fecha">Fecha de finalización</label><button type="button" class="date-btn" id="edit-fecha"></button>
@@ -975,6 +982,7 @@
     var tag = p.informe === true ? ['Con informe', 'yes'] : (p.informe === false ? ['Sin informe', 'no'] : ['Sin registrar', 'none']);
     if (info){
       main.appendChild(el('span', 'badge-inf ses', 'Sesión ' + info.numero + (p.total ? ' de ' + p.total : '')));
+      main.appendChild(el('span', 'badge-inf ' + tag[1], tag[0])); // informe: siempre visible, haya o no ejercicio extra
       if (info.numero === 2) main.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
       if (info.hecha) main.appendChild(el('span', 'badge-inf done', 'Realizada'));
       if (info.hito){
@@ -1004,6 +1012,15 @@
     }
     row.appendChild(main);
     row.appendChild(chk);
+    if (info){
+      // Cada tarjeta de sesión lleva su acceso a la ficha del paciente (todos los datos editables).
+      var fb = el('button', 'ficha-btn');
+      fb.type = 'button';
+      fb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.6 3-5.8 7-5.8s7 2.2 7 5.8"/></svg>';
+      fb.appendChild(document.createTextNode('Ver ficha'));
+      fb.addEventListener('click', function(){ openEdit(p.id); });
+      row.appendChild(fb);
+    }
     return row;
   }
 
@@ -1355,10 +1372,6 @@
       if (!items.length) scroll.querySelector('.list').appendChild(el('div', 'empty', 'Nadie tiene sesión ni termina este día.'));
     }
     box.appendChild(scroll);
-    var add = el('button', 'btn add-day-btn', 'Agregar paciente este día');
-    add.type = 'button';
-    add.addEventListener('click', function(){ openAdd(calSel); });
-    box.appendChild(add);
     fitCalScroll();
   }
   // La lista del día ocupa solo el espacio que queda en pantalla bajo el calendario y se desplaza por dentro.
@@ -1366,7 +1379,7 @@
     var sc = document.querySelector('.cal-scroll');
     if (!sc || $("page-cal").hidden) return;
     sc.style.maxHeight = 'none';
-    var below = $("bottomNav").offsetHeight + sc.nextElementSibling.offsetHeight + 56;
+    var below = $("bottomNav").offsetHeight + 56;
     sc.style.maxHeight = Math.max(130, window.innerHeight - (sc.getBoundingClientRect().top + window.scrollY) - below) + 'px';
   }
   window.addEventListener('resize', fitCalScroll);
