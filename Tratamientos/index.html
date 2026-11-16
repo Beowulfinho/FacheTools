@@ -371,6 +371,11 @@
   .badge-inf.ses { background: var(--paper-3); color: var(--ink); }
   .badge-inf.hito { background: var(--warn-soft); color: var(--warn); }
   .badge-inf.done { background: var(--good-soft); color: var(--good); }
+  .pac.extra-ses { background: var(--warn-soft); border-color: var(--warn); }
+  .pac.extra-ses .pac-name { color: var(--ink); }
+  .extra-box { margin-top: 5px; display: flex; flex-direction: column; gap: 1px; }
+  .extra-tag { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--warn); }
+  .extra-name { font-size: 14.5px; font-weight: 700; color: var(--ink); }
   .dcard { background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
   .dcard.has-extra { background: var(--warn-soft); border-color: var(--warn); }
   .dcard-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
@@ -546,7 +551,6 @@
 
     <!-- ===== Página: Pacientes ===== -->
     <div class="tab-page" id="page-lista">
-      <div id="day-cards"></div>
 
       <div class="search-wrap">
         <input type="text" class="search" id="search-input" placeholder="Buscar paciente…" autocomplete="off">
@@ -971,10 +975,15 @@
     var tag = p.informe === true ? ['Con informe', 'yes'] : (p.informe === false ? ['Sin informe', 'no'] : ['Sin registrar', 'none']);
     if (info){
       main.appendChild(el('span', 'badge-inf ses', 'Sesión ' + info.numero + (p.total ? ' de ' + p.total : '')));
-      if (HITOS.indexOf(info.numero) !== -1) main.appendChild(el('span', 'badge-inf hito', 'Ejercicio nuevo'));
-      else if (info.numero === 2) main.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
+      if (info.numero === 2) main.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
       if (info.hecha) main.appendChild(el('span', 'badge-inf done', 'Realizada'));
-      if (info.extra) main.appendChild(el('div', 'dcard-extra', info.extra));
+      if (info.hito){
+        row.classList.add('extra-ses');
+        var ex = el('div', 'extra-box');
+        ex.appendChild(el('span', 'extra-tag', 'Ejercicio extra'));
+        ex.appendChild(el('span', 'extra-name', info.extra));
+        main.appendChild(ex);
+      }
     } else {
       main.appendChild(el('span', 'badge-inf ' + tag[1], tag[0]));
       var cur = !p.terminado ? currentSession(p) : null;
@@ -998,14 +1007,33 @@
     return row;
   }
 
-  function dayBlock(iso, items, cls, infoFn){
+  // Datos de una sesión para pintarla: número, si ya se hizo y el ejercicio extra nuevo (sesiones 3, 7, 10, 13).
+  function sesInfo(p, s){
+    var x = extraNuevo(p, s.numero, s.fecha), esHito = HITOS.indexOf(s.numero) !== -1;
+    return {
+      numero: s.numero, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha, hito: esHito,
+      extra: x ? (x.all ? 'Elige uno: ' : '') + extraText(x) : (esHito ? 'Ejercicio extra nuevo (sin ejercicio cargado en el protocolo)' : '')
+    };
+  }
+  // Las sesiones con ejercicio extra van primero dentro del día; luego por nombre y número de sesión.
+  function sortEntries(list){
+    return list.sort(function(a, b){
+      var ea = a.info && a.info.hito ? 0 : 1, eb = b.info && b.info.hito ? 0 : 1;
+      if (ea !== eb) return ea - eb;
+      if (a.p.nombre !== b.p.nombre) return a.p.nombre < b.p.nombre ? -1 : 1;
+      return (a.info ? a.info.numero : 0) - (b.info ? b.info.numero : 0);
+    });
+  }
+  // entries: [{ p, info }] — info null para pacientes sin agenda (se muestran en su fecha de fin).
+  function dayBlock(iso, entries, cls){
     var box = el('section', 'day ' + (cls || ''));
     var head = el('div', 'day-head');
     head.appendChild(el('span', 'day-title', dayTitle(iso)));
-    head.appendChild(el('span', 'day-sub', items.length + (items.length === 1 ? ' paciente' : ' pacientes')));
+    var ses = entries.some(function(e){ return e.info; });
+    head.appendChild(el('span', 'day-sub', entries.length + (ses ? (entries.length === 1 ? ' sesión' : ' sesiones') : (entries.length === 1 ? ' paciente' : ' pacientes'))));
     box.appendChild(head);
     var list = el('div', 'list');
-    items.forEach(function(p){ list.appendChild(pacRow(p, infoFn ? infoFn(p) : null)); });
+    sortEntries(entries).forEach(function(e){ list.appendChild(pacRow(e.p, e.info)); });
     box.appendChild(list);
     return box;
   }
@@ -1050,12 +1078,21 @@
       var emptyMsg = q ? 'Nadie coincide con esa búsqueda.' : 'Aún no hay pacientes. Toca el botón + para agregar el primero.';
       root.appendChild(el('div', 'empty', emptyMsg));
     } else {
+      // Cada sesión de cada paciente aparece en su día (desde el lunes de esta semana en adelante);
+      // los pacientes sin agenda siguen apareciendo en su fecha de fin.
+      var weekStart = addDays(today, -((parseIso(today).getDay() + 6) % 7));
       var groups = {}, dates = [];
+      function put(iso, entry){
+        if (!groups[iso]){ groups[iso] = []; dates.push(iso); }
+        groups[iso].push(entry);
+      }
       shown.forEach(function(p){
-        if (!groups[p.fechaFin]){ groups[p.fechaFin] = []; dates.push(p.fechaFin); }
-        groups[p.fechaFin].push(p);
+        var sc = scheduleOf(p);
+        if (sc) sc.forEach(function(s){ if (s.fecha >= weekStart) put(s.fecha, { p: p, info: sesInfo(p, s) }); });
+        else put(p.fechaFin, { p: p, info: null });
       });
       dates.sort();
+      if (!dates.length) root.appendChild(el('div', 'empty', 'No hay sesiones desde esta semana en adelante.'));
       dates.forEach(function(iso){
         var cls = iso < today ? 'is-late' : (iso === today ? 'is-today' : '');
         root.appendChild(dayBlock(iso, groups[iso], cls));
@@ -1074,7 +1111,6 @@
       wrap.appendChild(r);
       dl.appendChild(wrap);
     });
-    renderDayCards();
     if (!$("page-cal").hidden) renderCalendar();
     updateDupHint();
     fitListScroll();
@@ -1292,34 +1328,30 @@
     var box = $("cal-detail");
     box.innerHTML = '';
     var scroll = el('div', 'cal-scroll');
-    function sesInfo(p, s){
-      var x = extraNuevo(p, s.numero, s.fecha);
-      return { numero: s.numero, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha, extra: x ? (x.all ? 'Elige uno: ' : 'Extra: ') + extraText(x) : '' };
-    }
     if (filtering){
       // Con filtro se muestra la SEMANA del día elegido, agrupada por día, para ver de un vistazo quién lleva extra.
       var ws = addDays(calSel, -((parseIso(calSel).getDay() + 6) % 7)), we = addDays(ws, 6), total = 0;
       scroll.appendChild(el('div', 'dash-sec', 'Semana ' + shortDate(ws) + ' – ' + shortDate(we)));
       for (var d = ws; d <= we; d = addDays(d, 1)){
-        var dayItems = [], dayInfo = {};
+        var dayItems = [];
         pacientes.forEach(function(p){
           var sc = p.terminado ? null : scheduleOf(p); if (!sc) return;
-          sc.forEach(function(s){ if (s.fecha === d && pasa(s.numero)){ dayItems.push(p); dayInfo[p.id] = sesInfo(p, s); } });
+          sc.forEach(function(s){ if (s.fecha === d && pasa(s.numero)) dayItems.push({ p: p, info: sesInfo(p, s) }); });
         });
         if (!dayItems.length) continue;
         total += dayItems.length;
-        scroll.appendChild(dayBlock(d, dayItems, d === today ? 'is-today' : (d < today ? 'is-late' : ''), function(p){ return dayInfo[p.id]; }));
+        scroll.appendChild(dayBlock(d, dayItems, d === today ? 'is-today' : (d < today ? 'is-late' : '')));
       }
       if (!total) scroll.appendChild(el('div', 'empty', 'Nadie tiene ese ejercicio extra esta semana.'));
     } else {
-      var infos = {}, items = [];
+      var items = [];
       pacientes.forEach(function(p){
         var sc = p.terminado ? null : scheduleOf(p);
         if (sc){
-          sc.forEach(function(s){ if (s.fecha === calSel){ infos[p.id] = sesInfo(p, s); items.push(p); } });
-        } else if (p.fechaFin === calSel) items.push(p);
+          sc.forEach(function(s){ if (s.fecha === calSel) items.push({ p: p, info: sesInfo(p, s) }); });
+        } else if (p.fechaFin === calSel) items.push({ p: p, info: null });
       });
-      scroll.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : ''), function(p){ return infos[p.id] || null; }));
+      scroll.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : '')));
       if (!items.length) scroll.querySelector('.list').appendChild(el('div', 'empty', 'Nadie tiene sesión ni termina este día.'));
     }
     box.appendChild(scroll);
@@ -1580,53 +1612,6 @@
     return { list: all ? opts : pick, all: all };
   }
   function extraText(x){ return x.list.map(function(e){ return e.nombre; }).join(' / '); }
-
-  // --- Cards de la lista de pacientes: quién viene hoy y mañana, y a quién le toca ejercicio extra (y cuál) ---
-  function renderDayCards(){
-    var root = $("day-cards"), today = todayStr();
-    root.innerHTML = '';
-    [[today, 'Hoy'], [addDays(today, 1), 'Mañana']].forEach(function(g){
-      var rows = [];
-      pacientes.forEach(function(p){
-        if (p.terminado) return;
-        var sc = scheduleOf(p); if (!sc) return;
-        sc.forEach(function(s){ if (s.fecha === g[0]) rows.push({ p: p, numero: s.numero, x: extraNuevo(p, s.numero, g[0]) }); });
-      });
-      var conExtra = rows.filter(function(r){ return HITOS.indexOf(r.numero) !== -1 || r.numero === 2; });
-      var resto = rows.filter(function(r){ return conExtra.indexOf(r) === -1; });
-      var card = el('section', 'dcard' + (conExtra.length ? ' has-extra' : ''));
-      var head = el('div', 'dcard-head');
-      head.appendChild(el('span', 'dcard-title', g[1] + ' · ' + longDate(g[0])));
-      head.appendChild(el('span', 'day-sub', rows.length + (rows.length === 1 ? ' paciente' : ' pacientes')));
-      card.appendChild(head);
-      if (!rows.length){
-        card.appendChild(el('div', 'pac-note', 'Sin pacientes con sesión.'));
-      } else {
-        if (conExtra.length) card.appendChild(el('div', 'dcard-sub', 'Ejercicio extra'));
-        conExtra.forEach(function(r){
-          var b = el('button', 'dcard-row'); b.type = 'button';
-          var top = el('div'); top.appendChild(el('b', null, r.p.nombre)); top.appendChild(document.createTextNode(' · sesión ' + r.numero));
-          b.appendChild(top);
-          var what = r.numero === 2 ? 'Inician los ejercicios base' : (r.x ? (r.x.all ? 'Elige uno: ' : '') + extraText(r.x) : 'Extra nuevo (sin ejercicio cargado en el protocolo)');
-          b.appendChild(el('div', 'dcard-extra', what));
-          b.addEventListener('click', function(){ openSession(r.p.id, r.numero); });
-          card.appendChild(b);
-        });
-        if (resto.length){
-          var line = el('div', 'dcard-rest');
-          line.appendChild(el('span', 'dcard-sub', 'Sin extra nuevo: '));
-          resto.forEach(function(r, i){
-            var a = el('button', 'dcard-link', r.p.nombre + ' (' + r.numero + ')'); a.type = 'button';
-            a.addEventListener('click', function(){ openSession(r.p.id, r.numero); });
-            line.appendChild(a);
-            if (i < resto.length - 1) line.appendChild(document.createTextNode(', '));
-          });
-          card.appendChild(line);
-        }
-      }
-      root.appendChild(card);
-    });
-  }
 
   // --- Protocolo de una sesión ---
   function exLine(e){
