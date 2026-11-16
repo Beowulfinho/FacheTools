@@ -280,11 +280,6 @@
   .day.is-late .day-title { color: var(--critical); }
 
   .list { display: flex; flex-direction: column; gap: 6px; }
-  .pac .ficha-btn {
-    flex-basis: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; margin-top: 2px;
-    border-radius: 8px; border: 1px solid var(--line); background: var(--paper-raised); color: var(--accent); font-size: 13px; font-weight: 700;
-  }
-  .pac .ficha-btn svg { width: 17px; height: 17px; }
   .pac { flex-wrap: wrap; }
   .pac-main { flex: 1 1 0; }
   .pac {
@@ -791,6 +786,7 @@
     <input type="file" id="ses-foto-file" accept="image/*" hidden>
   </div>
   <label class="check-row"><input type="checkbox" id="ses-hecha"> Sesión realizada</label>
+  <button type="button" class="btn" id="ses-ficha" style="width:100%; margin-top:10px;">Ver ficha del paciente</button>
   <div class="dlg-actions">
     <button type="button" class="btn" id="ses-cancel">Cancelar</button>
     <button type="button" class="btn btn-primary" id="ses-save">Guardar</button>
@@ -1012,15 +1008,6 @@
     }
     row.appendChild(main);
     row.appendChild(chk);
-    if (info){
-      // Cada tarjeta de sesión lleva su acceso a la ficha del paciente (todos los datos editables).
-      var fb = el('button', 'ficha-btn');
-      fb.type = 'button';
-      fb.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c0-3.6 3-5.8 7-5.8s7 2.2 7 5.8"/></svg>';
-      fb.appendChild(document.createTextNode('Ver ficha'));
-      fb.addEventListener('click', function(){ openEdit(p.id); });
-      row.appendChild(fb);
-    }
     return row;
   }
 
@@ -1745,6 +1732,7 @@
     img.onerror = function(){ URL.revokeObjectURL(url); toast('No se pudo leer la foto'); };
     img.src = url;
   });
+  $("ses-ficha").addEventListener("click", function(){ if (ses) openEdit(ses.pid); });
   $("ses-cancel").addEventListener("click", function(){ $("ses-dialog").close(); });
   $("ses-save").addEventListener("click", function(){
     var p = pacById(ses.pid), cur = ses; if (!p) return;
