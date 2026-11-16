@@ -499,6 +499,38 @@
     opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 300; max-width: calc(100vw - 32px); text-align: center;
   }
   .toast.show { opacity: 1; }
+  .bottom-nav button.nav-settings { display: none; }
+  /* ---------- Versión desktop: barra lateral + contenido ancho ---------- */
+  @media (min-width: 900px) {
+    body { padding-left: 210px; }
+    .wrap { max-width: 1080px; padding: 28px 32px 28px; }
+    .bottom-nav {
+      right: auto; top: 0; width: 210px; flex-direction: column; justify-content: flex-start; gap: 4px;
+      padding: 24px 12px; border-top: none; border-right: 1px solid var(--line); box-shadow: none;
+    }
+    .bottom-nav button {
+      flex: none; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 11px 14px;
+      font-size: 14.5px; text-align: left;
+    }
+    #btn-settings { display: none !important; }
+    .bottom-nav button.nav-settings { display: flex; margin-top: auto; }
+    .bottom-nav button.nav-settings svg { width: 22px; height: 22px; }
+    .bottom-nav button:hover { background: var(--paper); }
+    .bottom-nav button.active { background: var(--accent-soft); }
+    .nav-add-circle { width: 30px; height: 30px; margin-top: 0; border: none; box-shadow: none; }
+    .bottom-nav button.nav-add svg { width: 18px; height: 18px; }
+    .bottom-nav button.nav-add { order: -1; margin-bottom: 10px; background: var(--accent-soft); }
+    .bottom-nav button.nav-add:hover { filter: brightness(0.97); }
+    #page-cal { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); column-gap: 24px; align-content: start; }
+    #page-cal[hidden] { display: none; }
+    #page-cal > .cal-head, #page-cal > .cal-filters { grid-column: 1 / -1; }
+    #page-cal > .cal-week, #page-cal > .cal-grid { grid-column: 1; }
+    #page-cal > .cal-detail { grid-column: 2; grid-row: 3 / span 2; }
+    .cal-cell { min-height: 64px; }
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .dash-grid { grid-template-columns: repeat(4, 1fr); }
+    #pat-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; align-items: start; }
+  }
 </style>
 </head>
 <body>
@@ -644,6 +676,10 @@
       <button type="button" data-page="dash" aria-label="Resumen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>
         Resumen
+      </button>
+      <button type="button" class="nav-settings" data-action="settings" aria-label="Configuración">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>
+        Configuración
       </button>
     </nav>
   </div>
@@ -1259,11 +1295,13 @@
     $("search-input").value = ''; $("search-clear").hidden = true; render(); $("search-input").focus();
   });
   // La lista de pacientes ocupa el espacio que queda hasta la barra inferior y se desplaza por dentro.
+  // Alto que ocupa la barra inferior (en desktop es una barra lateral y no resta alto).
+  function navH(){ return window.matchMedia('(min-width: 900px)').matches ? 0 : $("bottomNav").offsetHeight; }
   function fitListScroll(){
     var sc = $("list-scroll");
     if (!sc || $("page-lista").hidden || $("connectedView").style.display === 'none') return;
     sc.style.maxHeight = 'none';
-    var avail = window.innerHeight - (sc.getBoundingClientRect().top + window.scrollY) - $("bottomNav").offsetHeight - 36;
+    var avail = window.innerHeight - (sc.getBoundingClientRect().top + window.scrollY) - navH() - 36;
     sc.style.maxHeight = Math.max(150, avail) + 'px';
   }
   window.addEventListener('resize', fitListScroll);
@@ -1290,7 +1328,9 @@
   }
   $("bottomNav").addEventListener("click", function(e){
     var b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.action === 'add') openAdd(); else showPage(b.dataset.page);
+    if (b.dataset.action === 'add') openAdd();
+    else if (b.dataset.action === 'settings') $("settings-dialog").showModal();
+    else showPage(b.dataset.page);
   });
   // Formulario de agregar: diálogo que se queda abierto para cargar varios pacientes seguidos.
   // Se abre siempre con el formulario vacío; la X cierra sin guardar y «Agregar» cierra al guardar.
@@ -1366,7 +1406,7 @@
     var sc = document.querySelector('.cal-scroll');
     if (!sc || $("page-cal").hidden) return;
     sc.style.maxHeight = 'none';
-    var below = $("bottomNav").offsetHeight + 56;
+    var below = navH() + 56;
     sc.style.maxHeight = Math.max(130, window.innerHeight - (sc.getBoundingClientRect().top + window.scrollY) - below) + 'px';
   }
   window.addEventListener('resize', fitCalScroll);
