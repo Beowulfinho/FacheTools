@@ -352,6 +352,53 @@
   .dlg-actions { display: flex; gap: 8px; justify-content: space-between; margin-top: 14px; }
   .dlg-actions .right { display: flex; gap: 8px; }
 
+  /* ---------- Sesiones y protocolos ---------- */
+  input[type="number"] {
+    font-family: inherit; font-size: 16px; color: var(--ink); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 11px; min-width: 0;
+  }
+  .date-btn:disabled { opacity: 0.6; cursor: default; }
+  #edit-dialog, #ses-dialog, #ses-list-dialog, #pat-dialog, #patedit-dialog, #ex-dialog { margin: 5vh auto auto; max-height: 90vh; overflow-y: auto; }
+  .dias { display: flex; gap: 6px; }
+  .dias button {
+    flex: 1; padding: 9px 0; border: 1px solid var(--line); border-radius: 9px; background: var(--paper);
+    font-weight: 700; font-size: 14px; color: var(--ink-soft);
+  }
+  .dias button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .fin-hint { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+  .badge-inf { margin-right: 4px; }
+  .badge-inf.ses { background: var(--paper-3); color: var(--ink); }
+  .badge-inf.hito { background: var(--warn-soft); color: var(--warn); }
+  .badge-inf.done { background: var(--good-soft); color: var(--good); }
+  .hito-box {
+    background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 12px; padding: 10px 12px; margin-bottom: 14px;
+  }
+  .hito-box h3 { margin: 0 0 6px; font-family: 'Archivo', sans-serif; font-size: 14px; color: var(--warn); }
+  .hito-box .hito-day { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--warn); margin: 6px 0 2px; }
+  .hito-row { display: block; width: 100%; text-align: left; background: none; border: none; padding: 5px 0; font-size: 14px; color: var(--ink); }
+  .hito-row b { font-weight: 600; }
+  .proto { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; margin-bottom: 10px; }
+  .proto p { margin: 0; }
+  .proto h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); margin: 10px 0 4px; }
+  .proto h3:first-child { margin-top: 0; }
+  .proto h3.nuevo { color: var(--warn); }
+  .ex-line { padding: 4px 0; border-top: 1px dashed var(--line); }
+  .ex-line:first-of-type { border-top: none; }
+  .ex-line b { font-weight: 600; }
+  .ex-line small { display: block; color: var(--ink-soft); font-size: 12.5px; }
+  .ses-row {
+    display: block; width: 100%; text-align: left; background: var(--paper-2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 12px; margin-bottom: 6px;
+  }
+  .ses-row.today { border-color: var(--accent); }
+  .ses-row .ses-t { font-weight: 600; font-size: 14.5px; }
+  .ses-photo img { max-width: 100%; border-radius: 10px; display: block; margin-bottom: 6px; }
+  .ses-photo-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ses-photo-actions .btn { padding: 8px 12px; }
+  .grp-head { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px; }
+  .grp-head h3 { margin: 0; font-size: 13px; font-family: 'Archivo', sans-serif; }
+  .grp-head .btn { padding: 5px 10px; font-size: 12.5px; }
+
   .toast {
     position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
     background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 999px; font-size: 13px;
@@ -418,6 +465,8 @@
         <button type="button" class="stat selected" data-filter="all"><div class="n" id="stat-total">–</div><div class="label">Pacientes activos</div></button>
       </div>
 
+      <div class="hito-box" id="hito-box" hidden></div>
+
       <input type="text" class="search" id="search-input" placeholder="Buscar paciente…" autocomplete="off">
 
       <div class="list-scroll" id="list-scroll">
@@ -470,9 +519,11 @@
             <input type="text" id="nombre-input" placeholder="Nombre del paciente" autocomplete="off" autocapitalize="words">
             <div class="dup-hint" id="dup-hint" hidden></div>
           </div>
+          <div id="add-extra"></div>
           <div class="field">
             <label for="fecha-input">Fecha de finalización</label>
             <button type="button" class="date-btn" id="fecha-input"></button>
+            <div class="fin-hint" id="add-finhint" hidden>Se calcula con la fecha de inicio, los días y el total de sesiones.</div>
           </div>
           <div class="field">
             <label>¿Necesita informe terapéutico?</label>
@@ -489,13 +540,16 @@
 <dialog id="edit-dialog">
   <h2>Editar paciente</h2>
   <div class="field"><label for="edit-nombre">Nombre</label><input type="text" id="edit-nombre" autocomplete="off"></div>
-  <div class="field"><label for="edit-fecha">Fecha de finalización</label><button type="button" class="date-btn" id="edit-fecha"></button></div>
+  <div id="edit-extra"></div>
+  <div class="field"><label for="edit-fecha">Fecha de finalización</label><button type="button" class="date-btn" id="edit-fecha"></button>
+    <div class="fin-hint" id="edit-finhint" hidden>Se calcula con la fecha de inicio, los días y el total de sesiones.</div></div>
   <div class="field">
             <label>¿Necesita informe terapéutico?</label>
             <div class="seg" id="edit-informe" role="group" aria-label="Necesita informe terapéutico">
               <button type="button" data-v="1">Sí</button><button type="button" data-v="0">No</button>
             </div>
           </div>
+  <button type="button" class="btn" id="edit-sesiones" style="width:100%;">Ver sesiones</button>
   <div class="dlg-actions">
     <button type="button" class="btn btn-danger" id="edit-delete">Eliminar</button>
     <div class="right">
@@ -525,6 +579,10 @@
     <input type="checkbox" id="set-antes">
   </div>
   <div class="set-row">
+    <span>Patologías y ejercicios</span>
+    <button type="button" class="btn" id="btn-pat">Editar</button>
+  </div>
+  <div class="set-row">
     <span>Actualizar la app</span>
     <button type="button" class="btn" id="btn-reload">Actualizar</button>
   </div>
@@ -549,6 +607,92 @@
   <div class="dp-foot">
     <button type="button" class="btn" id="dp-today">Hoy</button>
     <button type="button" class="btn" id="dp-cancel">Cancelar</button>
+  </div>
+</dialog>
+
+<dialog id="ses-list-dialog">
+  <h2 id="sl-title">Sesiones</h2>
+  <p class="set-hint" id="sl-sub"></p>
+  <div id="sl-list"></div>
+  <div class="dlg-actions"><span></span><button type="button" class="btn btn-primary" id="sl-close">Cerrar</button></div>
+</dialog>
+
+<dialog id="ses-dialog">
+  <h2 id="ses-title">Sesión</h2>
+  <div class="field">
+    <label>Fecha de la sesión</label>
+    <button type="button" class="date-btn" id="ses-fecha"></button>
+    <div class="fin-hint"><button type="button" class="btn-link" id="ses-fecha-auto" hidden>Volver a la fecha automática</button></div>
+  </div>
+  <div id="ses-proto"></div>
+  <div class="field"><label for="ses-obs">Observaciones de la sesión</label><textarea id="ses-obs" placeholder="Escribe aquí cómo fue la sesión…"></textarea></div>
+  <div class="field">
+    <label>Foto</label>
+    <div class="ses-photo" id="ses-photo"></div>
+    <div class="ses-photo-actions">
+      <button type="button" class="btn" id="ses-foto-btn">Agregar foto</button>
+      <button type="button" class="btn btn-danger" id="ses-foto-del" hidden>Quitar foto</button>
+    </div>
+    <input type="file" id="ses-foto-file" accept="image/*" hidden>
+  </div>
+  <label class="check-row"><input type="checkbox" id="ses-hecha"> Sesión realizada</label>
+  <div class="dlg-actions">
+    <button type="button" class="btn" id="ses-cancel">Cancelar</button>
+    <button type="button" class="btn btn-primary" id="ses-save">Guardar</button>
+  </div>
+</dialog>
+
+<dialog id="pat-dialog">
+  <h2>Patologías y ejercicios</h2>
+  <div id="pat-list"></div>
+  <div class="field" style="margin-top:12px;">
+    <label for="pat-new-name">Nueva patología</label>
+    <input type="text" id="pat-new-name" placeholder="Ej. Lumbalgia" autocomplete="off">
+  </div>
+  <button type="button" class="btn btn-primary" id="pat-new-btn" style="width:100%;">Crear patología</button>
+  <div class="dlg-actions"><span></span><button type="button" class="btn" id="pat-close">Cerrar</button></div>
+</dialog>
+
+<dialog id="patedit-dialog">
+  <h2>Patología</h2>
+  <div class="field"><label for="pe-nombre">Nombre</label><input type="text" id="pe-nombre" autocomplete="off"></div>
+  <div class="field"><label for="pe-warm">Calentamiento (minutos)</label><input type="number" id="pe-warm" min="0" max="120" inputmode="numeric"></div>
+  <p class="set-hint">Los extras se suman de forma acumulada desde su sesión (3, 7, 10 y 13). Si un extra tiene día de la semana, solo aplica ese día.</p>
+  <div id="pe-ex"></div>
+  <div class="dlg-actions">
+    <button type="button" class="btn btn-danger" id="pe-delete">Eliminar</button>
+    <div class="right">
+      <button type="button" class="btn" id="pe-cancel">Cerrar</button>
+      <button type="button" class="btn btn-primary" id="pe-save">Guardar</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="ex-dialog">
+  <h2 id="ex-title">Ejercicio</h2>
+  <div class="field"><label for="ex-nombre">Nombre</label><input type="text" id="ex-nombre" autocomplete="off"></div>
+  <div class="field"><label for="ex-hito">Tipo</label>
+    <select id="ex-hito">
+      <option value="0">Base (todas las sesiones desde la 2)</option>
+      <option value="3">Extra desde la sesión 3</option>
+      <option value="7">Extra desde la sesión 7</option>
+      <option value="10">Extra desde la sesión 10</option>
+      <option value="13">Extra desde la sesión 13</option>
+    </select></div>
+  <div class="field" id="ex-dia-box"><label for="ex-dia">Día de la semana</label>
+    <select id="ex-dia">
+      <option value="">Cualquier día</option><option value="1">Lunes</option><option value="2">Martes</option>
+      <option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option>
+    </select></div>
+  <div class="field"><label for="ex-desc">Descripción</label><textarea id="ex-desc"></textarea></div>
+  <div class="field"><label for="ex-acc">Accesorio</label><input type="text" id="ex-acc" autocomplete="off"></div>
+  <div class="field"><label for="ex-dosis">Series / repeticiones</label><input type="text" id="ex-dosis" autocomplete="off"></div>
+  <div class="dlg-actions">
+    <button type="button" class="btn btn-danger" id="ex-delete">Eliminar</button>
+    <div class="right">
+      <button type="button" class="btn" id="ex-cancel">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="ex-save">Guardar</button>
+    </div>
   </div>
 </dialog>
 
@@ -612,7 +756,11 @@
 
   // ---------- Datos ----------
   function mapRow(r){
-    return { id: r.id, nombre: r.nombre, fechaFin: r.fecha_fin, informe: r.informe === true ? true : (r.informe === false ? false : null), terminado: !!r.terminado };
+    return {
+      id: r.id, nombre: r.nombre, fechaFin: r.fecha_fin, informe: r.informe === true ? true : (r.informe === false ? false : null), terminado: !!r.terminado,
+      patologiaId: r.patologia_id || null, total: r.total_sesiones || null, fechaInicio: r.fecha_inicio || null,
+      dias: r.dias_asistencia || [], obs: r.obs_valoracion || ''
+    };
   }
   function loadPacientes(){
     return supabaseClient.from('tratamientos_pacientes').select('*').eq('user_id', viewId)
@@ -621,7 +769,12 @@
   }
   function loadAndRender(){
     clearError();
-    return loadPacientes().then(function(){ render(); scheduleNotifications(); }).catch(function(err){
+    return Promise.all([loadPacientes(), loadPatologias(), loadSesiones()]).then(function(){
+      renderPatSelects(); render(); scheduleNotifications();
+      if ($("ses-list-dialog").open) renderSesList();
+      if ($("patedit-dialog").open) renderPatEx();
+      if ($("pat-dialog").open) renderPatList();
+    }).catch(function(err){
       showError('No se pudo cargar la lista: ' + err.message);
     });
   }
@@ -632,9 +785,12 @@
     if (!nombre || !fecha) return;
     if (findExact(nombre)){ updateDupHint(); toast('Ese paciente ya existe'); return; }
     $("add-btn").disabled = true;
-    supabaseClient.from('tratamientos_pacientes').insert({ user_id: viewId, nombre: nombre, fecha_fin: fecha, informe: $("informe-input").value })
+    var row = formVals('add');
+    row.user_id = viewId; row.nombre = nombre; row.fecha_fin = fecha; row.informe = $("informe-input").value;
+    supabaseClient.from('tratamientos_pacientes').insert(row)
       .then(throwIfError).then(function(){
         $("nombre-input").value = '';
+        $("add-obs").value = '';
         $("informe-input").value = null;
         updateDupHint();
         // La fecha se conserva: normalmente se cargan varios pacientes seguidos con fechas parecidas.
@@ -665,14 +821,24 @@
   }
   var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
-  function pacRow(p){
+  // info (opcional): { numero, hecha } cuando la fila representa una sesión concreta (calendario).
+  function pacRow(p, info){
     var row = el('div', 'pac' + (p.terminado ? ' finished' : ''));
     var main = el('button', 'pac-main');
     main.type = 'button';
     main.appendChild(el('div', 'pac-name', p.nombre));
     var tag = p.informe === true ? ['Con informe', 'yes'] : (p.informe === false ? ['Sin informe', 'no'] : ['Sin registrar', 'none']);
-    main.appendChild(el('span', 'badge-inf ' + tag[1], tag[0]));
-    main.addEventListener('click', function(){ openEdit(p.id); });
+    if (info){
+      main.appendChild(el('span', 'badge-inf ses', 'Sesión ' + info.numero + (p.total ? ' de ' + p.total : '')));
+      if (HITOS.indexOf(info.numero) !== -1) main.appendChild(el('span', 'badge-inf hito', 'Ejercicio nuevo'));
+      else if (info.numero === 2) main.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
+      if (info.hecha) main.appendChild(el('span', 'badge-inf done', 'Realizada'));
+    } else {
+      main.appendChild(el('span', 'badge-inf ' + tag[1], tag[0]));
+      var cur = !p.terminado ? currentSession(p) : null;
+      if (cur) main.appendChild(el('div', 'pac-note', cur));
+    }
+    main.addEventListener('click', function(){ if (info) openSession(p.id, info.numero); else openEdit(p.id); });
     var chk = el('button', 'check-btn');
     chk.type = 'button';
     chk.setAttribute('aria-label', p.terminado ? 'Reabrir tratamiento' : 'Marcar tratamiento como terminado');
@@ -683,14 +849,14 @@
     return row;
   }
 
-  function dayBlock(iso, items, cls){
+  function dayBlock(iso, items, cls, infoFn){
     var box = el('section', 'day ' + (cls || ''));
     var head = el('div', 'day-head');
     head.appendChild(el('span', 'day-title', dayTitle(iso)));
     head.appendChild(el('span', 'day-sub', items.length + (items.length === 1 ? ' paciente' : ' pacientes')));
     box.appendChild(head);
     var list = el('div', 'list');
-    items.forEach(function(p){ list.appendChild(pacRow(p)); });
+    items.forEach(function(p){ list.appendChild(pacRow(p, infoFn ? infoFn(p) : null)); });
     box.appendChild(list);
     return box;
   }
@@ -772,6 +938,7 @@
       wrap.appendChild(r);
       dl.appendChild(wrap);
     });
+    renderHitos();
     if (!$("page-cal").hidden) renderCalendar();
     updateDupHint();
     fitListScroll();
@@ -785,6 +952,7 @@
     $("edit-nombre").value = p.nombre;
     $("edit-fecha").value = p.fechaFin;
     $("edit-informe").value = p.informe;
+    fillForm('edit', p);
     $("edit-dialog").showModal();
   }
   $("edit-cancel").addEventListener("click", function(){ $("edit-dialog").close(); });
@@ -793,9 +961,9 @@
     var fecha = $("edit-fecha").value;
     if (!nombre || !fecha){ toast('Falta el nombre o la fecha'); return; }
     if (findExact(nombre, editingId)){ toast('Ya existe otro paciente con ese nombre'); return; }
-    supabaseClient.from('tratamientos_pacientes').update({
-      nombre: nombre, fecha_fin: fecha, informe: $("edit-informe").value, updated_at: new Date().toISOString()
-    }).eq('id', editingId).then(throwIfError).then(function(){
+    var upd = formVals('edit');
+    upd.nombre = nombre; upd.fecha_fin = fecha; upd.informe = $("edit-informe").value; upd.updated_at = new Date().toISOString();
+    supabaseClient.from('tratamientos_pacientes').update(upd).eq('id', editingId).then(throwIfError).then(function(){
       $("edit-dialog").close();
       return loadAndRender();
     }).catch(function(err){ showError('No se pudo guardar: ' + err.message); $("edit-dialog").close(); });
@@ -948,7 +1116,13 @@
   function renderCalendar(){
     $("cal-title").textContent = monthTitle(calView.y, calView.m);
     var today = todayStr(), counts = {};
-    pacientes.forEach(function(p){ if (!p.terminado) counts[p.fechaFin] = (counts[p.fechaFin] || 0) + 1; });
+    // Con agenda: cuenta las sesiones de cada día. Sin agenda (pacientes antiguos): el día de fin.
+    pacientes.forEach(function(p){
+      if (p.terminado) return;
+      var sc = scheduleOf(p);
+      if (sc) sc.forEach(function(s){ counts[s.fecha] = (counts[s.fecha] || 0) + 1; });
+      else counts[p.fechaFin] = (counts[p.fechaFin] || 0) + 1;
+    });
     var html = '';
     monthCells(calView.y, calView.m).forEach(function(c){
       var n = counts[c.iso] || 0;
@@ -959,10 +1133,18 @@
 
     var box = $("cal-detail");
     box.innerHTML = '';
-    var items = pacientes.filter(function(p){ return p.fechaFin === calSel; });
+    var infos = {}, items = [];
+    pacientes.forEach(function(p){
+      var sc = p.terminado ? null : scheduleOf(p);
+      if (sc){
+        sc.forEach(function(s){
+          if (s.fecha === calSel){ infos[p.id] = { numero: s.numero, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha }; items.push(p); }
+        });
+      } else if (!scheduleOf(p) && p.fechaFin === calSel) items.push(p);
+    });
     var scroll = el('div', 'cal-scroll');
-    scroll.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : '')));
-    if (!items.length) scroll.querySelector('.list').appendChild(el('div', 'empty', 'Nadie termina este día.'));
+    scroll.appendChild(dayBlock(calSel, items, calSel === today ? 'is-today' : (calSel < today ? 'is-late' : ''), function(p){ return infos[p.id] || null; }));
+    if (!items.length) scroll.querySelector('.list').appendChild(el('div', 'empty', 'Nadie tiene sesión ni termina este día.'));
     box.appendChild(scroll);
     var add = el('button', 'btn add-day-btn', 'Agregar paciente este día');
     add.type = 'button';
@@ -992,6 +1174,432 @@
   $("cal-next").addEventListener("click", function(){ calShift(1); });
   $("cal-today").addEventListener("click", function(){
     calSel = todayStr(); calView = { y: new Date().getFullYear(), m: new Date().getMonth() }; renderCalendar();
+  });
+
+  // ---------- Sesiones y protocolos ----------
+  var HITOS = [3, 7, 10, 13];             // sesiones en las que se suma un ejercicio extra (acumulativo)
+  var AVISO_SESIONES = [2, 3, 7, 10, 13]; // sesiones que la app destaca y avisa
+  var DIAS_CHIP = [[1, 'L'], [2, 'M'], [3, 'X'], [4, 'J'], [5, 'V'], [6, 'S'], [0, 'D']];
+  var DIAS_LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  var patologias = [], ejercicios = [], sesMap = {};
+
+  function loadPatologias(){
+    return Promise.all([
+      supabaseClient.from('tratamientos_patologias').select('*').eq('user_id', viewId).order('nombre'),
+      supabaseClient.from('tratamientos_ejercicios').select('*').eq('user_id', viewId).order('orden')
+    ]).then(function(r){
+      throwIfError(r[0]); throwIfError(r[1]);
+      patologias = (r[0].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, calentamiento: x.calentamiento_min }; });
+      ejercicios = (r[1].data || []).map(function(x){
+        return { id: x.id, patologiaId: x.patologia_id, tipo: x.tipo, hito: x.sesion_hito, dia: x.dia_semana, nombre: x.nombre, descripcion: x.descripcion, accesorio: x.accesorio, dosis: x.dosis, orden: x.orden };
+      });
+    });
+  }
+  function loadSesiones(){
+    var all = [];
+    function page(from){
+      return supabaseClient.from('tratamientos_sesiones').select('*').eq('user_id', viewId).order('paciente_id').order('numero').range(from, from + 999)
+        .then(function(res){ throwIfError(res); var d = res.data || []; all = all.concat(d); if (d.length === 1000) return page(from + 1000); });
+    }
+    return page(0).then(function(){
+      sesMap = {};
+      all.forEach(function(r){ (sesMap[r.paciente_id] = sesMap[r.paciente_id] || {})[r.numero] = { fecha: r.fecha, obs: r.observaciones || '', foto: r.foto_path, hecha: !!r.hecha }; });
+    });
+  }
+  function patById(id){ return patologias.filter(function(x){ return x.id === id; })[0] || null; }
+  function pacById(id){ return pacientes.filter(function(x){ return x.id === id; })[0] || null; }
+
+  // Fechas de las sesiones: la 1ª es el primer día de asistencia desde el inicio; cada una siguiente, el
+  // siguiente día de asistencia. Una sesión reprogramada a mano (overrides) fija su fecha y las demás continúan desde ahí.
+  function computeDates(inicio, dias, total, overrides){
+    if (!inicio || !dias || !dias.length || !total) return null;
+    var out = [], prev = null;
+    for (var n = 1; n <= total; n++){
+      var d;
+      if (overrides && overrides[n]) d = overrides[n];
+      else {
+        d = prev ? addDays(prev, 1) : inicio;
+        for (var g = 0; g < 14 && dias.indexOf(parseIso(d).getDay()) === -1; g++) d = addDays(d, 1);
+      }
+      out.push({ numero: n, fecha: d }); prev = d;
+    }
+    return out;
+  }
+  function overridesOf(pid, skipNum){
+    var m = {}, s = sesMap[pid] || {};
+    Object.keys(s).forEach(function(k){ if (s[k].fecha && Number(k) !== skipNum) m[k] = s[k].fecha; });
+    return m;
+  }
+  function scheduleOf(p){ return computeDates(p.fechaInicio, p.dias, p.total, overridesOf(p.id)); }
+  function currentSession(p){
+    var sc = scheduleOf(p), pat = patById(p.patologiaId), tail = pat ? ' · ' + pat.nombre : '';
+    if (!sc) return pat ? pat.nombre : null;
+    var today = todayStr(), k = sc.filter(function(s){ return s.fecha <= today; }).length;
+    if (!k) return 'Inicia el ' + longDate(sc[0].fecha) + tail;
+    return 'Sesión ' + k + ' de ' + p.total + tail;
+  }
+  // Si la agenda cambia, la fecha de fin del paciente (la que usan la lista y los avisos) se actualiza.
+  function syncFin(p){
+    var sc = scheduleOf(p);
+    if (!sc || sc[sc.length - 1].fecha === p.fechaFin) return Promise.resolve();
+    return supabaseClient.from('tratamientos_pacientes').update({ fecha_fin: sc[sc.length - 1].fecha, updated_at: new Date().toISOString() }).eq('id', p.id)
+      .then(throwIfError).then(loadAndRender);
+  }
+
+  // --- Campos de agenda compartidos entre «Agregar» y «Editar» ---
+  function enhanceDias(box){
+    var val = [];
+    box.innerHTML = DIAS_CHIP.map(function(c){ return '<button type="button" data-d="' + c[0] + '" aria-label="' + DIAS_LARGO[c[0]] + '">' + c[1] + '</button>'; }).join('');
+    function paint(){ Array.prototype.forEach.call(box.querySelectorAll('button'), function(b){ b.classList.toggle('on', val.indexOf(Number(b.dataset.d)) !== -1); }); }
+    Object.defineProperty(box, 'value', { get: function(){ return val.slice(); }, set: function(v){ val = (v || []).slice(); paint(); } });
+    box.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      var d = Number(b.dataset.d), i = val.indexOf(d);
+      if (i === -1) val.push(d); else val.splice(i, 1);
+      paint(); box.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    paint();
+  }
+  function buildExtra(pfx){
+    $(pfx + '-extra').innerHTML =
+      '<div class="field"><label for="' + pfx + '-pat">Patología</label><select id="' + pfx + '-pat"></select></div>' +
+      '<div class="field"><label>Fecha de inicio</label><button type="button" class="date-btn" id="' + pfx + '-inicio"></button></div>' +
+      '<div class="field"><label for="' + pfx + '-total">Total de sesiones</label><input type="number" id="' + pfx + '-total" min="1" max="60" inputmode="numeric" placeholder="Ej. 15"></div>' +
+      '<div class="field"><label>Días de asistencia</label><div class="dias" id="' + pfx + '-dias"></div></div>' +
+      '<div class="field"><label for="' + pfx + '-obs">Observaciones de la valoración</label><textarea id="' + pfx + '-obs"></textarea></div>';
+    enhanceDateField($(pfx + '-inicio'));
+    enhanceDias($(pfx + '-dias'));
+    $(pfx + '-inicio').addEventListener('change', function(){ refreshFin(pfx); });
+    $(pfx + '-total').addEventListener('input', function(){ refreshFin(pfx); });
+    $(pfx + '-dias').addEventListener('change', function(){ refreshFin(pfx); });
+  }
+  // Con inicio + días + total, la fecha de finalización se calcula sola y el campo se bloquea.
+  function refreshFin(pfx){
+    var sc = computeDates($(pfx + '-inicio').value, $(pfx + '-dias').value, Number($(pfx + '-total').value), pfx === 'edit' ? overridesOf(editingId) : null);
+    var fin = $(pfx === 'add' ? 'fecha-input' : 'edit-fecha');
+    if (sc){ fin.value = sc[sc.length - 1].fecha; }
+    fin.disabled = !!sc;
+    $(pfx + '-finhint').hidden = !sc;
+    if (pfx === 'add') refreshAddBtn();
+  }
+  function renderPatSelects(){
+    ['add', 'edit'].forEach(function(pfx){
+      var sel = $(pfx + '-pat'); if (!sel) return;
+      var cur = sel.value;
+      sel.innerHTML = '<option value="">Sin patología</option>' + patologias.map(function(x){ return '<option value="' + x.id + '">' + x.nombre.replace(/</g, '&lt;') + '</option>'; }).join('');
+      sel.value = cur;
+      if (sel.value !== cur) sel.value = '';
+    });
+  }
+  function formVals(pfx){
+    var dias = $(pfx + '-dias').value;
+    return {
+      patologia_id: $(pfx + '-pat').value || null,
+      fecha_inicio: $(pfx + '-inicio').value || null,
+      total_sesiones: Number($(pfx + '-total').value) || null,
+      dias_asistencia: dias.length ? dias : null,
+      obs_valoracion: $(pfx + '-obs').value.trim() || null
+    };
+  }
+  function fillForm(pfx, p){
+    renderPatSelects();
+    $(pfx + '-pat').value = p.patologiaId || '';
+    $(pfx + '-inicio').value = p.fechaInicio || '';
+    $(pfx + '-total').value = p.total || '';
+    $(pfx + '-dias').value = p.dias;
+    $(pfx + '-obs').value = p.obs;
+    refreshFin(pfx);
+  }
+  buildExtra('add');
+  buildExtra('edit');
+  $("add-inicio").value = todayStr();
+  refreshFin('add');
+
+  // --- Aviso en la lista: pacientes en sesión a destacar hoy y mañana ---
+  function renderHitos(){
+    var box = $("hito-box"), today = todayStr(), tomorrow = addDays(today, 1), rows = [];
+    pacientes.forEach(function(p){
+      if (p.terminado) return;
+      var sc = scheduleOf(p); if (!sc) return;
+      sc.forEach(function(s){ if (AVISO_SESIONES.indexOf(s.numero) !== -1 && (s.fecha === today || s.fecha === tomorrow)) rows.push({ p: p, s: s }); });
+    });
+    if (!rows.length){ box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false; box.innerHTML = '';
+    box.appendChild(el('h3', null, 'Sesiones a destacar'));
+    [[today, 'Hoy'], [tomorrow, 'Mañana']].forEach(function(g){
+      var list = rows.filter(function(r){ return r.s.fecha === g[0]; });
+      if (!list.length) return;
+      box.appendChild(el('div', 'hito-day', g[1]));
+      list.forEach(function(r){
+        var b = el('button', 'hito-row');
+        b.type = 'button';
+        var strong = el('b', null, r.p.nombre);
+        b.appendChild(strong);
+        b.appendChild(document.createTextNode(' · sesión ' + r.s.numero + (HITOS.indexOf(r.s.numero) !== -1 ? ' (ejercicio nuevo)' : ' (inician los ejercicios)')));
+        b.addEventListener('click', function(){ openSession(r.p.id, r.s.numero); });
+        box.appendChild(b);
+      });
+    });
+  }
+
+  // --- Protocolo de una sesión ---
+  function exLine(e){
+    var d = el('div', 'ex-line');
+    d.appendChild(el('b', null, e.nombre));
+    var bits = [e.accesorio ? 'Accesorio: ' + e.accesorio : '', e.dosis || ''].filter(Boolean).join(' · ');
+    if (e.descripcion) d.appendChild(el('small', null, e.descripcion));
+    if (bits) d.appendChild(el('small', null, bits));
+    return d;
+  }
+  function buildProtocol(p, numero, fecha){
+    var box = el('div', 'proto');
+    if (numero === 1){ box.appendChild(el('p', null, 'Sesión 1: valoración.')); return box; }
+    var pat = patById(p.patologiaId);
+    if (!pat){ box.appendChild(el('p', null, 'Asigna una patología en la ficha del paciente para ver el protocolo de esta sesión.')); return box; }
+    var ex = ejercicios.filter(function(e){ return e.patologiaId === pat.id; });
+    box.appendChild(el('h3', null, 'Calentamiento · ' + pat.nombre));
+    box.appendChild(el('p', null, pat.calentamiento + ' minutos'));
+    var base = ex.filter(function(e){ return e.tipo === 'base'; });
+    if (base.length){ box.appendChild(el('h3', null, 'Ejercicios base')); base.forEach(function(e){ box.appendChild(exLine(e)); }); }
+    var dow = parseIso(fecha).getDay();
+    HITOS.forEach(function(h){
+      if (h > numero) return;
+      var opts = ex.filter(function(e){ return e.tipo === 'extra' && e.hito === h; });
+      if (!opts.length) return;
+      var pick = opts.filter(function(e){ return e.dia === dow; });
+      if (!pick.length) pick = opts.filter(function(e){ return e.dia == null; });
+      var all = !pick.length;
+      if (all) pick = opts;
+      box.appendChild(el('h3', h === numero ? 'nuevo' : '', 'Extra de la sesión ' + h + (h === numero ? ' · NUEVO' : '') + (all ? ' · elige uno (' + DIAS_LARGO[dow].toLowerCase() + ' sin opción fija)' : '')));
+      pick.forEach(function(e){ box.appendChild(exLine(e)); });
+    });
+    return box;
+  }
+
+  // --- Lista de sesiones de un paciente ---
+  var slPid = null;
+  function openSesList(pid){ slPid = pid; renderSesList(); if (!$("ses-list-dialog").open) $("ses-list-dialog").showModal(); }
+  function renderSesList(){
+    var p = pacById(slPid); if (!p) return;
+    $("sl-title").textContent = p.nombre;
+    var pat = patById(p.patologiaId);
+    $("sl-sub").textContent = (pat ? pat.nombre : 'Sin patología') + (p.total ? ' · ' + p.total + ' sesiones' : '');
+    var root = $("sl-list"); root.innerHTML = '';
+    var sc = scheduleOf(p);
+    if (!sc){ root.appendChild(el('div', 'empty', 'Para ver las sesiones, define en la ficha la fecha de inicio, los días de asistencia y el total de sesiones.')); return; }
+    var today = todayStr();
+    sc.forEach(function(s){
+      var d = (sesMap[p.id] || {})[s.numero] || {};
+      var b = el('button', 'ses-row' + (s.fecha === today ? ' today' : ''));
+      b.type = 'button';
+      b.appendChild(el('div', 'ses-t', 'Sesión ' + s.numero + (s.numero === 1 ? ' · valoración' : '') + ' · ' + longDate(s.fecha)));
+      var tags = el('div');
+      if (HITOS.indexOf(s.numero) !== -1) tags.appendChild(el('span', 'badge-inf hito', 'Ejercicio nuevo'));
+      else if (s.numero === 2) tags.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
+      if (d.hecha) tags.appendChild(el('span', 'badge-inf done', 'Realizada'));
+      if (d.fecha) tags.appendChild(el('span', 'badge-inf ses', 'Reprogramada'));
+      if (d.obs) tags.appendChild(el('span', 'badge-inf ses', 'Con notas'));
+      if (d.foto) tags.appendChild(el('span', 'badge-inf ses', 'Con foto'));
+      if (tags.childNodes.length) b.appendChild(tags);
+      b.addEventListener('click', function(){ openSession(p.id, s.numero); });
+      root.appendChild(b);
+    });
+  }
+  $("edit-sesiones").addEventListener("click", function(){ openSesList(editingId); });
+  $("sl-close").addEventListener("click", function(){ $("ses-list-dialog").close(); });
+
+  // --- Detalle de una sesión ---
+  var ses = null; // { pid, numero, fechaOv, pendingBlob, delFoto, fotoPath }
+  function sesDefaultDate(p, numero){
+    var sc = computeDates(p.fechaInicio, p.dias, p.total, overridesOf(p.id, numero));
+    return sc ? sc[numero - 1].fecha : null;
+  }
+  function openSession(pid, numero){
+    var p = pacById(pid); if (!p) return;
+    var d = (sesMap[pid] || {})[numero] || {};
+    ses = { pid: pid, numero: numero, fechaOv: d.fecha || null, pendingBlob: null, delFoto: false, fotoPath: d.foto || null };
+    $("ses-title").textContent = 'Sesión ' + numero + (p.total ? ' de ' + p.total : '') + ' · ' + p.nombre;
+    $("ses-obs").value = d.obs || '';
+    $("ses-hecha").checked = !!d.hecha;
+    paintSesFecha();
+    paintSesPhoto();
+    $("ses-dialog").showModal();
+  }
+  function sesDate(){ var p = pacById(ses.pid); return ses.fechaOv || sesDefaultDate(p, ses.numero) || todayStr(); }
+  function paintSesFecha(){
+    $("ses-fecha").value = sesDate();
+    $("ses-fecha-auto").hidden = !ses.fechaOv;
+    var box = $("ses-proto"); box.innerHTML = '';
+    box.appendChild(buildProtocol(pacById(ses.pid), ses.numero, sesDate()));
+  }
+  function paintSesPhoto(){
+    var box = $("ses-photo"); box.innerHTML = '';
+    var has = (ses.pendingBlob || (ses.fotoPath && !ses.delFoto));
+    $("ses-foto-btn").textContent = has ? 'Cambiar foto' : 'Agregar foto';
+    $("ses-foto-del").hidden = !has;
+    if (ses.pendingBlob){
+      var im = el('img'); im.alt = 'Foto de la sesión'; im.src = URL.createObjectURL(ses.pendingBlob); box.appendChild(im);
+    } else if (ses.fotoPath && !ses.delFoto){
+      var path = ses.fotoPath, im2 = el('img'); im2.alt = 'Foto de la sesión';
+      box.appendChild(im2);
+      supabaseClient.storage.from('tratamientos-fotos').createSignedUrl(path, 3600).then(function(r){
+        if (r && r.data && r.data.signedUrl && ses && ses.fotoPath === path) im2.src = r.data.signedUrl;
+        else if (r && r.error) box.appendChild(el('div', 'fin-hint', 'No se pudo cargar la foto.'));
+      });
+    }
+  }
+  enhanceDateField($("ses-fecha"));
+  $("ses-fecha").addEventListener("change", function(){ ses.fechaOv = $("ses-fecha").value; paintSesFecha(); });
+  $("ses-fecha-auto").addEventListener("click", function(){ ses.fechaOv = null; paintSesFecha(); });
+  $("ses-foto-btn").addEventListener("click", function(){ $("ses-foto-file").click(); });
+  $("ses-foto-del").addEventListener("click", function(){ ses.pendingBlob = null; ses.delFoto = true; paintSesPhoto(); });
+  // La foto se reduce (máx. 1280 px, JPEG) antes de subirla para que pese poco.
+  $("ses-foto-file").addEventListener("change", function(){
+    var f = this.files && this.files[0]; this.value = '';
+    if (!f) return;
+    var img = new Image(), url = URL.createObjectURL(f);
+    img.onload = function(){
+      var k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(function(b){ if (!b){ toast('No se pudo leer la foto'); return; } ses.pendingBlob = b; ses.delFoto = false; paintSesPhoto(); }, 'image/jpeg', 0.8);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); toast('No se pudo leer la foto'); };
+    img.src = url;
+  });
+  $("ses-cancel").addEventListener("click", function(){ $("ses-dialog").close(); });
+  $("ses-save").addEventListener("click", function(){
+    var p = pacById(ses.pid), cur = ses; if (!p) return;
+    var btn = $("ses-save"); btn.disabled = true;
+    var bucket = supabaseClient.storage.from('tratamientos-fotos');
+    var oldPath = cur.fotoPath, newPath = oldPath;
+    var step = Promise.resolve();
+    if (cur.pendingBlob){
+      newPath = viewId + '/' + cur.pid + '/s' + cur.numero + '-' + Date.now() + '.jpg';
+      step = bucket.upload(newPath, cur.pendingBlob, { contentType: 'image/jpeg' }).then(throwIfError);
+    } else if (cur.delFoto){ newPath = null; }
+    step.then(function(){
+      return supabaseClient.from('tratamientos_sesiones').upsert({
+        paciente_id: cur.pid, user_id: viewId, numero: cur.numero, fecha: cur.fechaOv || null,
+        observaciones: $("ses-obs").value.trim() || null, foto_path: newPath, hecha: $("ses-hecha").checked, updated_at: new Date().toISOString()
+      }, { onConflict: 'paciente_id,numero' });
+    }).then(throwIfError).then(function(){
+      if (oldPath && oldPath !== newPath) bucket.remove([oldPath]);
+      $("ses-dialog").close();
+      toast('Sesión guardada');
+      return loadAndRender().then(function(){ return syncFin(pacById(cur.pid)); });
+    }).catch(function(err){ showError('No se pudo guardar la sesión: ' + (err.message || err)); })
+      .then(function(){ btn.disabled = false; });
+  });
+
+  // --- Patologías y ejercicios (editor) ---
+  var patEditId = null, exEditId = null, exPat = null;
+  function openPatList(){ renderPatList(); $("pat-dialog").showModal(); }
+  function renderPatList(){
+    var root = $("pat-list"); root.innerHTML = '';
+    if (!patologias.length) root.appendChild(el('div', 'empty', 'Aún no hay patologías.'));
+    patologias.forEach(function(pt){
+      var n = ejercicios.filter(function(e){ return e.patologiaId === pt.id; }).length;
+      var b = el('button', 'ses-row');
+      b.type = 'button';
+      b.appendChild(el('div', 'ses-t', pt.nombre));
+      b.appendChild(el('div', 'pac-note', n + (n === 1 ? ' ejercicio' : ' ejercicios') + ' · calentamiento ' + pt.calentamiento + ' min'));
+      b.addEventListener('click', function(){ openPatEdit(pt.id); });
+      root.appendChild(b);
+    });
+  }
+  $("btn-pat").addEventListener("click", function(){ $("settings-dialog").close(); openPatList(); });
+  $("pat-close").addEventListener("click", function(){ $("pat-dialog").close(); });
+  $("pat-new-btn").addEventListener("click", function(){
+    var nombre = $("pat-new-name").value.trim(); if (!nombre) return;
+    supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre }).select().then(throwIfError).then(function(res){
+      $("pat-new-name").value = '';
+      return loadAndRender().then(function(){ if (res.data && res.data[0]) openPatEdit(res.data[0].id); });
+    }).catch(function(err){ showError('No se pudo crear: ' + err.message); });
+  });
+  function openPatEdit(id){
+    var pt = patById(id); if (!pt) return;
+    patEditId = id;
+    $("pe-nombre").value = pt.nombre; $("pe-warm").value = pt.calentamiento;
+    renderPatEx();
+    if (!$("patedit-dialog").open) $("patedit-dialog").showModal();
+  }
+  function renderPatEx(){
+    var root = $("pe-ex"); root.innerHTML = '';
+    var ex = ejercicios.filter(function(e){ return e.patologiaId === patEditId; });
+    [[0, 'Ejercicios base']].concat(HITOS.map(function(h){ return [h, 'Extra de la sesión ' + h]; })).forEach(function(g){
+      var head = el('div', 'grp-head');
+      head.appendChild(el('h3', null, g[1]));
+      var add = el('button', 'btn', 'Agregar'); add.type = 'button';
+      add.addEventListener('click', function(){ openEx(null, g[0]); });
+      head.appendChild(add);
+      root.appendChild(head);
+      var list = ex.filter(function(e){ return g[0] === 0 ? e.tipo === 'base' : (e.tipo === 'extra' && e.hito === g[0]); });
+      if (!list.length) root.appendChild(el('div', 'pac-note', 'Sin ejercicios.'));
+      list.forEach(function(e){
+        var b = el('button', 'ses-row'); b.type = 'button';
+        b.appendChild(el('div', 'ses-t', e.nombre));
+        var sub = [e.dia ? DIAS_LARGO[e.dia] : (e.tipo === 'extra' ? 'Cualquier día' : ''), e.dosis || ''].filter(Boolean).join(' · ');
+        if (sub) b.appendChild(el('div', 'pac-note', sub));
+        b.addEventListener('click', function(){ openEx(e.id, g[0]); });
+        root.appendChild(b);
+      });
+    });
+  }
+  $("pe-cancel").addEventListener("click", function(){ $("patedit-dialog").close(); });
+  $("pe-save").addEventListener("click", function(){
+    var nombre = $("pe-nombre").value.trim(); if (!nombre){ toast('Falta el nombre'); return; }
+    var warm = Number($("pe-warm").value); if (!(warm >= 0)) warm = 15;
+    supabaseClient.from('tratamientos_patologias').update({ nombre: nombre, calentamiento_min: warm }).eq('id', patEditId)
+      .then(throwIfError).then(function(){ $("patedit-dialog").close(); toast('Patología guardada'); return loadAndRender(); })
+      .catch(function(err){ showError('No se pudo guardar: ' + err.message); });
+  });
+  $("pe-delete").addEventListener("click", function(){
+    var pt = patById(patEditId);
+    if (!pt || !confirm('¿Eliminar la patología «' + pt.nombre + '» y todos sus ejercicios? Los pacientes que la tengan quedarán sin patología.')) return;
+    supabaseClient.from('tratamientos_patologias').delete().eq('id', patEditId)
+      .then(throwIfError).then(function(){ $("patedit-dialog").close(); return loadAndRender(); })
+      .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
+  });
+  function openEx(id, hito){
+    exEditId = id;
+    var e = id ? ejercicios.filter(function(x){ return x.id === id; })[0] : null;
+    $("ex-title").textContent = e ? 'Editar ejercicio' : 'Nuevo ejercicio';
+    $("ex-nombre").value = e ? e.nombre : '';
+    $("ex-hito").value = String(e ? (e.tipo === 'base' ? 0 : e.hito) : hito);
+    $("ex-dia").value = e && e.dia ? String(e.dia) : '';
+    $("ex-desc").value = e ? (e.descripcion || '') : '';
+    $("ex-acc").value = e ? (e.accesorio || '') : '';
+    $("ex-dosis").value = e ? (e.dosis || '') : '';
+    $("ex-delete").hidden = !e;
+    $("ex-dia-box").hidden = $("ex-hito").value === '0';
+    $("ex-dialog").showModal();
+  }
+  $("ex-hito").addEventListener("change", function(){ $("ex-dia-box").hidden = this.value === '0'; });
+  $("ex-cancel").addEventListener("click", function(){ $("ex-dialog").close(); });
+  $("ex-save").addEventListener("click", function(){
+    var nombre = $("ex-nombre").value.trim(); if (!nombre){ toast('Falta el nombre'); return; }
+    var h = Number($("ex-hito").value), base = h === 0;
+    var row = {
+      tipo: base ? 'base' : 'extra', sesion_hito: base ? null : h, dia_semana: base ? null : (Number($("ex-dia").value) || null),
+      nombre: nombre, descripcion: $("ex-desc").value.trim() || null, accesorio: $("ex-acc").value.trim() || null, dosis: $("ex-dosis").value.trim() || null
+    };
+    var q;
+    if (exEditId) q = supabaseClient.from('tratamientos_ejercicios').update(row).eq('id', exEditId);
+    else {
+      row.user_id = viewId; row.patologia_id = patEditId;
+      row.orden = ejercicios.filter(function(e){ return e.patologiaId === patEditId; }).length + 1;
+      q = supabaseClient.from('tratamientos_ejercicios').insert(row);
+    }
+    q.then(throwIfError).then(function(){ $("ex-dialog").close(); return loadAndRender(); })
+      .catch(function(err){ showError('No se pudo guardar el ejercicio: ' + err.message); });
+  });
+  $("ex-delete").addEventListener("click", function(){
+    if (!confirm('¿Eliminar este ejercicio?')) return;
+    supabaseClient.from('tratamientos_ejercicios').delete().eq('id', exEditId)
+      .then(throwIfError).then(function(){ $("ex-dialog").close(); return loadAndRender(); })
+      .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
   });
 
   // ---------- Configuración (menú de 3 puntos) ----------
@@ -1049,6 +1657,23 @@
               out.push({ id: dayNotifId(iso) + 1, title: 'Mañana ' + plural(list.length) + ' el tratamiento', body: namesText(list), channelId: NOTIF_CHANNEL_ID, schedule: { at: before, allowWhileIdle: true } });
             }
           }
+        });
+        // Aviso aparte: pacientes que entran a una sesión a destacar (2, 3, 7, 10 o 13).
+        var hDay = {};
+        pacientes.forEach(function(p){
+          if (p.terminado) return;
+          var sc = scheduleOf(p); if (!sc) return;
+          sc.forEach(function(s){
+            if (AVISO_SESIONES.indexOf(s.numero) === -1 || s.fecha < today || diffDays(today, s.fecha) > NOTIF_HORIZON_DAYS) return;
+            (hDay[s.fecha] = hDay[s.fecha] || []).push(p.nombre + ' (sesión ' + s.numero + ')');
+          });
+        });
+        Object.keys(hDay).forEach(function(iso){
+          var d = parseIso(iso), at = new Date(d.getFullYear(), d.getMonth(), d.getDate(), NOTIF_HOUR, 0, 0, 0);
+          if (at.getTime() <= Date.now()) return;
+          var names = hDay[iso];
+          out.push({ id: 810000000 + Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000), title: 'Hoy hay sesiones a destacar',
+            body: names.length <= 6 ? names.join(', ') : names.slice(0, 6).join(', ') + ' y ' + (names.length - 6) + ' más', channelId: NOTIF_CHANNEL_ID, schedule: { at: at, allowWhileIdle: true } });
         });
         if (out.length) return LN.schedule({ notifications: out });
       });
