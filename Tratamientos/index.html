@@ -457,6 +457,17 @@
   .dlg-x { flex: none; width: 36px; height: 36px; margin: -6px -8px 0 0; border-radius: 50%; border: none; background: none; color: var(--ink-soft); display: flex; align-items: center; justify-content: center; }
   .dlg-x:hover { background: var(--paper-2); color: var(--ink); }
   .dlg-x svg { width: 20px; height: 20px; }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 6px; max-width: 100%; margin-bottom: 10px; padding: 5px 6px 5px 12px;
+    border-radius: 999px; background: var(--accent-soft); border: 1px solid var(--accent); font-size: 13px; color: var(--accent);
+  }
+  .filter-chip[hidden] { display: none; }
+  .filter-chip .fc-label { font-weight: 600; }
+  .filter-chip .fc-text { font-weight: 800; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-chip button { flex: none; width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; padding: 0; }
+  .filter-chip button svg { width: 13px; height: 13px; }
+  .dash-card.go { cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
+  .dash-card.go:hover { border-color: var(--accent); }
   .search-wrap { position: relative; margin-bottom: 14px; }
   .search-wrap .search { margin-bottom: 0; padding-right: 40px; }
   .search-clear { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; border: none; background: none; color: var(--ink-faint); display: flex; align-items: center; justify-content: center; }
@@ -586,6 +597,10 @@
     <!-- ===== Página: Pacientes ===== -->
     <div class="tab-page" id="page-lista">
 
+      <div class="filter-chip" id="filter-chip" hidden>
+        <span class="fc-label">Filtro:</span><span class="fc-text" id="filter-chip-text"></span>
+        <button type="button" id="filter-chip-x" aria-label="Quitar filtro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
       <div class="search-wrap">
         <input type="text" class="search" id="search-input" placeholder="Buscar paciente…" autocomplete="off">
         <button type="button" class="search-clear" id="search-clear" aria-label="Borrar búsqueda" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -1104,6 +1119,44 @@
     refreshAddBtn();
   }
 
+  // Filtro temporal que llega desde las cards del Resumen: { label, ses(s) | pac(p) }.
+  var listFilter = null;
+  function setListFilter(f){
+    listFilter = f;
+    $("filter-chip").hidden = !f;
+    $("filter-chip-text").textContent = f ? f.label : '';
+  }
+  $("filter-chip-x").addEventListener("click", function(){ setListFilter(null); render(); });
+
+  function renderFiltered(root, match, today){
+    if (listFilter.ses){
+      // Sesiones que cumplen el filtro, en su día (cualquier fecha, también de pacientes ya terminados).
+      var groups = {}, dates = [];
+      pacientes.filter(match).forEach(function(p){
+        var sc = scheduleOf(p); if (!sc) return;
+        sc.forEach(function(s){
+          var rec = { p: p, numero: s.numero, fecha: s.fecha, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha };
+          if (!listFilter.ses(rec)) return;
+          if (!groups[s.fecha]){ groups[s.fecha] = []; dates.push(s.fecha); }
+          groups[s.fecha].push({ p: p, info: sesInfo(p, s) });
+        });
+      });
+      dates.sort();
+      if (!dates.length) root.appendChild(el('div', 'empty', 'Ninguna sesión coincide con este filtro.'));
+      dates.forEach(function(iso){ root.appendChild(dayBlock(iso, groups[iso], iso < today ? 'is-late' : (iso === today ? 'is-today' : ''))); });
+    } else {
+      var list = pacientes.filter(match).filter(listFilter.pac).sort(function(a, b){ return a.nombre < b.nombre ? -1 : 1; });
+      if (!list.length){ root.appendChild(el('div', 'empty', 'Ningún paciente coincide con este filtro.')); return; }
+      var box = el('section', 'day'), head = el('div', 'day-head');
+      head.appendChild(el('span', 'day-title', 'Pacientes'));
+      head.appendChild(el('span', 'day-sub', list.length + (list.length === 1 ? ' paciente' : ' pacientes')));
+      box.appendChild(head);
+      var l = el('div', 'list');
+      list.forEach(function(p){ l.appendChild(pacRow(p)); });
+      box.appendChild(l); root.appendChild(box);
+    }
+  }
+
   function render(){
     var today = todayStr();
     var active = pacientes.filter(function(p){ return !p.terminado; });
@@ -1114,6 +1167,14 @@
     var root = $("list-root");
     root.innerHTML = '';
     var shown = active.filter(match);
+    if (listFilter){
+      renderFiltered(root, match, today);
+      $("done-box").hidden = true;
+      if (!$("page-cal").hidden) renderCalendar();
+      updateDupHint();
+      fitListScroll();
+      return;
+    }
     if (!shown.length){
       var emptyMsg = q ? 'Nadie coincide con esa búsqueda.' : 'Aún no hay pacientes. Toca el botón + para agregar el primero.';
       root.appendChild(el('div', 'empty', emptyMsg));
@@ -1316,6 +1377,7 @@
   });
 
   function showPage(name){
+    if (name !== 'lista' && listFilter){ setListFilter(null); render(); }   // el filtro del resumen es temporal
     ['lista', 'cal', 'pat', 'dash'].forEach(function(p){ $("page-" + p).hidden = (p !== name); });
     Array.prototype.forEach.call($("bottomNav").querySelectorAll('button'), function(b){
       b.classList.toggle('active', b.dataset.page === name);
@@ -1938,8 +2000,18 @@
     return out;
   }
   function fmt1(n){ return (Math.round(n * 10) / 10).toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 1 }); }
-  function dashCard(n, label){
-    var c = el('div', 'dash-card'); c.appendChild(el('div', 'n', String(n))); c.appendChild(el('div', 'label', label)); return c;
+  // Al tocar una card se abre Pacientes con ese filtro (temporal) aplicado.
+  function dashCard(n, label, filter, period){
+    var c = el('button', 'dash-card go'); c.type = 'button';
+    c.appendChild(el('div', 'n', String(n))); c.appendChild(el('div', 'label', label));
+    c.addEventListener('click', function(){
+      showPage('lista');
+      filter.label = label + (period ? ' · ' + period : '');
+      setListFilter(filter);
+      $("search-input").value = ''; $("search-clear").hidden = true;
+      render();
+    });
+    return c;
   }
   function renderDash(){
     Array.prototype.forEach.call($("dash-modes").querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.m === dash.mode); });
@@ -1964,13 +2036,14 @@
     var body = $("dash-body"); body.innerHTML = '';
     body.appendChild(el('div', 'dash-sec', 'En el período'));
     var g = el('div', 'dash-grid');
-    g.appendChild(dashCard(Object.keys(atendidos).length, 'Pacientes atendidos'));
-    g.appendChild(dashCard(hechas.length, 'Sesiones realizadas'));
-    g.appendChild(dashCard(prog.length, 'Sesiones programadas'));
-    g.appendChild(dashCard(sinMarcar, 'Pasadas sin marcar'));
-    g.appendChild(dashCard(inicianEn, 'Inician tratamiento'));
-    g.appendChild(dashCard(terminanEn, 'Terminan tratamiento'));
-    g.appendChild(dashCard(hitosN, 'Sesiones 2, 3, 7, 10, 13'));
+    var per = $("dash-title").textContent;
+    g.appendChild(dashCard(Object.keys(atendidos).length, 'Pacientes atendidos', { pac: function(p){ return !!atendidos[p.id]; } }, per));
+    g.appendChild(dashCard(hechas.length, 'Sesiones realizadas', { ses: function(s){ return inR(s.fecha) && s.hecha; } }, per));
+    g.appendChild(dashCard(prog.length, 'Sesiones programadas', { ses: function(s){ return inR(s.fecha); } }, per));
+    g.appendChild(dashCard(sinMarcar, 'Pasadas sin marcar', { ses: function(s){ return inR(s.fecha) && !s.hecha && s.fecha <= today; } }, per));
+    g.appendChild(dashCard(inicianEn, 'Inician tratamiento', { pac: function(p){ return !!p.fechaInicio && inR(p.fechaInicio); } }, per));
+    g.appendChild(dashCard(terminanEn, 'Terminan tratamiento', { pac: function(p){ return inR(p.fechaFin); } }, per));
+    g.appendChild(dashCard(hitosN, 'Sesiones 2, 3, 7, 10, 13', { ses: function(s){ return inR(s.fecha) && AVISO_SESIONES.indexOf(s.numero) !== -1; } }, per));
     body.appendChild(g);
 
     if (dash.mode !== 'dia' && diffDays(a, b) <= 31){
@@ -1992,10 +2065,10 @@
 
     body.appendChild(el('div', 'dash-sec', 'Pacientes en general'));
     var g2 = el('div', 'dash-grid');
-    g2.appendChild(dashCard(activos, 'Pacientes activos'));
-    g2.appendChild(dashCard(terminados, 'Ya terminaron'));
-    g2.appendChild(dashCard(pacientes.length, 'Pacientes en total'));
-    g2.appendChild(dashCard(pacientes.filter(function(p){ return !p.terminado && !scheduleOf(p); }).length, 'Activos sin agenda'));
+    g2.appendChild(dashCard(activos, 'Pacientes activos', { pac: function(p){ return !p.terminado; } }));
+    g2.appendChild(dashCard(terminados, 'Ya terminaron', { pac: function(p){ return !!p.terminado; } }));
+    g2.appendChild(dashCard(pacientes.length, 'Pacientes en total', { pac: function(){ return true; } }));
+    g2.appendChild(dashCard(pacientes.filter(function(p){ return !p.terminado && !scheduleOf(p); }).length, 'Activos sin agenda', { pac: function(p){ return !p.terminado && !scheduleOf(p); } }));
     body.appendChild(g2);
 
     body.appendChild(el('div', 'dash-sec', 'Promedio de atención'));
