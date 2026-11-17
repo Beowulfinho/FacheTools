@@ -2047,10 +2047,10 @@
     var atendidos = {}; hechas.forEach(function(s){ atendidos[s.p.id] = 1; });
     // Alertas (no dependen del período): sesiones pasadas sin marcar y pacientes con la ficha incompleta.
     var sinMarcar = all.filter(function(s){ return !s.p.terminado && !s.hecha && s.fecha < today; }).length;
-    var incompletos = pacientes.filter(function(p){ return !p.terminado && faltan(p).length; }).length;
+    var incompletos = pacientes.filter(function(p){ return faltan(p).length; }).length;
     var al = $("dash-alerts"); al.innerHTML = ''; al.hidden = !(sinMarcar || incompletos);
     if (sinMarcar) al.appendChild(dashCard(sinMarcar, 'Pasadas sin marcar', { ses: function(s){ return !s.p.terminado && !s.hecha && s.fecha < today; } }, '', 'alert'));
-    if (incompletos) al.appendChild(dashCard(incompletos, 'Pacientes incompletos', { faltan: true, pac: function(p){ return !p.terminado && faltan(p).length > 0; } }, '', 'alert'));
+    if (incompletos) al.appendChild(dashCard(incompletos, 'Pacientes incompletos', { faltan: true, pac: function(p){ return faltan(p).length > 0; } }, '', 'alert'));
     var hitosN = prog.filter(function(s){ return AVISO_SESIONES.indexOf(s.numero) !== -1; }).length;
     var activos = pacientes.filter(function(p){ return !p.terminado; }).length;
     var terminados = pacientes.length - activos;
