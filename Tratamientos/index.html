@@ -308,6 +308,15 @@
   }
   .seg button + button { border-left: 1px solid var(--line); }
   .seg button.on { background: var(--accent); color: var(--accent-ink); }
+  .capture-grid[hidden] { display: none; }
+  #pers-dialog, #pick-dialog { margin: 6vh auto auto; max-height: 88vh; overflow-y: auto; }
+  #pick-dialog { width: min(360px, calc(100vw - 32px)); }
+  #pick-list { max-height: 50vh; overflow-y: auto; margin-top: 8px; }
+  .draft-row { display: flex; align-items: center; gap: 8px; background: var(--paper-3); border-radius: 10px; padding: 9px 12px; margin-bottom: 6px; font-size: 14px; }
+  .draft-row span { flex: 1; }
+  .draft-row button { border: none; background: none; color: var(--critical); font-size: 18px; font-weight: 700; }
+  .pq-actions { display: flex; gap: 8px; margin-top: 4px; }
+  .pq-actions .btn { flex: 1; }
   .view-tog { margin-bottom: 14px; }
   .view-tog button { font-size: 14px; }
   .pq-card { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); margin-bottom: 10px; overflow: hidden; }
@@ -321,7 +330,6 @@
   .pq-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; text-align: left; border: none; background: var(--paper-3); color: var(--ink); border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; }
   .pq-row .pq-t { font-weight: 700; font-size: 14.5px; }
   .pq-row .pq-d { flex: 1 1 100%; font-size: 12.5px; color: var(--ink-soft); }
-  .pq-new { width: 100%; margin-top: 4px; }
   .check-row { display: flex; align-items: center; gap: 10px; font-size: 14.5px; padding: 4px 0; }
   .check-row input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
   .badge-inf {
@@ -740,51 +748,82 @@
 
 <dialog id="add-dialog">
   <div class="dlg-head">
-    <h2>Agregar paciente</h2>
+    <h2 id="add-title">Nuevo</h2>
     <button type="button" class="dlg-x" id="add-x" aria-label="Cerrar sin guardar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
-        <div class="capture-grid">
-          <div class="seg" id="add-mode" role="group" aria-label="Tipo de alta">
-            <button type="button" data-v="nuevo" class="on">Paciente nuevo</button><button type="button" data-v="paquete">Paquete nuevo</button>
-          </div>
-          <div class="field" id="add-persona-field" hidden>
-            <label for="add-persona">Paciente</label>
-            <select id="add-persona"></select>
-            <div class="fin-hint" id="add-persona-hint">Un paquete es un grupo de sesiones. El paciente puede tener varios.</div>
-          </div>
-          <div class="field" id="add-nombre-field">
-            <label for="nombre-input">Nombre</label>
-            <input type="text" id="nombre-input" placeholder="Nombre del paciente" autocomplete="off" autocapitalize="words">
-            <div class="dup-hint" id="dup-hint" hidden></div>
-          </div>
-          <div id="add-extra"></div>
-          <div class="field">
-            <label for="fecha-input">Fecha de finalización</label>
-            <button type="button" class="date-btn" id="fecha-input"></button>
-            <div class="fin-hint" id="add-finhint" hidden>Se calcula con la fecha de inicio, los días y el total de sesiones.</div>
-          </div>
-          <div class="field">
-            <label>¿Necesita informe terapéutico?</label>
-            <div class="seg" id="informe-input" role="group" aria-label="Necesita informe terapéutico">
-              <button type="button" data-v="1">Sí</button><button type="button" data-v="0">No</button>
-            </div>
-          </div>
-          <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
+  <div class="capture-grid">
+    <div class="seg" id="add-mode" role="group" aria-label="Tipo de alta">
+      <button type="button" data-v="nuevo" class="on">Paciente nuevo</button><button type="button" data-v="paquete">Paquete nuevo</button>
+    </div>
+
+    <div class="capture-grid" id="sec-nuevo">
+      <div class="field">
+        <label for="nombre-input">Nombre</label>
+        <input type="text" id="nombre-input" placeholder="Nombre del paciente" autocomplete="off" autocapitalize="words">
+        <div class="dup-hint" id="dup-hint" hidden></div>
+      </div>
+      <div class="field"><label for="add-pat">Patología</label><select id="add-pat"></select></div>
+      <div class="field">
+        <label>¿Necesita informe terapéutico?</label>
+        <div class="seg" id="informe-input" role="group" aria-label="Necesita informe terapéutico">
+          <button type="button" data-v="1">Sí</button><button type="button" data-v="0">No</button>
         </div>
+      </div>
+      <div id="add-drafts"></div>
+      <button type="button" class="btn" id="add-genpaq" style="width:100%;">+ Generar paquete nuevo</button>
+    </div>
+
+    <div class="capture-grid" id="sec-paquete" hidden>
+      <div class="field">
+        <label for="add-persona-btn">Paciente</label>
+        <button type="button" class="date-btn sel-btn" id="add-persona-btn"></button>
+      </div>
+      <div id="add-extra"></div>
+      <div class="field">
+        <label for="fecha-input">Fecha de finalización</label>
+        <button type="button" class="date-btn" id="fecha-input"></button>
+        <div class="fin-hint" id="add-finhint" hidden>Se calcula con la fecha de inicio, los días y el total de sesiones.</div>
+      </div>
+      <button type="button" class="btn-link" id="add-volver" hidden style="color:var(--ink-soft);justify-self:start;">← Volver al paciente</button>
+    </div>
+
+    <button type="button" class="btn btn-primary add-btn" id="add-btn" disabled>Agregar</button>
+  </div>
+</dialog>
+
+<dialog id="pick-dialog">
+  <div class="dlg-head"><h2>Paciente</h2>
+    <button type="button" class="dlg-x" id="pick-x" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <input type="text" class="search" id="pick-search" placeholder="Buscar paciente…" autocomplete="off" style="margin-bottom:0;">
+  <div id="pick-list"></div>
+</dialog>
+
+<dialog id="pers-dialog">
+  <div class="dlg-head"><h2>Paciente</h2>
+    <button type="button" class="dlg-x" id="pers-x" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="field"><label for="pers-nombre">Nombre</label><input type="text" id="pers-nombre" autocomplete="off" autocapitalize="words"></div>
+  <div class="field"><label for="pers-pat">Patología</label><select id="pers-pat"></select></div>
+  <div class="field">
+    <label>¿Necesita informe terapéutico?</label>
+    <div class="seg" id="pers-informe" role="group" aria-label="Necesita informe terapéutico">
+      <button type="button" data-v="1">Sí</button><button type="button" data-v="0">No</button>
+    </div>
+  </div>
+  <div class="dlg-actions">
+    <button type="button" class="btn btn-danger" id="pers-delete">Eliminar</button>
+    <div class="right"><button type="button" class="btn btn-primary" id="pers-save">Guardar</button></div>
+  </div>
 </dialog>
 
 <dialog id="edit-dialog">
-  <h2>Ficha del paciente</h2>
-  <div class="field"><label for="edit-nombre">Nombre</label><input type="text" id="edit-nombre" autocomplete="off"></div>
+  <h2 id="edit-title">Paquete</h2>
+  <div class="field"><label>Paciente</label>
+    <button type="button" class="date-btn sel-btn" id="edit-persona"><span id="edit-paciente"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button></div>
   <div id="edit-extra"></div>
   <div class="field"><label for="edit-fecha">Fecha de finalización</label><button type="button" class="date-btn" id="edit-fecha"></button>
     <div class="fin-hint" id="edit-finhint" hidden>Se calcula con la fecha de inicio, los días y el total de sesiones.</div></div>
-  <div class="field">
-            <label>¿Necesita informe terapéutico?</label>
-            <div class="seg" id="edit-informe" role="group" aria-label="Necesita informe terapéutico">
-              <button type="button" data-v="1">Sí</button><button type="button" data-v="0">No</button>
-            </div>
-          </div>
   <button type="button" class="btn" id="edit-sesiones" style="width:100%;">Ver sesiones</button>
   <div class="dlg-actions">
     <button type="button" class="btn btn-danger" id="edit-delete">Eliminar</button>
@@ -1022,7 +1061,7 @@
   // ---------- Datos ----------
   function mapRow(r){
     return {
-      id: r.id, nombre: r.nombre, fechaFin: r.fecha_fin, informe: r.informe === true ? true : (r.informe === false ? false : null), terminado: !!r.terminado,
+      id: r.id, personaId: r.persona_id || null, nombre: r.nombre, fechaFin: r.fecha_fin, informe: r.informe === true ? true : (r.informe === false ? false : null), terminado: !!r.terminado,
       patologiaId: r.patologia_id || null, total: r.total_sesiones || null, fechaInicio: r.fecha_inicio || null,
       dias: r.dias_asistencia || [], obs: r.obs_valoracion || ''
     };
@@ -1030,14 +1069,26 @@
   function loadPacientes(){
     return supabaseClient.from('tratamientos_pacientes').select('*').eq('user_id', viewId).is('deleted_at', null)
       .order('fecha_fin', { ascending: true }).order('nombre', { ascending: true })
-      .then(function(res){ throwIfError(res); pacientes = (res.data || []).map(mapRow); buildGroups(); });
+      .then(function(res){ throwIfError(res); pacientes = (res.data || []).map(mapRow); });
   }
-  // Un paciente = todas las filas con el mismo nombre; cada fila es un paquete (grupo de sesiones).
-  var grupos = [];
+  function loadPersonas(){
+    return supabaseClient.from('tratamientos_personas').select('*').eq('user_id', viewId).is('deleted_at', null).order('nombre')
+      .then(function(res){
+        throwIfError(res);
+        personas = (res.data || []).map(function(r){ return { id: r.id, nombre: r.nombre, patologiaId: r.patologia_id || null, informe: r.informe === true ? true : (r.informe === false ? false : null) }; });
+      });
+  }
+  // Paciente = fila de tratamientos_personas; paquete = fila de tratamientos_pacientes que apunta a él (persona_id).
+  // Nombre, patología e informe son del paciente y se copian a cada uno de sus paquetes en memoria.
+  var personas = [], grupos = [];
   function buildGroups(){
     var by = {};
-    pacientes.forEach(function(p){ var k = nameKey(p.nombre); (by[k] = by[k] || { key: k, nombre: p.nombre, paqs: [] }).paqs.push(p); });
-    grupos = Object.keys(by).map(function(k){ return by[k]; });
+    grupos = personas.map(function(x){ var g = { id: x.id, key: nameKey(x.nombre), nombre: x.nombre, patologiaId: x.patologiaId, informe: x.informe, paqs: [] }; by[x.id] = g; return g; });
+    pacientes = pacientes.filter(function(p){
+      var g = by[p.personaId]; if (!g) return false;   // paquete sin paciente (o paciente en la papelera)
+      p.nombre = g.nombre; p.patologiaId = g.patologiaId; p.informe = g.informe; g.paqs.push(p);
+      return true;
+    });
     grupos.forEach(function(g){
       g.paqs.sort(function(a, b){ var x = a.fechaInicio || a.fechaFin, y = b.fechaInicio || b.fechaFin; return x < y ? -1 : (x > y ? 1 : (a.fechaFin < b.fechaFin ? -1 : 1)); });
       g.paqs.forEach(function(p, i){ p.paqN = i + 1; p.paqTotal = g.paqs.length; });
@@ -1047,8 +1098,9 @@
   function groupOf(nombre){ var k = nameKey(nombre); return grupos.filter(function(g){ return g.key === k; })[0] || null; }
   function loadAndRender(){
     clearError();
-    return Promise.all([loadPacientes(), loadPatologias(), loadSesiones()]).then(function(){
-      pacientes.forEach(function(p){ if (p.patologiaId && !patById(p.patologiaId)) p.patologiaId = null; });   // patología en la papelera
+    return Promise.all([loadPersonas(), loadPacientes(), loadPatologias(), loadSesiones()]).then(function(){
+      personas.forEach(function(x){ if (x.patologiaId && !patById(x.patologiaId)) x.patologiaId = null; });   // patología en la papelera
+      buildGroups();   // patología en la papelera
       renderPatSelects(); render(); scheduleNotifications();
       if ($("ses-list-dialog").open) renderSesList();
       if ($("patedit-dialog").open) renderPatEx();
@@ -1059,25 +1111,44 @@
     });
   }
 
+  var draftPaqs = [], draftCtx = false, addPersonaId = null;
+  function currentPaq(){ var f = fechasVals('add'); return f ? { fechas: f, fin: maxDate(f) } : null; }
+  function insertPaquete(personaId, nombre, patId, informe, d){
+    var row = { user_id: viewId, persona_id: personaId, nombre: nombre, patologia_id: patId, informe: informe, fecha_fin: d.fin, fecha_inicio: minDate(d.fechas), total_sesiones: d.fechas.length, dias_asistencia: null };
+    return supabaseClient.from('tratamientos_pacientes').insert(row).select('id').then(throwIfError).then(function(res){ return saveFechas(res.data[0].id, d.fechas); });
+  }
+  function resetPaqForm(iso){
+    $("add-total").value = ''; fechasSt.add = iso ? [iso] : [];
+    renderFechas('add'); refreshFin('add');
+  }
   function addPaciente(){
-    var nombre = addName();
-    var fecha = $("fecha-input").value;
-    if (!nombre || !fecha) return;
-    if (addMode === 'nuevo' && findExact(nombre)){ updateDupHint(); toast('Ese paciente ya existe: usa «Paquete nuevo»'); return; }
+    if ($("add-btn").disabled) return;
+    var fail = function(err){ showError('No se pudo guardar: ' + err.message); $("add-dialog").close(); };
+    if (addMode === 'nuevo'){
+      var nombre = $("nombre-input").value.trim(), pat = $("add-pat").value || null, inf = $("informe-input").value, drafts = draftPaqs.slice();
+      if (!nombre || findExact(nombre)){ updateDupHint(); return; }
+      $("add-btn").disabled = true;
+      supabaseClient.from('tratamientos_personas').insert({ user_id: viewId, nombre: nombre, patologia_id: pat, informe: inf }).select('id')
+        .then(throwIfError).then(function(res){
+          var pid = res.data[0].id, chain = Promise.resolve();
+          drafts.forEach(function(d){ chain = chain.then(function(){ return insertPaquete(pid, nombre, pat, inf, d); }); });
+          return chain;
+        }).then(function(){
+          $("add-dialog").close();
+          toast('Agregado: ' + nombre + (drafts.length ? ' · ' + drafts.length + (drafts.length === 1 ? ' paquete' : ' paquetes') : ''));
+          return loadAndRender();
+        }).catch(fail);
+      return;
+    }
+    var d = currentPaq(); if (!d) return;
+    if (draftCtx){   // paquete de un paciente que todavía no se guardó: vuelve al formulario del paciente y espera el «Agregar» final
+      draftPaqs.push(d); draftCtx = false; resetPaqForm(); setAddMode('nuevo'); return;
+    }
+    var g = groupById(addPersonaId); if (!g) return;
     $("add-btn").disabled = true;
-    var row = formVals('add'), fechas = fechasVals('add');
-    row.user_id = viewId; row.nombre = nombre; row.fecha_fin = fecha; row.informe = $("informe-input").value;
-    supabaseClient.from('tratamientos_pacientes').insert(row).select('id')
-      .then(throwIfError).then(function(res){
-        return fechas && res.data && res.data[0] ? saveFechas(res.data[0].id, fechas) : null;
-      }).then(function(){
-        $("add-dialog").close();
-        toast((addMode === 'paquete' ? 'Paquete agregado: ' : 'Agregado: ') + nombre + ' · ' + longDate(fecha));
-        return loadAndRender();
-      }).catch(function(err){
-        showError('No se pudo guardar: ' + err.message);
-        $("add-dialog").close();
-      });
+    insertPaquete(g.id, g.nombre, g.patologiaId, g.informe, d).then(function(){
+      $("add-dialog").close(); toast('Paquete agregado: ' + g.nombre + ' · ' + longDate(d.fin)); return loadAndRender();
+    }).catch(fail);
   }
 
   function setTerminado(id, value){
@@ -1187,16 +1258,15 @@
   function nameKey(n){ return norm(n).replace(/\s+/g, ' ').trim(); }
   function findExact(nombre, exceptId){
     var k = nameKey(nombre);
-    return pacientes.filter(function(p){ return p.id !== exceptId && nameKey(p.nombre) === k; })[0] || null;
+    return grupos.filter(function(g){ return g.id !== exceptId && g.key === k; })[0] || null;
   }
-  function dupLabel(p){
-    return p.nombre + (p.terminado ? ' (terminó el ' : ' (termina el ') + isoToES(p.fechaFin) + ')';
-  }
+  function groupById(id){ return grupos.filter(function(g){ return g.id === id; })[0] || null; }
+  function dupLabel(g){ return g.nombre + ' (' + g.paqs.length + (g.paqs.length === 1 ? ' paquete)' : ' paquetes)'); }
   // Aviso mientras se escribe: rojo si ya existe igual, ámbar si hay nombres que contienen lo digitado.
   function updateDupHint(){
     var box = $("dup-hint"), k = addMode === 'nuevo' ? nameKey($("nombre-input").value) : '';
     var exact = k ? findExact(k) : null;
-    var similar = (k.length >= 2 && !exact) ? grupos.filter(function(g){ return g.key.indexOf(k) !== -1; }).map(function(g){ return g.paqs[g.paqs.length - 1]; }) : [];
+    var similar = (k.length >= 2 && !exact) ? grupos.filter(function(g){ return g.key.indexOf(k) !== -1; }) : [];
     if (exact){
       box.className = 'dup-hint exact';
       box.textContent = 'Ya existe: ' + dupLabel(exact) + '. Para otro paquete del mismo paciente usa «Paquete nuevo».';
@@ -1272,28 +1342,34 @@
     var list = grupos.filter(function(g){ return !q || norm(g.nombre).indexOf(q) !== -1; });
     if (!list.length){ root.appendChild(el('div', 'empty', q ? 'Nadie coincide con esa búsqueda.' : 'Aún no hay pacientes. Toca el botón + para agregar el primero.')); return; }
     list.forEach(function(g){
-      var card = el('div', 'pq-card' + (dirOpen[g.key] || q ? ' open' : ''));
+      var card = el('div', 'pq-card' + (dirOpen[g.id] || q ? ' open' : ''));
       var head = el('button', 'pq-head'); head.type = 'button';
       var act = g.paqs.filter(function(p){ return !p.terminado; }).length;
       head.appendChild(el('span', 'pq-name', g.nombre));
-      head.appendChild(el('span', 'pq-sub', g.paqs.length + (g.paqs.length === 1 ? ' paquete' : ' paquetes') + (act ? ' · ' + act + (act === 1 ? ' activo' : ' activos') : '')));
+      head.appendChild(el('span', 'pq-sub', g.paqs.length ? g.paqs.length + (g.paqs.length === 1 ? ' paquete' : ' paquetes') + (act ? ' · ' + act + (act === 1 ? ' activo' : ' activos') : '') : 'Sin paquetes'));
       head.insertAdjacentHTML('beforeend', CHEV_DIR);
-      head.addEventListener('click', function(){ dirOpen[g.key] = !card.classList.contains('open'); card.classList.toggle('open'); });
+      head.addEventListener('click', function(){ dirOpen[g.id] = !card.classList.contains('open'); card.classList.toggle('open'); });
       card.appendChild(head);
       var body = el('div', 'pq-body');
+      var pat = patById(g.patologiaId), info = el('div', 'pq-row'); info.style.cursor = 'default';
+      info.appendChild(el('span', 'pq-t', pat ? pat.nombre : 'Sin patología'));
+      info.appendChild(el('span', 'badge-inf ' + (g.informe === true ? 'yes' : (g.informe === false ? 'no' : 'none')), g.informe === true ? 'Con informe' : (g.informe === false ? 'Sin informe' : 'Sin registrar')));
+      body.appendChild(info);
       g.paqs.forEach(function(p){
         var r = el('button', 'pq-row'); r.type = 'button';
         r.appendChild(el('span', 'pq-t', 'Paquete ' + p.paqN));
-        r.appendChild(el('span', 'badge-inf ' + (p.informe === true ? 'yes' : (p.informe === false ? 'no' : 'none')), p.informe === true ? 'Con informe' : (p.informe === false ? 'Sin informe' : 'Sin registrar')));
         r.appendChild(el('span', 'badge-inf ' + (p.terminado ? 'done' : 'ses'), p.terminado ? 'Terminado' : 'Activo'));
         var cur = !p.terminado ? currentSession(p) : null;
         r.appendChild(el('span', 'pq-d', (p.fechaInicio ? 'Desde ' + longDate(p.fechaInicio) + ' · ' : '') + (p.terminado ? 'Terminó el ' : 'Termina el ') + longDate(p.fechaFin) + (p.total ? ' · ' + p.total + ' sesiones' : '') + (cur ? ' · ' + cur : '')));
         r.addEventListener('click', function(){ openEdit(p.id); });
         body.appendChild(r);
       });
-      var nb = el('button', 'btn pq-new', '+ Nuevo paquete'); nb.type = 'button';
-      nb.addEventListener('click', function(){ openAdd(null, 'paquete', g.nombre); });
-      body.appendChild(nb);
+      var acts = el('div', 'pq-actions');
+      var nb = el('button', 'btn', '+ Nuevo paquete'); nb.type = 'button';
+      nb.addEventListener('click', function(){ openAdd(null, 'paquete', g.id); });
+      var eb = el('button', 'btn', 'Editar paciente'); eb.type = 'button';
+      eb.addEventListener('click', function(){ openPersona(g.id); });
+      acts.appendChild(nb); acts.appendChild(eb); body.appendChild(acts);
       card.appendChild(body);
       root.appendChild(card);
     });
@@ -1369,31 +1445,23 @@
 
   // ---------- Edición ----------
   function openEdit(id){
-    var p = pacientes.filter(function(x){ return x.id === id; })[0];
+    var p = pacById(id);
     if (!p) return;
     editingId = id;
-    $("edit-nombre").value = p.nombre;
-    $("edit-nombre").title = p.paqTotal > 1 ? 'Paquete ' + p.paqN + ' de ' + p.paqTotal + ' · cambiar el nombre afecta a todos los paquetes del paciente' : '';
+    $("edit-title").textContent = 'Paquete' + (p.paqTotal > 1 ? ' ' + p.paqN : '');
+    $("edit-paciente").textContent = p.nombre;
     $("edit-fecha").value = p.fechaFin;
-    $("edit-informe").value = p.informe;
     fillForm('edit', p);
     $("edit-dialog").showModal();
   }
   $("edit-cancel").addEventListener("click", function(){ $("edit-dialog").close(); });
   $("edit-save").addEventListener("click", function(){
-    var nombre = $("edit-nombre").value.trim();
     var fecha = $("edit-fecha").value;
-    if (!nombre || !fecha){ toast('Falta el nombre o la fecha'); return; }
-    var cur = pacientes.filter(function(x){ return x.id === editingId; })[0];
-    var renamed = cur && nameKey(cur.nombre) !== nameKey(nombre);
-    if (renamed && findExact(nombre)){ toast('Ya existe otro paciente con ese nombre'); return; }
+    if (!fecha){ toast('Falta la fecha de finalización'); return; }
     if (fechasTotal('edit') && !fechasComplete('edit')){ toast('Falta la fecha de alguna sesión'); return; }
     var upd = formVals('edit'), fechas = fechasVals('edit'), pid = editingId;
-    upd.nombre = nombre; upd.fecha_fin = fecha; upd.informe = $("edit-informe").value; upd.updated_at = new Date().toISOString();
-    var otros = renamed ? groupOf(cur.nombre).paqs.filter(function(x){ return x.id !== pid; }).map(function(x){ return x.id; }) : [];
+    upd.fecha_fin = fecha; upd.updated_at = new Date().toISOString();
     supabaseClient.from('tratamientos_pacientes').update(upd).eq('id', pid).then(throwIfError).then(function(){
-      return otros.length ? supabaseClient.from('tratamientos_pacientes').update({ nombre: nombre, updated_at: upd.updated_at }).in('id', otros).then(throwIfError) : null;
-    }).then(function(){
       return fechas ? saveFechas(pid, fechas) : null;
     }).then(function(){
       $("edit-dialog").close();
@@ -1401,14 +1469,51 @@
     }).catch(function(err){ showError('No se pudo guardar: ' + err.message); $("edit-dialog").close(); });
   });
   $("edit-delete").addEventListener("click", function(){
-    var p = pacientes.filter(function(x){ return x.id === editingId; })[0];
+    var p = pacById(editingId);
     if (!p) return;
     var id = editingId;
-    askConfirm('¿Eliminar a ' + p.nombre + '? Podrás recuperarlo desde la papelera (Configuración).').then(function(ok){
+    askConfirm('¿Eliminar este paquete de ' + p.nombre + '? Podrás recuperarlo desde la papelera (Configuración).').then(function(ok){
       if (!ok) return;
       supabaseClient.from('tratamientos_pacientes').update({ deleted_at: new Date().toISOString() }).eq('id', id)
         .then(throwIfError).then(function(){ $("edit-dialog").close(); return loadAndRender(); })
         .catch(function(err){ showError('No se pudo eliminar: ' + err.message); $("edit-dialog").close(); });
+    });
+  });
+  $("edit-persona").addEventListener("click", function(){
+    var p = pacById(editingId); if (!p) return;
+    $("edit-dialog").close(); openPersona(p.personaId);
+  });
+
+  // ---------- Ficha del paciente ----------
+  var persId = null;
+  function openPersona(id){
+    var g = groupById(id); if (!g) return;
+    persId = id;
+    renderPatSelects();
+    $("pers-nombre").value = g.nombre;
+    $("pers-pat").value = g.patologiaId || '';
+    $("pers-informe").value = g.informe;
+    $("pers-dialog").showModal();
+  }
+  $("pers-x").addEventListener("click", function(){ $("pers-dialog").close(); });
+  $("pers-save").addEventListener("click", function(){
+    var nombre = $("pers-nombre").value.trim();
+    if (!nombre){ toast('Falta el nombre'); return; }
+    if (findExact(nombre, persId)){ toast('Ya existe otro paciente con ese nombre'); return; }
+    var vals = { nombre: nombre, patologia_id: $("pers-pat").value || null, informe: $("pers-informe").value }, now = new Date().toISOString();
+    supabaseClient.from('tratamientos_personas').update(Object.assign({ updated_at: now }, vals)).eq('id', persId).then(throwIfError).then(function(){
+      return supabaseClient.from('tratamientos_pacientes').update(Object.assign({ updated_at: now }, vals)).eq('persona_id', persId).then(throwIfError);
+    }).then(function(){ $("pers-dialog").close(); return loadAndRender(); })
+      .catch(function(err){ showError('No se pudo guardar: ' + err.message); $("pers-dialog").close(); });
+  });
+  $("pers-delete").addEventListener("click", function(){
+    var g = groupById(persId); if (!g) return;
+    var id = persId;
+    askConfirm('¿Eliminar a ' + g.nombre + ' y sus ' + g.paqs.length + (g.paqs.length === 1 ? ' paquete' : ' paquetes') + '? Podrás recuperarlo desde la papelera (Configuración).').then(function(ok){
+      if (!ok) return;
+      supabaseClient.from('tratamientos_personas').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+        .then(throwIfError).then(function(){ $("pers-dialog").close(); return loadAndRender(); })
+        .catch(function(err){ showError('No se pudo eliminar: ' + err.message); $("pers-dialog").close(); });
     });
   });
 
@@ -1431,7 +1536,7 @@
     paint();
   }
   enhanceSeg($("informe-input"));
-  enhanceSeg($("edit-informe"));
+  enhanceSeg($("pers-informe"));
 
   // ---------- Selector de fecha propio ----------
   // Un <button class="date-btn"> hace de campo: expone .value (ISO yyyy-mm-dd) y dispara "change",
@@ -1498,26 +1603,67 @@
   // ---------- Formulario ----------
   // «Agregar» solo se habilita con todo lleno (la valoración es lo único opcional).
   var addMode = 'nuevo';
-  function addName(){ return addMode === 'paquete' ? $("add-persona").value : $("nombre-input").value.trim(); }
   function refreshAddBtn(){
-    var n = addName();
-    var ok = n && $("add-pat").value && Number($("add-total").value) > 0 && fechasComplete('add') && $("informe-input").value !== null;
-    $("add-btn").disabled = !ok || (addMode === 'nuevo' && !!findExact(n));
+    var ok;
+    if (addMode === 'nuevo'){
+      var n = $("nombre-input").value.trim();
+      ok = n && $("add-pat").value && $("informe-input").value !== null && !findExact(n);
+    } else {
+      ok = (draftCtx || addPersonaId) && Number($("add-total").value) > 0 && fechasComplete('add');
+    }
+    $("add-btn").disabled = !ok;
   }
-  function setAddMode(m, nombre){
+  function paintPersona(){
+    var b = $("add-persona-btn"), g = groupById(addPersonaId);
+    var txt = draftCtx ? $("nombre-input").value.trim() : (g ? g.nombre : 'Elegir paciente…');
+    b.innerHTML = '<span></span>' + CHEV_SVG; b.firstChild.textContent = txt;
+    b.classList.toggle('ph', !draftCtx && !g); b.disabled = draftCtx;
+  }
+  function renderDrafts(){
+    var box = $("add-drafts"); box.innerHTML = '';
+    draftPaqs.forEach(function(d, i){
+      var r = el('div', 'draft-row'), t = el('span', null, 'Paquete ' + (i + 1) + ' · ' + d.fechas.length + ' sesiones · termina el ' + longDate(d.fin));
+      var x = el('button', null, '×'); x.type = 'button'; x.setAttribute('aria-label', 'Quitar paquete');
+      x.addEventListener('click', function(){ draftPaqs.splice(i, 1); renderDrafts(); });
+      r.appendChild(t); r.appendChild(x); box.appendChild(r);
+    });
+    $("add-genpaq").textContent = draftPaqs.length ? '+ Generar otro paquete' : '+ Generar paquete nuevo';
+  }
+  // personaId: undefined = conservar el paciente elegido; null/id = fijarlo.
+  function setAddMode(m, personaId){
     addMode = m;
     Array.prototype.forEach.call($("add-mode").querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.v === m); });
-    $("add-nombre-field").hidden = m !== 'nuevo';
-    $("add-persona-field").hidden = m !== 'paquete';
-    if (m === 'paquete'){
-      var sel = $("add-persona");
-      sel.innerHTML = grupos.map(function(g){ return '<option value="' + g.nombre.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + g.nombre.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</option>'; }).join('');
-      sel.value = nombre && groupOf(nombre) ? groupOf(nombre).nombre : (grupos[0] ? grupos[0].nombre : '');
-    }
-    updateDupHint();
+    $("add-mode").hidden = draftCtx;
+    $("sec-nuevo").hidden = m !== 'nuevo';
+    $("sec-paquete").hidden = m !== 'paquete';
+    if (personaId !== undefined) addPersonaId = personaId;
+    if (m === 'paquete'){ paintPersona(); $("add-volver").hidden = !draftCtx; }
+    $("add-title").textContent = m === 'nuevo' ? 'Paciente nuevo' : (draftCtx ? 'Paquete de ' + $("nombre-input").value.trim() : 'Paquete nuevo');
+    $("add-btn").textContent = m === 'nuevo' ? 'Agregar' : (draftCtx ? 'Crear paquete' : 'Agregar paquete');
+    renderDrafts(); updateDupHint(); refreshAddBtn();
   }
   $("add-mode").addEventListener("click", function(e){ var b = e.target.closest('button'); if (b) setAddMode(b.dataset.v); });
-  $("add-persona").addEventListener("change", refreshAddBtn);
+  $("add-genpaq").addEventListener("click", function(){
+    var n = $("nombre-input").value.trim();
+    if (!n || findExact(n)){ toast(n ? 'Ese paciente ya existe' : 'Escribe primero el nombre del paciente'); return; }
+    draftCtx = true; resetPaqForm(); setAddMode('paquete', null);
+  });
+  $("add-volver").addEventListener("click", function(){ draftCtx = false; resetPaqForm(); setAddMode('nuevo'); });
+  // Selector de paciente con barra de búsqueda
+  function renderPick(){
+    var q = norm($("pick-search").value.trim()), box = $("pick-list"); box.innerHTML = '';
+    var list = grupos.filter(function(g){ return !q || norm(g.nombre).indexOf(q) !== -1; });
+    if (!list.length) box.appendChild(el('div', 'empty', grupos.length ? 'Nadie coincide con esa búsqueda.' : 'Aún no hay pacientes. Crea uno primero en «Paciente nuevo».'));
+    list.forEach(function(g){
+      var b = el('button', 'sel-opt' + (g.id === addPersonaId ? ' on' : ''), g.nombre); b.type = 'button';
+      b.addEventListener('click', function(){ addPersonaId = g.id; paintPersona(); refreshAddBtn(); $("pick-dialog").close(); });
+      box.appendChild(b);
+    });
+  }
+  $("add-persona-btn").addEventListener("click", function(){ if (draftCtx) return; $("pick-search").value = ''; renderPick(); $("pick-dialog").showModal(); });
+  $("pick-search").addEventListener("input", renderPick);
+  $("pick-x").addEventListener("click", function(){ $("pick-dialog").close(); });
+  $("pick-dialog").addEventListener("click", function(e){ if (e.target === $("pick-dialog")) $("pick-dialog").close(); });
   $("fecha-input").value = todayStr();
   $("nombre-input").addEventListener("input", function(){ updateDupHint(); });
   $("fecha-input").addEventListener("change", refreshAddBtn);
@@ -1568,17 +1714,16 @@
   });
   // Formulario de agregar: diálogo que se queda abierto para cargar varios pacientes seguidos.
   // Se abre siempre con el formulario vacío; la X cierra sin guardar y «Agregar» cierra al guardar.
-  function openAdd(iso, mode, nombre){
+  function openAdd(iso, mode, personaId){
+    draftPaqs = []; draftCtx = false;
     $("nombre-input").value = '';
-    setAddMode(mode === 'paquete' && grupos.length ? 'paquete' : 'nuevo', nombre);
     $("add-pat").value = '';
+    $("informe-input").value = null;
     $("add-total").value = '';
     fechasSt.add = iso ? [iso] : [];   // si se abre desde un día del calendario, esa fecha queda para la sesión 1
-    $("add-obs").value = '';
-    $("informe-input").value = null;
     renderFechas('add');
     refreshFin('add');
-    updateDupHint();
+    setAddMode((mode === 'paquete' || iso) && grupos.length ? 'paquete' : 'nuevo', personaId || null);
     $("add-dialog").showModal();
   }
   $("add-x").addEventListener("click", function(){ $("add-dialog").close(); });
@@ -1732,10 +1877,8 @@
   var fechasSt = { add: [], edit: [] }; // fecha elegida para cada sesión (índice 0 = sesión 1)
   function buildExtra(pfx){
     $(pfx + '-extra').innerHTML =
-      '<div class="field"><label for="' + pfx + '-pat">Patología</label><select id="' + pfx + '-pat"></select></div>' +
       '<div class="field"><label for="' + pfx + '-total">Total de sesiones</label><input type="number" id="' + pfx + '-total" min="1" max="60" inputmode="numeric" placeholder="Ej. 15"></div>' +
-      '<div class="field"><label>Fecha de cada sesión</label><div class="fechas-list" id="' + pfx + '-fechas"></div></div>' +
-      '<div class="field"><label for="' + pfx + '-obs">Observaciones de la valoración</label><textarea id="' + pfx + '-obs"></textarea></div>';
+      '<div class="field"><label>Fecha de cada sesión</label><div class="fechas-list" id="' + pfx + '-fechas"></div></div>';
     $(pfx + '-total').addEventListener('input', function(){ renderFechas(pfx); refreshFin(pfx); });
   }
   function fechasTotal(pfx){ var n = Math.floor(Number($(pfx + '-total').value)); return n > 0 ? Math.min(n, 60) : 0; }
@@ -1773,7 +1916,7 @@
     if (pfx === 'add') refreshAddBtn();
   }
   function renderPatSelects(){
-    ['add', 'edit'].forEach(function(pfx){
+    ['add', 'pers'].forEach(function(pfx){
       var sel = $(pfx + '-pat'); if (!sel) return;
       var cur = sel.value;
       sel.innerHTML = '<option value="">Sin patología</option>' + patologias.map(function(x){ return '<option value="' + x.id + '">' + x.nombre.replace(/</g, '&lt;') + '</option>'; }).join('');
@@ -1786,21 +1929,17 @@
   function formVals(pfx){
     var f = fechasVals(pfx);
     return {
-      patologia_id: $(pfx + '-pat').value || null,
       fecha_inicio: f ? minDate(f) : null,
       total_sesiones: fechasTotal(pfx) || null,
-      dias_asistencia: null,
-      obs_valoracion: $(pfx + '-obs').value.trim() || null
+      dias_asistencia: null
     };
   }
   function fillForm(pfx, p){
     renderPatSelects();
-    $(pfx + '-pat').value = p.patologiaId || '';
     $(pfx + '-total').value = p.total || '';
     var s = sesMap[p.id] || {};
     fechasSt[pfx] = [];
     for (var n = 1; n <= (p.total || 0); n++) fechasSt[pfx].push((s[n] && s[n].fecha) || '');
-    $(pfx + '-obs').value = p.obs;
     renderFechas(pfx);
     refreshFin(pfx);
   }
@@ -1865,8 +2004,7 @@
   buildExtra('add');
   buildExtra('edit');
   enhanceSelect($("add-pat"));
-  enhanceSelect($("add-persona"));
-  enhanceSelect($("edit-pat"));
+  enhanceSelect($("pers-pat"));
   ["add-pat", "add-total", "informe-input"].forEach(function(id){
     $(id).addEventListener("change", refreshAddBtn);
     $(id).addEventListener("input", refreshAddBtn);
@@ -2333,14 +2471,24 @@
   function fmtDel(iso){ var d = new Date(iso); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
   function loadTrash(){
     var T = function(t, cols){ return supabaseClient.from(t).select(cols).eq('user_id', viewId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false }); };
-    return Promise.all([T('tratamientos_pacientes', 'id,nombre,deleted_at'), T('tratamientos_patologias', 'id,nombre,deleted_at'),
-      T('tratamientos_ejercicios', 'id,nombre,patologia_id,deleted_at'), supabaseClient.from('tratamientos_patologias').select('id,nombre,deleted_at').eq('user_id', viewId)
+    return Promise.all([T('tratamientos_pacientes', 'id,nombre,persona_id,deleted_at'), T('tratamientos_patologias', 'id,nombre,deleted_at'),
+      T('tratamientos_ejercicios', 'id,nombre,patologia_id,deleted_at'), supabaseClient.from('tratamientos_patologias').select('id,nombre,deleted_at').eq('user_id', viewId),
+      supabaseClient.from('tratamientos_personas').select('id,nombre,deleted_at').eq('user_id', viewId)
     ]).then(function(r){
       r.forEach(throwIfError);
       var pnames = {}, pdel = {};
       (r[3].data || []).forEach(function(x){ pnames[x.id] = x.nombre; pdel[x.id] = !!x.deleted_at; });
       var items = [];
-      (r[0].data || []).forEach(function(x){ items.push({ t: 'tratamientos_pacientes', kind: 'Paciente', id: x.id, name: x.nombre, at: x.deleted_at }); });
+      var perDel = {};
+      (r[4].data || []).forEach(function(x){
+        if (!x.deleted_at) return;
+        perDel[x.id] = true;
+        items.push({ t: 'tratamientos_personas', kind: 'Paciente', id: x.id, name: x.nombre, at: x.deleted_at });
+      });
+      (r[0].data || []).forEach(function(x){
+        if (perDel[x.persona_id]) return;   // vuelve junto con su paciente
+        items.push({ t: 'tratamientos_pacientes', kind: 'Paquete', id: x.id, name: x.nombre, at: x.deleted_at });
+      });
       (r[1].data || []).forEach(function(x){ items.push({ t: 'tratamientos_patologias', kind: 'Patología', id: x.id, name: x.nombre, at: x.deleted_at }); });
       (r[2].data || []).forEach(function(x){
         if (pdel[x.patologia_id]) return;   // vuelve junto con su patología
