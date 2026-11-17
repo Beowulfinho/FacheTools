@@ -308,6 +308,20 @@
   }
   .seg button + button { border-left: 1px solid var(--line); }
   .seg button.on { background: var(--accent); color: var(--accent-ink); }
+  .view-tog { margin-bottom: 14px; }
+  .view-tog button { font-size: 14px; }
+  .pq-card { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); margin-bottom: 10px; overflow: hidden; }
+  .pq-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 13px 14px; border: none; background: none; text-align: left; color: var(--ink); }
+  .pq-head .pq-name { flex: 1; font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+  .pq-head .pq-sub { font-size: 12.5px; color: var(--ink-soft); font-weight: 600; white-space: nowrap; }
+  .pq-head svg { width: 18px; height: 18px; flex: none; transition: transform .15s; color: var(--ink-soft); }
+  .pq-card.open .pq-head svg { transform: rotate(180deg); }
+  .pq-body { border-top: 1px solid var(--line); padding: 8px 10px 12px; display: none; }
+  .pq-card.open .pq-body { display: block; }
+  .pq-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; text-align: left; border: none; background: var(--paper-3); color: var(--ink); border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; }
+  .pq-row .pq-t { font-weight: 700; font-size: 14.5px; }
+  .pq-row .pq-d { flex: 1 1 100%; font-size: 12.5px; color: var(--ink-soft); }
+  .pq-new { width: 100%; margin-top: 4px; }
   .check-row { display: flex; align-items: center; gap: 10px; font-size: 14.5px; padding: 4px 0; }
   .check-row input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
   .badge-inf {
@@ -499,6 +513,11 @@
   .dash-card { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .dash-card .n { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 500; line-height: 1; color: var(--accent); }
   .dash-card .label { margin-top: 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft); }
+  .dash-card { position: relative; }
+  .help-q { position: absolute; top: 7px; right: 7px; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--ink-faint); color: var(--ink-soft); font: 700 12px/17px 'Archivo', sans-serif; text-align: center; cursor: pointer; background: var(--paper); }
+  .help-q:hover { border-color: var(--accent); color: var(--accent); }
+  .dash-avg .row .help-q { position: static; margin-left: 8px; flex: none; }
+  #help-dialog p { margin: 4px 0 0; font-size: 14.5px; line-height: 1.5; }
   .dash-sec { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 14px; margin: 16px 0 8px; }
   .dash-avg { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 4px 14px; margin-bottom: 8px; }
   .dash-avg .row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; font-size: 14px; border-top: 1px dashed var(--line); }
@@ -612,6 +631,10 @@
         <button type="button" class="search-clear" id="search-clear" aria-label="Borrar búsqueda" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
 
+      <div class="seg view-tog" id="view-tog" role="group" aria-label="Vista de pacientes">
+        <button type="button" data-v="fecha" class="on">Por fecha</button><button type="button" data-v="dir">Lista de pacientes</button>
+      </div>
+
       <div class="list-scroll" id="list-scroll">
         <div id="list-root"></div>
 
@@ -687,9 +710,9 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2.2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>
         Calendario
       </button>
-      <button type="button" class="nav-add" data-action="add" aria-label="Agregar paciente">
-        <span class="nav-add-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9.5" cy="8" r="3.4"/><path d="M3 20c0-3.4 2.9-5.6 6.5-5.6 1.4 0 2.7.3 3.7.9"/><path d="M18 12.5v7M14.5 16h7"/></svg></span>
-        Agregar
+      <button type="button" class="nav-add" data-action="add" aria-label="Nuevo">
+        <span class="nav-add-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+        Nuevo
       </button>
       <button type="button" data-page="pat" aria-label="Protocolos">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.2"/><path d="M9 8.5h6M9 12.5h6M9 16.5h3.5"/></svg>
@@ -707,13 +730,29 @@
   </div>
 </div>
 
+<dialog id="help-dialog">
+  <div class="dlg-head">
+    <h2 id="help-title"></h2>
+    <button type="button" class="dlg-x" id="help-x" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <p id="help-text"></p>
+</dialog>
+
 <dialog id="add-dialog">
   <div class="dlg-head">
     <h2>Agregar paciente</h2>
     <button type="button" class="dlg-x" id="add-x" aria-label="Cerrar sin guardar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
         <div class="capture-grid">
-          <div class="field">
+          <div class="seg" id="add-mode" role="group" aria-label="Tipo de alta">
+            <button type="button" data-v="nuevo" class="on">Paciente nuevo</button><button type="button" data-v="paquete">Paquete nuevo</button>
+          </div>
+          <div class="field" id="add-persona-field" hidden>
+            <label for="add-persona">Paciente</label>
+            <select id="add-persona"></select>
+            <div class="fin-hint" id="add-persona-hint">Un paquete es un grupo de sesiones. El paciente puede tener varios.</div>
+          </div>
+          <div class="field" id="add-nombre-field">
             <label for="nombre-input">Nombre</label>
             <input type="text" id="nombre-input" placeholder="Nombre del paciente" autocomplete="off" autocapitalize="words">
             <div class="dup-hint" id="dup-hint" hidden></div>
@@ -991,8 +1030,21 @@
   function loadPacientes(){
     return supabaseClient.from('tratamientos_pacientes').select('*').eq('user_id', viewId).is('deleted_at', null)
       .order('fecha_fin', { ascending: true }).order('nombre', { ascending: true })
-      .then(function(res){ throwIfError(res); pacientes = (res.data || []).map(mapRow); });
+      .then(function(res){ throwIfError(res); pacientes = (res.data || []).map(mapRow); buildGroups(); });
   }
+  // Un paciente = todas las filas con el mismo nombre; cada fila es un paquete (grupo de sesiones).
+  var grupos = [];
+  function buildGroups(){
+    var by = {};
+    pacientes.forEach(function(p){ var k = nameKey(p.nombre); (by[k] = by[k] || { key: k, nombre: p.nombre, paqs: [] }).paqs.push(p); });
+    grupos = Object.keys(by).map(function(k){ return by[k]; });
+    grupos.forEach(function(g){
+      g.paqs.sort(function(a, b){ var x = a.fechaInicio || a.fechaFin, y = b.fechaInicio || b.fechaFin; return x < y ? -1 : (x > y ? 1 : (a.fechaFin < b.fechaFin ? -1 : 1)); });
+      g.paqs.forEach(function(p, i){ p.paqN = i + 1; p.paqTotal = g.paqs.length; });
+    });
+    grupos.sort(function(a, b){ return a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }); });
+  }
+  function groupOf(nombre){ var k = nameKey(nombre); return grupos.filter(function(g){ return g.key === k; })[0] || null; }
   function loadAndRender(){
     clearError();
     return Promise.all([loadPacientes(), loadPatologias(), loadSesiones()]).then(function(){
@@ -1008,10 +1060,10 @@
   }
 
   function addPaciente(){
-    var nombre = $("nombre-input").value.trim();
+    var nombre = addName();
     var fecha = $("fecha-input").value;
     if (!nombre || !fecha) return;
-    if (findExact(nombre)){ updateDupHint(); toast('Ese paciente ya existe'); return; }
+    if (addMode === 'nuevo' && findExact(nombre)){ updateDupHint(); toast('Ese paciente ya existe: usa «Paquete nuevo»'); return; }
     $("add-btn").disabled = true;
     var row = formVals('add'), fechas = fechasVals('add');
     row.user_id = viewId; row.nombre = nombre; row.fecha_fin = fecha; row.informe = $("informe-input").value;
@@ -1020,7 +1072,7 @@
         return fechas && res.data && res.data[0] ? saveFechas(res.data[0].id, fechas) : null;
       }).then(function(){
         $("add-dialog").close();
-        toast('Agregado: ' + nombre + ' · ' + longDate(fecha));
+        toast((addMode === 'paquete' ? 'Paquete agregado: ' : 'Agregado: ') + nombre + ' · ' + longDate(fecha));
         return loadAndRender();
       }).catch(function(err){
         showError('No se pudo guardar: ' + err.message);
@@ -1059,6 +1111,7 @@
     var main = el('button', 'pac-main');
     main.type = 'button';
     main.appendChild(el('div', 'pac-name', p.nombre));
+    if (p.paqTotal > 1) main.appendChild(el('span', 'badge-inf ses', 'Paquete ' + p.paqN + ' de ' + p.paqTotal));
     var tag = p.informe === true ? ['Con informe', 'yes'] : (p.informe === false ? ['Sin informe', 'no'] : ['Sin registrar', 'none']);
     if (info){
       main.appendChild(el('span', 'badge-inf ses', 'Sesión ' + info.numero + (p.total ? ' de ' + p.total : '')));
@@ -1141,12 +1194,12 @@
   }
   // Aviso mientras se escribe: rojo si ya existe igual, ámbar si hay nombres que contienen lo digitado.
   function updateDupHint(){
-    var box = $("dup-hint"), k = nameKey($("nombre-input").value);
+    var box = $("dup-hint"), k = addMode === 'nuevo' ? nameKey($("nombre-input").value) : '';
     var exact = k ? findExact(k) : null;
-    var similar = (k.length >= 2 && !exact) ? pacientes.filter(function(p){ return nameKey(p.nombre).indexOf(k) !== -1; }) : [];
+    var similar = (k.length >= 2 && !exact) ? grupos.filter(function(g){ return g.key.indexOf(k) !== -1; }).map(function(g){ return g.paqs[g.paqs.length - 1]; }) : [];
     if (exact){
       box.className = 'dup-hint exact';
-      box.textContent = 'Ya existe: ' + dupLabel(exact) + (exact.terminado ? '. Búscalo en «Tratamientos terminados».' : '');
+      box.textContent = 'Ya existe: ' + dupLabel(exact) + '. Para otro paquete del mismo paciente usa «Paquete nuevo».';
     } else if (similar.length){
       box.className = 'dup-hint similar';
       box.textContent = 'Ya registrado' + (similar.length > 1 ? 's' : '') + ': ' + similar.slice(0, 3).map(dupLabel).join(' · ') + (similar.length > 3 ? ' · y ' + (similar.length - 3) + ' más' : '');
@@ -1206,6 +1259,46 @@
     }
   }
 
+  // ---------- Lista de pacientes (cada paciente es un contenedor con sus paquetes) ----------
+  var viewMode = 'fecha', dirOpen = {};
+  var CHEV_DIR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  $("view-tog").addEventListener("click", function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    viewMode = b.dataset.v;
+    Array.prototype.forEach.call($("view-tog").querySelectorAll('button'), function(x){ x.classList.toggle('on', x === b); });
+    render();
+  });
+  function renderDir(root, q){
+    var list = grupos.filter(function(g){ return !q || norm(g.nombre).indexOf(q) !== -1; });
+    if (!list.length){ root.appendChild(el('div', 'empty', q ? 'Nadie coincide con esa búsqueda.' : 'Aún no hay pacientes. Toca el botón + para agregar el primero.')); return; }
+    list.forEach(function(g){
+      var card = el('div', 'pq-card' + (dirOpen[g.key] || q ? ' open' : ''));
+      var head = el('button', 'pq-head'); head.type = 'button';
+      var act = g.paqs.filter(function(p){ return !p.terminado; }).length;
+      head.appendChild(el('span', 'pq-name', g.nombre));
+      head.appendChild(el('span', 'pq-sub', g.paqs.length + (g.paqs.length === 1 ? ' paquete' : ' paquetes') + (act ? ' · ' + act + (act === 1 ? ' activo' : ' activos') : '')));
+      head.insertAdjacentHTML('beforeend', CHEV_DIR);
+      head.addEventListener('click', function(){ dirOpen[g.key] = !card.classList.contains('open'); card.classList.toggle('open'); });
+      card.appendChild(head);
+      var body = el('div', 'pq-body');
+      g.paqs.forEach(function(p){
+        var r = el('button', 'pq-row'); r.type = 'button';
+        r.appendChild(el('span', 'pq-t', 'Paquete ' + p.paqN));
+        r.appendChild(el('span', 'badge-inf ' + (p.informe === true ? 'yes' : (p.informe === false ? 'no' : 'none')), p.informe === true ? 'Con informe' : (p.informe === false ? 'Sin informe' : 'Sin registrar')));
+        r.appendChild(el('span', 'badge-inf ' + (p.terminado ? 'done' : 'ses'), p.terminado ? 'Terminado' : 'Activo'));
+        var cur = !p.terminado ? currentSession(p) : null;
+        r.appendChild(el('span', 'pq-d', (p.fechaInicio ? 'Desde ' + longDate(p.fechaInicio) + ' · ' : '') + (p.terminado ? 'Terminó el ' : 'Termina el ') + longDate(p.fechaFin) + (p.total ? ' · ' + p.total + ' sesiones' : '') + (cur ? ' · ' + cur : '')));
+        r.addEventListener('click', function(){ openEdit(p.id); });
+        body.appendChild(r);
+      });
+      var nb = el('button', 'btn pq-new', '+ Nuevo paquete'); nb.type = 'button';
+      nb.addEventListener('click', function(){ openAdd(null, 'paquete', g.nombre); });
+      body.appendChild(nb);
+      card.appendChild(body);
+      root.appendChild(card);
+    });
+  }
+
   function render(){
     var today = todayStr();
     var active = pacientes.filter(function(p){ return !p.terminado; });
@@ -1218,6 +1311,14 @@
     var shown = active.filter(match);
     if (listFilter){
       renderFiltered(root, match, today);
+      $("done-box").hidden = true;
+      if (!$("page-cal").hidden) renderCalendar();
+      updateDupHint();
+      fitListScroll();
+      return;
+    }
+    if (viewMode === 'dir'){
+      renderDir(root, q);
       $("done-box").hidden = true;
       if (!$("page-cal").hidden) renderCalendar();
       updateDupHint();
@@ -1272,6 +1373,7 @@
     if (!p) return;
     editingId = id;
     $("edit-nombre").value = p.nombre;
+    $("edit-nombre").title = p.paqTotal > 1 ? 'Paquete ' + p.paqN + ' de ' + p.paqTotal + ' · cambiar el nombre afecta a todos los paquetes del paciente' : '';
     $("edit-fecha").value = p.fechaFin;
     $("edit-informe").value = p.informe;
     fillForm('edit', p);
@@ -1282,11 +1384,16 @@
     var nombre = $("edit-nombre").value.trim();
     var fecha = $("edit-fecha").value;
     if (!nombre || !fecha){ toast('Falta el nombre o la fecha'); return; }
-    if (findExact(nombre, editingId)){ toast('Ya existe otro paciente con ese nombre'); return; }
+    var cur = pacientes.filter(function(x){ return x.id === editingId; })[0];
+    var renamed = cur && nameKey(cur.nombre) !== nameKey(nombre);
+    if (renamed && findExact(nombre)){ toast('Ya existe otro paciente con ese nombre'); return; }
     if (fechasTotal('edit') && !fechasComplete('edit')){ toast('Falta la fecha de alguna sesión'); return; }
     var upd = formVals('edit'), fechas = fechasVals('edit'), pid = editingId;
     upd.nombre = nombre; upd.fecha_fin = fecha; upd.informe = $("edit-informe").value; upd.updated_at = new Date().toISOString();
+    var otros = renamed ? groupOf(cur.nombre).paqs.filter(function(x){ return x.id !== pid; }).map(function(x){ return x.id; }) : [];
     supabaseClient.from('tratamientos_pacientes').update(upd).eq('id', pid).then(throwIfError).then(function(){
+      return otros.length ? supabaseClient.from('tratamientos_pacientes').update({ nombre: nombre, updated_at: upd.updated_at }).in('id', otros).then(throwIfError) : null;
+    }).then(function(){
       return fechas ? saveFechas(pid, fechas) : null;
     }).then(function(){
       $("edit-dialog").close();
@@ -1390,11 +1497,27 @@
 
   // ---------- Formulario ----------
   // «Agregar» solo se habilita con todo lleno (la valoración es lo único opcional).
+  var addMode = 'nuevo';
+  function addName(){ return addMode === 'paquete' ? $("add-persona").value : $("nombre-input").value.trim(); }
   function refreshAddBtn(){
-    var n = $("nombre-input").value.trim();
+    var n = addName();
     var ok = n && $("add-pat").value && Number($("add-total").value) > 0 && fechasComplete('add') && $("informe-input").value !== null;
-    $("add-btn").disabled = !ok || !!findExact(n);
+    $("add-btn").disabled = !ok || (addMode === 'nuevo' && !!findExact(n));
   }
+  function setAddMode(m, nombre){
+    addMode = m;
+    Array.prototype.forEach.call($("add-mode").querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.v === m); });
+    $("add-nombre-field").hidden = m !== 'nuevo';
+    $("add-persona-field").hidden = m !== 'paquete';
+    if (m === 'paquete'){
+      var sel = $("add-persona");
+      sel.innerHTML = grupos.map(function(g){ return '<option value="' + g.nombre.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' + g.nombre.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</option>'; }).join('');
+      sel.value = nombre && groupOf(nombre) ? groupOf(nombre).nombre : (grupos[0] ? grupos[0].nombre : '');
+    }
+    updateDupHint();
+  }
+  $("add-mode").addEventListener("click", function(e){ var b = e.target.closest('button'); if (b) setAddMode(b.dataset.v); });
+  $("add-persona").addEventListener("change", refreshAddBtn);
   $("fecha-input").value = todayStr();
   $("nombre-input").addEventListener("input", function(){ updateDupHint(); });
   $("fecha-input").addEventListener("change", refreshAddBtn);
@@ -1445,8 +1568,9 @@
   });
   // Formulario de agregar: diálogo que se queda abierto para cargar varios pacientes seguidos.
   // Se abre siempre con el formulario vacío; la X cierra sin guardar y «Agregar» cierra al guardar.
-  function openAdd(iso){
+  function openAdd(iso, mode, nombre){
     $("nombre-input").value = '';
+    setAddMode(mode === 'paquete' && grupos.length ? 'paquete' : 'nuevo', nombre);
     $("add-pat").value = '';
     $("add-total").value = '';
     fechasSt.add = iso ? [iso] : [];   // si se abre desde un día del calendario, esa fecha queda para la sesión 1
@@ -1741,6 +1865,7 @@
   buildExtra('add');
   buildExtra('edit');
   enhanceSelect($("add-pat"));
+  enhanceSelect($("add-persona"));
   enhanceSelect($("edit-pat"));
   ["add-pat", "add-total", "informe-input"].forEach(function(id){
     $(id).addEventListener("change", refreshAddBtn);
@@ -2061,9 +2186,33 @@
   }
   function fmt1(n){ return (Math.round(n * 10) / 10).toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 1 }); }
   // Al tocar una card se abre Pacientes con ese filtro (temporal) aplicado.
+  function helpQ(title, text){
+    var q = el('span', 'help-q', '?'); q.setAttribute('role', 'button'); q.tabIndex = 0; q.setAttribute('aria-label', 'De dónde sale: ' + title);
+    function open(e){ e.stopPropagation(); e.preventDefault(); $("help-title").textContent = title; $("help-text").textContent = text; $("help-dialog").showModal(); }
+    q.addEventListener('click', open);
+    q.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') open(e); });
+    return q;
+  }
+  $("help-x").addEventListener("click", function(){ $("help-dialog").close(); });
+  $("help-dialog").addEventListener("click", function(e){ if (e.target === $("help-dialog")) $("help-dialog").close(); });
+  var HELP = {
+    'Pasadas sin marcar': 'Sesiones de pacientes activos con fecha anterior a hoy que no se marcaron como realizadas. No depende del período elegido.',
+    'Pacientes incompletos': 'Pacientes (terminados o no) a los que les falta algo de la ficha: patología, informe, total de sesiones o las fechas de las sesiones. No depende del período.',
+    'Pacientes atendidos': 'Pacientes distintos que tienen al menos una sesión marcada como realizada dentro del período.',
+    'Sesiones realizadas': 'Sesiones con fecha dentro del período que están marcadas como realizadas.',
+    'Sesiones programadas': 'Todas las sesiones con fecha dentro del período, estén o no realizadas.',
+    'Inician tratamiento': 'Pacientes cuya fecha de inicio cae dentro del período.',
+    'Terminan tratamiento': 'Pacientes cuya fecha de finalización cae dentro del período.',
+    'Sesiones 2, 3, 7, 10, 13': 'Sesiones programadas en el período que son la número 2, 3, 7, 10 o 13 (las que llevan aviso o ejercicio nuevo).',
+    'Pacientes activos': 'Pacientes que no están marcados como terminados.',
+    'Ya terminaron': 'Pacientes marcados como terminados.',
+    'Pacientes en total': 'Activos más terminados (no incluye los de la papelera).'
+  };
   function dashCard(n, label, filter, period, cls){
-    var c = el('button', 'dash-card go' + (cls ? ' ' + cls : '')); c.type = 'button';
+    var c = el('div', 'dash-card go' + (cls ? ' ' + cls : '')); c.setAttribute('role', 'button'); c.tabIndex = 0;
     c.appendChild(el('div', 'n', String(n))); c.appendChild(el('div', 'label', label));
+    if (HELP[label]) c.appendChild(helpQ(label, HELP[label]));
+    c.addEventListener('keydown', function(e){ if (e.target === c && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); c.click(); } });
     c.addEventListener('click', function(){
       showPage('lista');
       filter.label = label + (period ? ' · ' + period : '');
@@ -2145,10 +2294,10 @@
       var end = last > today ? last : today;
       var span = diffDays(first, end) + 1, actDays = {};
       done.forEach(function(s){ actDays[s.fecha] = 1; });
-      [['Pacientes por día de atención', done.length / Object.keys(actDays).length],
-       ['Pacientes por semana', done.length / Math.max(1, span / 7)],
-       ['Pacientes por mes', done.length / Math.max(1, span / 30.44)]].forEach(function(x){
-        var row = el('div', 'row'); row.appendChild(el('span', null, x[0])); row.appendChild(el('b', null, fmt1(x[1]))); avg.appendChild(row);
+      [['Pacientes por día de atención', done.length / Object.keys(actDays).length, 'Sesiones realizadas (' + done.length + ') divididas entre los días distintos en que hubo atención (' + Object.keys(actDays).length + ').'],
+       ['Pacientes por semana', done.length / Math.max(1, span / 7), 'Sesiones realizadas (' + done.length + ') divididas entre las semanas transcurridas desde la primera sesión realizada hasta hoy (' + fmt1(Math.max(1, span / 7)) + ').'],
+       ['Pacientes por mes', done.length / Math.max(1, span / 30.44), 'Sesiones realizadas (' + done.length + ') divididas entre los meses transcurridos desde la primera sesión realizada hasta hoy (' + fmt1(Math.max(1, span / 30.44)) + ').']].forEach(function(x){
+        var row = el('div', 'row'); row.appendChild(el('span', null, x[0])); var rt = el('span'); rt.style.cssText = 'display:flex;align-items:center'; rt.appendChild(el('b', null, fmt1(x[1]))); rt.appendChild(helpQ(x[0], x[2])); row.appendChild(rt); avg.appendChild(row);
       });
     }
     body.appendChild(avg);
