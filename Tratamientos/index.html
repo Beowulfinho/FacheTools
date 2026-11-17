@@ -466,6 +466,11 @@
   .filter-chip .fc-text { font-weight: 800; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .filter-chip button { flex: none; width: 24px; height: 24px; border-radius: 50%; border: none; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; padding: 0; }
   .filter-chip button svg { width: 13px; height: 13px; }
+  .dash-alerts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .dash-alerts[hidden] { display: none; }
+  .dash-card.alert { background: var(--critical-soft); border-color: var(--critical); }
+  .dash-card.alert .n, .dash-card.alert .label { color: var(--critical); }
+  .pac-note.falta { color: var(--critical); font-weight: 600; }
   .dash-card.go { cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
   .dash-card.go:hover { border-color: var(--accent); }
   .search-wrap { position: relative; margin-bottom: 14px; }
@@ -655,6 +660,7 @@
 
     <!-- ===== Página: Dashboard ===== -->
     <div class="tab-page" id="page-dash" hidden>
+      <div class="dash-alerts" id="dash-alerts" hidden></div>
       <div class="cal-head"><span class="cal-title">Resumen</span></div>
       <div class="seg dash-modes" id="dash-modes" role="group" aria-label="Intervalo">
         <button type="button" data-m="dia">Día</button><button type="button" data-m="semana">Semana</button><button type="button" data-m="mes">Mes</button><button type="button" data-m="rango">Rango</button>
@@ -1021,7 +1027,7 @@
   var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
   // info (opcional): { numero, hecha } cuando la fila representa una sesión concreta (calendario).
-  function pacRow(p, info){
+  function pacRow(p, info, noCheck){
     var row = el('div', 'pac' + (p.terminado ? ' finished' : ''));
     var main = el('button', 'pac-main');
     main.type = 'button';
@@ -1058,7 +1064,7 @@
       chk.addEventListener('click', function(){ setTerminado(p.id, !p.terminado); });
     }
     row.appendChild(main);
-    row.appendChild(chk);
+    if (!noCheck) row.appendChild(chk);
     return row;
   }
 
@@ -1119,6 +1125,15 @@
     refreshAddBtn();
   }
 
+  // Campos del formulario que le faltan a un paciente (los mismos que exige «Agregar»).
+  function faltan(p){
+    var f = [];
+    if (!p.patologiaId) f.push('patología');
+    if (p.informe === null) f.push('informe');
+    if (!p.total) f.push('total de sesiones');
+    else if (!scheduleOf(p)) f.push('fechas de las sesiones');
+    return f;
+  }
   // Filtro temporal que llega desde las cards del Resumen: { label, ses(s) | pac(p) }.
   var listFilter = null;
   function setListFilter(f){
@@ -1152,7 +1167,11 @@
       head.appendChild(el('span', 'day-sub', list.length + (list.length === 1 ? ' paciente' : ' pacientes')));
       box.appendChild(head);
       var l = el('div', 'list');
-      list.forEach(function(p){ l.appendChild(pacRow(p)); });
+      list.forEach(function(p){
+        var r = pacRow(p, null, true);   // en listas de pacientes no hay check: las sesiones se marcan una por una
+        if (listFilter.faltan){ var f = faltan(p); if (f.length) r.querySelector('.pac-main').appendChild(el('div', 'pac-note falta', 'Falta: ' + f.join(', '))); }
+        l.appendChild(r);
+      });
       box.appendChild(l); root.appendChild(box);
     }
   }
@@ -2001,8 +2020,8 @@
   }
   function fmt1(n){ return (Math.round(n * 10) / 10).toLocaleString('es', { minimumFractionDigits: 0, maximumFractionDigits: 1 }); }
   // Al tocar una card se abre Pacientes con ese filtro (temporal) aplicado.
-  function dashCard(n, label, filter, period){
-    var c = el('button', 'dash-card go'); c.type = 'button';
+  function dashCard(n, label, filter, period, cls){
+    var c = el('button', 'dash-card go' + (cls ? ' ' + cls : '')); c.type = 'button';
     c.appendChild(el('div', 'n', String(n))); c.appendChild(el('div', 'label', label));
     c.addEventListener('click', function(){
       showPage('lista');
@@ -2026,7 +2045,12 @@
     var prog = all.filter(function(s){ return inR(s.fecha); });
     var hechas = prog.filter(function(s){ return s.hecha; });
     var atendidos = {}; hechas.forEach(function(s){ atendidos[s.p.id] = 1; });
-    var sinMarcar = prog.filter(function(s){ return !s.hecha && s.fecha <= today; }).length;
+    // Alertas (no dependen del período): sesiones pasadas sin marcar y pacientes con la ficha incompleta.
+    var sinMarcar = all.filter(function(s){ return !s.p.terminado && !s.hecha && s.fecha < today; }).length;
+    var incompletos = pacientes.filter(function(p){ return !p.terminado && faltan(p).length; }).length;
+    var al = $("dash-alerts"); al.innerHTML = ''; al.hidden = !(sinMarcar || incompletos);
+    if (sinMarcar) al.appendChild(dashCard(sinMarcar, 'Pasadas sin marcar', { ses: function(s){ return !s.p.terminado && !s.hecha && s.fecha < today; } }, '', 'alert'));
+    if (incompletos) al.appendChild(dashCard(incompletos, 'Pacientes incompletos', { faltan: true, pac: function(p){ return !p.terminado && faltan(p).length > 0; } }, '', 'alert'));
     var hitosN = prog.filter(function(s){ return AVISO_SESIONES.indexOf(s.numero) !== -1; }).length;
     var activos = pacientes.filter(function(p){ return !p.terminado; }).length;
     var terminados = pacientes.length - activos;
@@ -2040,7 +2064,6 @@
     g.appendChild(dashCard(Object.keys(atendidos).length, 'Pacientes atendidos', { pac: function(p){ return !!atendidos[p.id]; } }, per));
     g.appendChild(dashCard(hechas.length, 'Sesiones realizadas', { ses: function(s){ return inR(s.fecha) && s.hecha; } }, per));
     g.appendChild(dashCard(prog.length, 'Sesiones programadas', { ses: function(s){ return inR(s.fecha); } }, per));
-    g.appendChild(dashCard(sinMarcar, 'Pasadas sin marcar', { ses: function(s){ return inR(s.fecha) && !s.hecha && s.fecha <= today; } }, per));
     g.appendChild(dashCard(inicianEn, 'Inician tratamiento', { pac: function(p){ return !!p.fechaInicio && inR(p.fechaInicio); } }, per));
     g.appendChild(dashCard(terminanEn, 'Terminan tratamiento', { pac: function(p){ return inR(p.fechaFin); } }, per));
     g.appendChild(dashCard(hitosN, 'Sesiones 2, 3, 7, 10, 13', { ses: function(s){ return inR(s.fecha) && AVISO_SESIONES.indexOf(s.numero) !== -1; } }, per));
@@ -2068,7 +2091,6 @@
     g2.appendChild(dashCard(activos, 'Pacientes activos', { pac: function(p){ return !p.terminado; } }));
     g2.appendChild(dashCard(terminados, 'Ya terminaron', { pac: function(p){ return !!p.terminado; } }));
     g2.appendChild(dashCard(pacientes.length, 'Pacientes en total', { pac: function(){ return true; } }));
-    g2.appendChild(dashCard(pacientes.filter(function(p){ return !p.terminado && !scheduleOf(p); }).length, 'Activos sin agenda', { pac: function(p){ return !p.terminado && !scheduleOf(p); } }));
     body.appendChild(g2);
 
     body.appendChild(el('div', 'dash-sec', 'Promedio de atención'));
