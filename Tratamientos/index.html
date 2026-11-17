@@ -762,7 +762,6 @@
         <input type="text" id="nombre-input" placeholder="Nombre del paciente" autocomplete="off" autocapitalize="words">
         <div class="dup-hint" id="dup-hint" hidden></div>
       </div>
-      <div class="field"><label for="add-pat">Patología</label><select id="add-pat"></select></div>
       <div class="field">
         <label>¿Necesita informe terapéutico?</label>
         <div class="seg" id="informe-input" role="group" aria-label="Necesita informe terapéutico">
@@ -804,7 +803,6 @@
     <button type="button" class="dlg-x" id="pers-x" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="field"><label for="pers-nombre">Nombre</label><input type="text" id="pers-nombre" autocomplete="off" autocapitalize="words"></div>
-  <div class="field"><label for="pers-pat">Patología</label><select id="pers-pat"></select></div>
   <div class="field">
     <label>¿Necesita informe terapéutico?</label>
     <div class="seg" id="pers-informe" role="group" aria-label="Necesita informe terapéutico">
@@ -1083,10 +1081,10 @@
   var personas = [], grupos = [];
   function buildGroups(){
     var by = {};
-    grupos = personas.map(function(x){ var g = { id: x.id, key: nameKey(x.nombre), nombre: x.nombre, patologiaId: x.patologiaId, informe: x.informe, paqs: [] }; by[x.id] = g; return g; });
+    grupos = personas.map(function(x){ var g = { id: x.id, key: nameKey(x.nombre), nombre: x.nombre, informe: x.informe, paqs: [] }; by[x.id] = g; return g; });
     pacientes = pacientes.filter(function(p){
       var g = by[p.personaId]; if (!g) return false;   // paquete sin paciente (o paciente en la papelera)
-      p.nombre = g.nombre; p.patologiaId = g.patologiaId; p.informe = g.informe; g.paqs.push(p);
+      p.nombre = g.nombre; p.informe = g.informe; g.paqs.push(p);
       return true;
     });
     grupos.forEach(function(g){
@@ -1099,8 +1097,8 @@
   function loadAndRender(){
     clearError();
     return Promise.all([loadPersonas(), loadPacientes(), loadPatologias(), loadSesiones()]).then(function(){
-      personas.forEach(function(x){ if (x.patologiaId && !patById(x.patologiaId)) x.patologiaId = null; });   // patología en la papelera
-      buildGroups();   // patología en la papelera
+      buildGroups();
+      pacientes.forEach(function(p){ if (p.patologiaId && !patById(p.patologiaId)) p.patologiaId = null; });   // patología en la papelera   // patología en la papelera
       renderPatSelects(); render(); scheduleNotifications();
       if ($("ses-list-dialog").open) renderSesList();
       if ($("patedit-dialog").open) renderPatEx();
@@ -1112,26 +1110,26 @@
   }
 
   var draftPaqs = [], draftCtx = false, addPersonaId = null;
-  function currentPaq(){ var f = fechasVals('add'); return f ? { fechas: f, fin: maxDate(f) } : null; }
-  function insertPaquete(personaId, nombre, patId, informe, d){
-    var row = { user_id: viewId, persona_id: personaId, nombre: nombre, patologia_id: patId, informe: informe, fecha_fin: d.fin, fecha_inicio: minDate(d.fechas), total_sesiones: d.fechas.length, dias_asistencia: null };
+  function currentPaq(){ var f = fechasVals('add'); return f ? { fechas: f, fin: maxDate(f), pat: $("add-pat").value || null } : null; }
+  function insertPaquete(personaId, nombre, informe, d){
+    var row = { user_id: viewId, persona_id: personaId, nombre: nombre, patologia_id: d.pat, informe: informe, fecha_fin: d.fin, fecha_inicio: minDate(d.fechas), total_sesiones: d.fechas.length, dias_asistencia: null };
     return supabaseClient.from('tratamientos_pacientes').insert(row).select('id').then(throwIfError).then(function(res){ return saveFechas(res.data[0].id, d.fechas); });
   }
   function resetPaqForm(iso){
-    $("add-total").value = ''; fechasSt.add = iso ? [iso] : [];
+    $("add-total").value = ''; $("add-pat").value = ''; fechasSt.add = iso ? [iso] : [];
     renderFechas('add'); refreshFin('add');
   }
   function addPaciente(){
     if ($("add-btn").disabled) return;
     var fail = function(err){ showError('No se pudo guardar: ' + err.message); $("add-dialog").close(); };
     if (addMode === 'nuevo'){
-      var nombre = $("nombre-input").value.trim(), pat = $("add-pat").value || null, inf = $("informe-input").value, drafts = draftPaqs.slice();
+      var nombre = $("nombre-input").value.trim(), inf = $("informe-input").value, drafts = draftPaqs.slice();
       if (!nombre || findExact(nombre)){ updateDupHint(); return; }
       $("add-btn").disabled = true;
-      supabaseClient.from('tratamientos_personas').insert({ user_id: viewId, nombre: nombre, patologia_id: pat, informe: inf }).select('id')
+      supabaseClient.from('tratamientos_personas').insert({ user_id: viewId, nombre: nombre, informe: inf }).select('id')
         .then(throwIfError).then(function(res){
           var pid = res.data[0].id, chain = Promise.resolve();
-          drafts.forEach(function(d){ chain = chain.then(function(){ return insertPaquete(pid, nombre, pat, inf, d); }); });
+          drafts.forEach(function(d){ chain = chain.then(function(){ return insertPaquete(pid, nombre, inf, d); }); });
           return chain;
         }).then(function(){
           $("add-dialog").close();
@@ -1146,7 +1144,7 @@
     }
     var g = groupById(addPersonaId); if (!g) return;
     $("add-btn").disabled = true;
-    insertPaquete(g.id, g.nombre, g.patologiaId, g.informe, d).then(function(){
+    insertPaquete(g.id, g.nombre, g.informe, d).then(function(){
       $("add-dialog").close(); toast('Paquete agregado: ' + g.nombre + ' · ' + longDate(d.fin)); return loadAndRender();
     }).catch(fail);
   }
@@ -1350,13 +1348,13 @@
       head.addEventListener('click', function(){ dirOpen[g.id] = !card.classList.contains('open'); card.classList.toggle('open'); });
       card.appendChild(head);
       var body = el('div', 'pq-body');
-      var pat = patById(g.patologiaId), info = el('div', 'pq-row'); info.style.cursor = 'default';
-      info.appendChild(el('span', 'pq-t', pat ? pat.nombre : 'Sin patología'));
+      var info = el('div', 'pq-row'); info.style.cursor = 'default';
+      info.appendChild(el('span', 'pq-t', 'Informe terapéutico'));
       info.appendChild(el('span', 'badge-inf ' + (g.informe === true ? 'yes' : (g.informe === false ? 'no' : 'none')), g.informe === true ? 'Con informe' : (g.informe === false ? 'Sin informe' : 'Sin registrar')));
       body.appendChild(info);
       g.paqs.forEach(function(p){
         var r = el('button', 'pq-row'); r.type = 'button';
-        r.appendChild(el('span', 'pq-t', 'Paquete ' + p.paqN));
+        r.appendChild(el('span', 'pq-t', 'Paquete ' + p.paqN + (patById(p.patologiaId) ? ' · ' + patById(p.patologiaId).nombre : '')));
         r.appendChild(el('span', 'badge-inf ' + (p.terminado ? 'done' : 'ses'), p.terminado ? 'Terminado' : 'Activo'));
         var cur = !p.terminado ? currentSession(p) : null;
         r.appendChild(el('span', 'pq-d', (p.fechaInicio ? 'Desde ' + longDate(p.fechaInicio) + ' · ' : '') + (p.terminado ? 'Terminó el ' : 'Termina el ') + longDate(p.fechaFin) + (p.total ? ' · ' + p.total + ' sesiones' : '') + (cur ? ' · ' + cur : '')));
@@ -1488,9 +1486,7 @@
   function openPersona(id){
     var g = groupById(id); if (!g) return;
     persId = id;
-    renderPatSelects();
     $("pers-nombre").value = g.nombre;
-    $("pers-pat").value = g.patologiaId || '';
     $("pers-informe").value = g.informe;
     $("pers-dialog").showModal();
   }
@@ -1499,7 +1495,7 @@
     var nombre = $("pers-nombre").value.trim();
     if (!nombre){ toast('Falta el nombre'); return; }
     if (findExact(nombre, persId)){ toast('Ya existe otro paciente con ese nombre'); return; }
-    var vals = { nombre: nombre, patologia_id: $("pers-pat").value || null, informe: $("pers-informe").value }, now = new Date().toISOString();
+    var vals = { nombre: nombre, informe: $("pers-informe").value }, now = new Date().toISOString();
     supabaseClient.from('tratamientos_personas').update(Object.assign({ updated_at: now }, vals)).eq('id', persId).then(throwIfError).then(function(){
       return supabaseClient.from('tratamientos_pacientes').update(Object.assign({ updated_at: now }, vals)).eq('persona_id', persId).then(throwIfError);
     }).then(function(){ $("pers-dialog").close(); return loadAndRender(); })
@@ -1606,9 +1602,9 @@
     var ok;
     if (addMode === 'nuevo'){
       var n = $("nombre-input").value.trim();
-      ok = n && $("add-pat").value && !findExact(n);   // el informe es opcional: puede quedar «Sin registrar»
+      ok = n && !findExact(n);   // el informe es opcional: puede quedar «Sin registrar»
     } else {
-      ok = (draftCtx || addPersonaId) && Number($("add-total").value) > 0 && fechasComplete('add');
+      ok = (draftCtx || addPersonaId) && $("add-pat").value && Number($("add-total").value) > 0 && fechasComplete('add');
     }
     $("add-btn").disabled = !ok;
   }
@@ -1621,7 +1617,7 @@
   function renderDrafts(){
     var box = $("add-drafts"); box.innerHTML = '';
     draftPaqs.forEach(function(d, i){
-      var r = el('div', 'draft-row'), t = el('span', null, 'Paquete ' + (i + 1) + ' · ' + d.fechas.length + ' sesiones · termina el ' + longDate(d.fin));
+      var r = el('div', 'draft-row'), t = el('span', null, 'Paquete ' + (i + 1) + (patById(d.pat) ? ' · ' + patById(d.pat).nombre : '') + ' · ' + d.fechas.length + ' sesiones · termina el ' + longDate(d.fin));
       var x = el('button', null, '×'); x.type = 'button'; x.setAttribute('aria-label', 'Quitar paquete');
       x.addEventListener('click', function(){ draftPaqs.splice(i, 1); renderDrafts(); });
       r.appendChild(t); r.appendChild(x); box.appendChild(r);
@@ -1876,6 +1872,7 @@
   var fechasSt = { add: [], edit: [] }; // fecha elegida para cada sesión (índice 0 = sesión 1)
   function buildExtra(pfx){
     $(pfx + '-extra').innerHTML =
+      '<div class="field"><label for="' + pfx + '-pat">Patología</label><select id="' + pfx + '-pat"></select></div>' +
       '<div class="field"><label for="' + pfx + '-total">Total de sesiones</label><input type="number" id="' + pfx + '-total" min="1" max="60" inputmode="numeric" placeholder="Ej. 15"></div>' +
       '<div class="field"><label>Fecha de cada sesión</label><div class="fechas-list" id="' + pfx + '-fechas"></div></div>';
     $(pfx + '-total').addEventListener('input', function(){ renderFechas(pfx); refreshFin(pfx); });
@@ -1915,7 +1912,7 @@
     if (pfx === 'add') refreshAddBtn();
   }
   function renderPatSelects(){
-    ['add', 'pers'].forEach(function(pfx){
+    ['add', 'edit'].forEach(function(pfx){
       var sel = $(pfx + '-pat'); if (!sel) return;
       var cur = sel.value;
       sel.innerHTML = '<option value="">Sin patología</option>' + patologias.map(function(x){ return '<option value="' + x.id + '">' + x.nombre.replace(/</g, '&lt;') + '</option>'; }).join('');
@@ -1928,6 +1925,7 @@
   function formVals(pfx){
     var f = fechasVals(pfx);
     return {
+      patologia_id: $(pfx + '-pat').value || null,
       fecha_inicio: f ? minDate(f) : null,
       total_sesiones: fechasTotal(pfx) || null,
       dias_asistencia: null
@@ -1935,6 +1933,7 @@
   }
   function fillForm(pfx, p){
     renderPatSelects();
+    $(pfx + '-pat').value = p.patologiaId || '';
     $(pfx + '-total').value = p.total || '';
     var s = sesMap[p.id] || {};
     fechasSt[pfx] = [];
@@ -2003,7 +2002,7 @@
   buildExtra('add');
   buildExtra('edit');
   enhanceSelect($("add-pat"));
-  enhanceSelect($("pers-pat"));
+  enhanceSelect($("edit-pat"));
   ["add-pat", "add-total", "informe-input"].forEach(function(id){
     $(id).addEventListener("change", refreshAddBtn);
     $(id).addEventListener("input", refreshAddBtn);
