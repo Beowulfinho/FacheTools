@@ -324,7 +324,7 @@
     display: flex; align-items: center; justify-content: center;
   }
   .check-btn svg { width: 18px; height: 18px; }
-  .check-btn:hover { border-color: var(--good); color: var(--good); }
+  .check-btn:not(.locked):hover { border-color: var(--good); color: var(--good); }
   .pac.finished .check-btn { background: var(--good); border-color: var(--good); color: #fff; }
 
   .empty { text-align: center; color: var(--ink-soft); font-size: 14px; padding: 28px 10px; }
@@ -470,7 +470,7 @@
   .dash-alerts[hidden] { display: none; }
   .dash-card.alert { background: var(--critical-soft); border-color: var(--critical); }
   .dash-card.alert .n, .dash-card.alert .label { color: var(--critical); }
-  .check-btn.locked { opacity: .35; cursor: not-allowed; }
+  .check-btn.locked { opacity: .35; cursor: not-allowed; pointer-events: none; }
   .pac-note.falta { color: var(--critical); font-weight: 600; }
   .dash-card.go { cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
   .dash-card.go:hover { border-color: var(--accent); }
@@ -1029,6 +1029,8 @@
   }
 
   function setTerminado(id, value){
+    var pp = pacientes.filter(function(x){ return x.id === id; })[0];
+    if (value && pp && faltan(pp).length) return;   // un paciente incompleto no se puede marcar como terminado
     supabaseClient.from('tratamientos_pacientes').update({ terminado: value, updated_at: new Date().toISOString() }).eq('id', id)
       .then(throwIfError).then(loadAndRender)
       .catch(function(err){ showError('No se pudo actualizar: ' + err.message); });
@@ -1043,6 +1045,14 @@
   }
   var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
+  // Motivo por el que una sesión no se puede marcar como realizada ('' = se puede). Desmarcar siempre se puede.
+  function sesLockReason(p, fecha, hecha){
+    if (hecha) return '';
+    if (fecha && fecha > todayStr()) return 'Las sesiones futuras no se pueden marcar como realizadas.';
+    var f = faltan(p);
+    if (f.length) return 'Completa primero la ficha del paciente (falta: ' + f.join(', ') + ').';
+    return '';
+  }
   // info (opcional): { numero, hecha } cuando la fila representa una sesión concreta (calendario).
   function pacRow(p, info, noCheck){
     var row = el('div', 'pac' + (p.terminado ? ' finished' : ''));
@@ -1075,12 +1085,12 @@
       // En el calendario el check marca la SESIÓN como realizada (alimenta el resumen).
       if (info.hecha) row.classList.add('done-ses');
       chk.setAttribute('aria-label', info.hecha ? 'Desmarcar sesión realizada' : 'Marcar sesión como realizada');
-      if (info.fecha > todayStr() && !info.hecha){   // las sesiones futuras no se pueden marcar como realizadas
-        chk.disabled = true; chk.classList.add('locked'); chk.setAttribute('aria-label', 'Aún no se puede marcar: la sesión es futura');
-      }
+      var why = sesLockReason(p, info.fecha, info.hecha);   // sesión futura o paciente incompleto: no se puede marcar
+      if (why){ chk.classList.add('locked'); chk.setAttribute('aria-disabled', 'true'); chk.tabIndex = -1; chk.setAttribute('aria-label', why); }
       chk.addEventListener('click', function(){ setHecha(p.id, info.numero, !info.hecha); });
     } else {
       chk.setAttribute('aria-label', p.terminado ? 'Reabrir tratamiento' : 'Marcar tratamiento como terminado');
+      if (!p.terminado && faltan(p).length){ chk.classList.add('locked'); chk.setAttribute('aria-disabled', 'true'); chk.tabIndex = -1; chk.setAttribute('aria-label', 'Completa primero la ficha del paciente'); }
       chk.addEventListener('click', function(){ setTerminado(p.id, !p.terminado); });
     }
     row.appendChild(main);
@@ -1824,7 +1834,7 @@
   function openSession(pid, numero){
     var p = pacById(pid); if (!p) return;
     var d = (sesMap[pid] || {})[numero] || {};
-    ses = { pid: pid, numero: numero, fechaOv: d.fecha || null, pendingBlob: null, delFoto: false, fotoPath: d.foto || null };
+    ses = { pid: pid, numero: numero, hecha0: !!d.hecha, fechaOv: d.fecha || null, pendingBlob: null, delFoto: false, fotoPath: d.foto || null };
     $("ses-title").textContent = 'Sesión ' + numero + (p.total ? ' de ' + p.total : '') + ' · ' + p.nombre;
     $("ses-obs").value = d.obs || '';
     $("ses-hecha").checked = !!d.hecha;
@@ -1834,10 +1844,11 @@
   }
   function sesDate(){ return ses.fechaOv || todayStr(); }
   function paintHechaLock(){
-    var fut = sesDate() > todayStr();
-    if (fut) $("ses-hecha").checked = false;
-    $("ses-hecha").disabled = fut;
-    $("ses-hecha-hint").hidden = !fut;
+    var why = sesLockReason(pacById(ses.pid), sesDate(), ses.hecha0);
+    if (why) $("ses-hecha").checked = false;
+    $("ses-hecha").disabled = !!why;
+    $("ses-hecha-hint").hidden = !why;
+    $("ses-hecha-hint").textContent = why;
   }
   function paintSesFecha(){
     $("ses-fecha").value = sesDate();
@@ -1884,7 +1895,7 @@
   $("ses-cancel").addEventListener("click", function(){ $("ses-dialog").close(); });
   $("ses-save").addEventListener("click", function(){
     var p = pacById(ses.pid), cur = ses; if (!p) return;
-    if ($("ses-hecha").checked && sesDate() > todayStr()){ toast('No se puede marcar una sesión futura'); return; }
+    if ($("ses-hecha").checked && sesLockReason(p, sesDate(), cur.hecha0)) return;
     var btn = $("ses-save"); btn.disabled = true;
     var bucket = supabaseClient.storage.from('tratamientos-fotos');
     var oldPath = cur.fotoPath, newPath = oldPath;
@@ -2022,8 +2033,8 @@
 
   // ---------- Sesión realizada (check del calendario) ----------
   function setHecha(pid, numero, value){
-    var f = ((sesMap[pid] || {})[numero] || {}).fecha;
-    if (value && f && f > todayStr()){ toast('No se puede marcar una sesión futura'); return; }
+    var d0 = (sesMap[pid] || {})[numero] || {}, pp = pacById(pid);
+    if (value && pp && sesLockReason(pp, d0.fecha, !!d0.hecha)) return;   // futura o paciente incompleto: no pasa nada
     supabaseClient.from('tratamientos_sesiones').upsert({ paciente_id: pid, user_id: viewId, numero: numero, hecha: value, updated_at: new Date().toISOString() }, { onConflict: 'paciente_id,numero' })
       .then(throwIfError).then(loadAndRender)
       .catch(function(err){ showError('No se pudo actualizar la sesión: ' + err.message); });
