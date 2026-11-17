@@ -1282,7 +1282,6 @@
   function faltan(p){
     var f = [];
     if (!p.patologiaId) f.push('patología');
-    if (p.informe === null) f.push('informe');
     if (!p.total) f.push('total de sesiones');
     else if (!scheduleOf(p)) f.push('fechas de las sesiones');
     return f;
@@ -1607,7 +1606,7 @@
     var ok;
     if (addMode === 'nuevo'){
       var n = $("nombre-input").value.trim();
-      ok = n && $("add-pat").value && $("informe-input").value !== null && !findExact(n);
+      ok = n && $("add-pat").value && !findExact(n);   // el informe es opcional: puede quedar «Sin registrar»
     } else {
       ok = (draftCtx || addPersonaId) && Number($("add-total").value) > 0 && fechasComplete('add');
     }
