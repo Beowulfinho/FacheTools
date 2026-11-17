@@ -152,7 +152,7 @@
   .banner.show { display: block; }
   .banner.danger { background: var(--critical-soft); color: var(--critical); }
 
-  /* ---------- Resumen ---------- */
+  /* ---------- Estadística ---------- */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
   .stat { background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
   .stat .n { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 500; line-height: 1; }
@@ -470,6 +470,7 @@
   .dash-alerts[hidden] { display: none; }
   .dash-card.alert { background: var(--critical-soft); border-color: var(--critical); }
   .dash-card.alert .n, .dash-card.alert .label { color: var(--critical); }
+  .check-btn.locked { opacity: .35; cursor: not-allowed; }
   .pac-note.falta { color: var(--critical); font-weight: 600; }
   .dash-card.go { cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; }
   .dash-card.go:hover { border-color: var(--accent); }
@@ -661,7 +662,7 @@
     <!-- ===== Página: Dashboard ===== -->
     <div class="tab-page" id="page-dash" hidden>
       <div class="dash-alerts" id="dash-alerts" hidden></div>
-      <div class="cal-head"><span class="cal-title">Resumen</span></div>
+      <div class="cal-head"><span class="cal-title">Estadística</span></div>
       <div class="seg dash-modes" id="dash-modes" role="group" aria-label="Intervalo">
         <button type="button" data-m="dia">Día</button><button type="button" data-m="semana">Semana</button><button type="button" data-m="mes">Mes</button><button type="button" data-m="rango">Rango</button>
       </div>
@@ -694,9 +695,9 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.2"/><path d="M9 8.5h6M9 12.5h6M9 16.5h3.5"/></svg>
         Protocolos
       </button>
-      <button type="button" data-page="dash" aria-label="Resumen">
+      <button type="button" data-page="dash" aria-label="Estadística">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>
-        Resumen
+        Estadística
       </button>
       <button type="button" class="nav-settings" data-action="settings" aria-label="Configuración">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>
@@ -777,6 +778,11 @@
       <span class="set-txt"><b>Tema</b><small id="tema-sub"></small></span>
       <svg class="set-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
     </button>
+    <button type="button" class="set-item" id="menu-papelera">
+      <span class="set-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v5M14 11v5"/></svg></span>
+      <span class="set-txt"><b>Papelera</b><small>Recupera pacientes, patologías y ejercicios eliminados</small></span>
+      <svg class="set-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
     <button type="button" class="set-item" id="btn-reload">
       <span class="set-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></span>
       <span class="set-txt"><b>Actualizar la app</b><small>Trae la última versión y los datos</small></span>
@@ -787,6 +793,15 @@
     </button>
   </div>
   <div hidden><select id="admin-select" data-title="Ver como"></select><select id="set-tema" data-title="Tema"><option value="auto">Automático (como el celular)</option><option value="light">Claro</option><option value="dark">Oscuro</option></select></div>
+</dialog>
+
+<dialog id="trash-dialog">
+  <div class="dlg-head">
+    <h2>Papelera</h2>
+    <button type="button" class="dlg-x" id="trash-close" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <p class="set-hint">Lo que eliminas se guarda aquí. Toca «Recuperar» y vuelve con todos sus datos (sesiones, fechas, fotos).</p>
+  <div id="trash-body"></div>
 </dialog>
 
 <dialog id="notif-dialog">
@@ -837,12 +852,13 @@
     <label>Foto</label>
     <div class="ses-photo" id="ses-photo"></div>
     <div class="ses-photo-actions">
-      <button type="button" class="btn" id="ses-foto-btn">Agregar foto</button>
+      <button type="button" class="btn" id="ses-foto-btn">Tomar foto</button>
       <button type="button" class="btn btn-danger" id="ses-foto-del" hidden>Quitar foto</button>
     </div>
-    <input type="file" id="ses-foto-file" accept="image/*" hidden>
+    <input type="file" id="ses-foto-file" accept="image/*" capture="environment" hidden>
   </div>
   <label class="check-row"><input type="checkbox" id="ses-hecha"> Sesión realizada</label>
+  <div class="fin-hint" id="ses-hecha-hint" hidden>Las sesiones futuras no se pueden marcar como realizadas.</div>
   <button type="button" class="btn" id="ses-ficha" style="width:100%; margin-top:10px;">Ver ficha del paciente</button>
   <div class="dlg-actions">
     <button type="button" class="btn" id="ses-cancel">Cancelar</button>
@@ -973,13 +989,14 @@
     };
   }
   function loadPacientes(){
-    return supabaseClient.from('tratamientos_pacientes').select('*').eq('user_id', viewId)
+    return supabaseClient.from('tratamientos_pacientes').select('*').eq('user_id', viewId).is('deleted_at', null)
       .order('fecha_fin', { ascending: true }).order('nombre', { ascending: true })
       .then(function(res){ throwIfError(res); pacientes = (res.data || []).map(mapRow); });
   }
   function loadAndRender(){
     clearError();
     return Promise.all([loadPacientes(), loadPatologias(), loadSesiones()]).then(function(){
+      pacientes.forEach(function(p){ if (p.patologiaId && !patById(p.patologiaId)) p.patologiaId = null; });   // patología en la papelera
       renderPatSelects(); render(); scheduleNotifications();
       if ($("ses-list-dialog").open) renderSesList();
       if ($("patedit-dialog").open) renderPatEx();
@@ -1058,6 +1075,9 @@
       // En el calendario el check marca la SESIÓN como realizada (alimenta el resumen).
       if (info.hecha) row.classList.add('done-ses');
       chk.setAttribute('aria-label', info.hecha ? 'Desmarcar sesión realizada' : 'Marcar sesión como realizada');
+      if (info.fecha > todayStr() && !info.hecha){   // las sesiones futuras no se pueden marcar como realizadas
+        chk.disabled = true; chk.classList.add('locked'); chk.setAttribute('aria-label', 'Aún no se puede marcar: la sesión es futura');
+      }
       chk.addEventListener('click', function(){ setHecha(p.id, info.numero, !info.hecha); });
     } else {
       chk.setAttribute('aria-label', p.terminado ? 'Reabrir tratamiento' : 'Marcar tratamiento como terminado');
@@ -1072,7 +1092,7 @@
   function sesInfo(p, s){
     var x = extraNuevo(p, s.numero, s.fecha), esHito = HITOS.indexOf(s.numero) !== -1;
     return {
-      numero: s.numero, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha, hito: esHito,
+      numero: s.numero, fecha: s.fecha, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha, hito: esHito,
       extra: x ? (x.all ? 'Elige uno: ' : '') + extraText(x) : (esHito ? 'Ejercicio extra nuevo (sin ejercicio cargado en el protocolo)' : '')
     };
   }
@@ -1134,7 +1154,7 @@
     else if (!scheduleOf(p)) f.push('fechas de las sesiones');
     return f;
   }
-  // Filtro temporal que llega desde las cards del Resumen: { label, ses(s) | pac(p) }.
+  // Filtro temporal que llega desde las cards de Estadística: { label, ses(s) | pac(p) }.
   var listFilter = null;
   function setListFilter(f){
     listFilter = f;
@@ -1267,9 +1287,9 @@
     var p = pacientes.filter(function(x){ return x.id === editingId; })[0];
     if (!p) return;
     var id = editingId;
-    askConfirm('¿Eliminar a ' + p.nombre + '?').then(function(ok){
+    askConfirm('¿Eliminar a ' + p.nombre + '? Podrás recuperarlo desde la papelera (Configuración).').then(function(ok){
       if (!ok) return;
-      supabaseClient.from('tratamientos_pacientes').delete().eq('id', id)
+      supabaseClient.from('tratamientos_pacientes').update({ deleted_at: new Date().toISOString() }).eq('id', id)
         .then(throwIfError).then(function(){ $("edit-dialog").close(); return loadAndRender(); })
         .catch(function(err){ showError('No se pudo eliminar: ' + err.message); $("edit-dialog").close(); });
     });
@@ -1515,8 +1535,8 @@
 
   function loadPatologias(){
     return Promise.all([
-      supabaseClient.from('tratamientos_patologias').select('*').eq('user_id', viewId).order('nombre'),
-      supabaseClient.from('tratamientos_ejercicios').select('*').eq('user_id', viewId).order('orden')
+      supabaseClient.from('tratamientos_patologias').select('*').eq('user_id', viewId).is('deleted_at', null).order('nombre'),
+      supabaseClient.from('tratamientos_ejercicios').select('*').eq('user_id', viewId).is('deleted_at', null).order('orden')
     ]).then(function(r){
       throwIfError(r[0]); throwIfError(r[1]);
       patologias = (r[0].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, calentamiento: x.calentamiento_min }; });
@@ -1813,15 +1833,22 @@
     $("ses-dialog").showModal();
   }
   function sesDate(){ return ses.fechaOv || todayStr(); }
+  function paintHechaLock(){
+    var fut = sesDate() > todayStr();
+    if (fut) $("ses-hecha").checked = false;
+    $("ses-hecha").disabled = fut;
+    $("ses-hecha-hint").hidden = !fut;
+  }
   function paintSesFecha(){
     $("ses-fecha").value = sesDate();
+    paintHechaLock();
     var box = $("ses-proto"); box.innerHTML = '';
     box.appendChild(buildProtocol(pacById(ses.pid), ses.numero, sesDate()));
   }
   function paintSesPhoto(){
     var box = $("ses-photo"); box.innerHTML = '';
     var has = (ses.pendingBlob || (ses.fotoPath && !ses.delFoto));
-    $("ses-foto-btn").textContent = has ? 'Cambiar foto' : 'Agregar foto';
+    $("ses-foto-btn").textContent = has ? 'Tomar otra foto' : 'Tomar foto';
     $("ses-foto-del").hidden = !has;
     if (ses.pendingBlob){
       var im = el('img'); im.alt = 'Foto de la sesión'; im.src = URL.createObjectURL(ses.pendingBlob); box.appendChild(im);
@@ -1857,6 +1884,7 @@
   $("ses-cancel").addEventListener("click", function(){ $("ses-dialog").close(); });
   $("ses-save").addEventListener("click", function(){
     var p = pacById(ses.pid), cur = ses; if (!p) return;
+    if ($("ses-hecha").checked && sesDate() > todayStr()){ toast('No se puede marcar una sesión futura'); return; }
     var btn = $("ses-save"); btn.disabled = true;
     var bucket = supabaseClient.storage.from('tratamientos-fotos');
     var oldPath = cur.fotoPath, newPath = oldPath;
@@ -1942,9 +1970,9 @@
     var pt = patById(patEditId);
     if (!pt) return;
     var id = patEditId;
-    askConfirm('¿Eliminar la patología «' + pt.nombre + '» y todos sus ejercicios? Los pacientes que la tengan quedarán sin patología.').then(function(ok){
+    askConfirm('¿Eliminar la patología «' + pt.nombre + '» y todos sus ejercicios? Los pacientes que la tengan quedarán sin patología. Podrás recuperarla desde la papelera.').then(function(ok){
       if (!ok) return;
-      supabaseClient.from('tratamientos_patologias').delete().eq('id', id)
+      supabaseClient.from('tratamientos_patologias').update({ deleted_at: new Date().toISOString() }).eq('id', id)
         .then(throwIfError).then(function(){ $("patedit-dialog").close(); return loadAndRender(); })
         .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
     });
@@ -1984,9 +2012,9 @@
   });
   $("ex-delete").addEventListener("click", function(){
     var id = exEditId;
-    askConfirm('¿Eliminar este ejercicio?').then(function(ok){
+    askConfirm('¿Eliminar este ejercicio? Podrás recuperarlo desde la papelera.').then(function(ok){
       if (!ok) return;
-      supabaseClient.from('tratamientos_ejercicios').delete().eq('id', id)
+      supabaseClient.from('tratamientos_ejercicios').update({ deleted_at: new Date().toISOString() }).eq('id', id)
         .then(throwIfError).then(function(){ $("ex-dialog").close(); return loadAndRender(); })
         .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
     });
@@ -1994,6 +2022,8 @@
 
   // ---------- Sesión realizada (check del calendario) ----------
   function setHecha(pid, numero, value){
+    var f = ((sesMap[pid] || {})[numero] || {}).fecha;
+    if (value && f && f > todayStr()){ toast('No se puede marcar una sesión futura'); return; }
     supabaseClient.from('tratamientos_sesiones').upsert({ paciente_id: pid, user_id: viewId, numero: numero, hecha: value, updated_at: new Date().toISOString() }, { onConflict: 'paciente_id,numero' })
       .then(throwIfError).then(loadAndRender)
       .catch(function(err){ showError('No se pudo actualizar la sesión: ' + err.message); });
@@ -2139,6 +2169,49 @@
   $("btn-reload").addEventListener("click", function(){ location.reload(); });
   $("settings-close").addEventListener("click", function(){ $("settings-dialog").close(); });
   $("notif-close").addEventListener("click", function(){ $("notif-dialog").close(); });
+  // ---------- Papelera ----------
+  function fmtDel(iso){ var d = new Date(iso); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function loadTrash(){
+    var T = function(t, cols){ return supabaseClient.from(t).select(cols).eq('user_id', viewId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false }); };
+    return Promise.all([T('tratamientos_pacientes', 'id,nombre,deleted_at'), T('tratamientos_patologias', 'id,nombre,deleted_at'),
+      T('tratamientos_ejercicios', 'id,nombre,patologia_id,deleted_at'), supabaseClient.from('tratamientos_patologias').select('id,nombre,deleted_at').eq('user_id', viewId)
+    ]).then(function(r){
+      r.forEach(throwIfError);
+      var pnames = {}, pdel = {};
+      (r[3].data || []).forEach(function(x){ pnames[x.id] = x.nombre; pdel[x.id] = !!x.deleted_at; });
+      var items = [];
+      (r[0].data || []).forEach(function(x){ items.push({ t: 'tratamientos_pacientes', kind: 'Paciente', id: x.id, name: x.nombre, at: x.deleted_at }); });
+      (r[1].data || []).forEach(function(x){ items.push({ t: 'tratamientos_patologias', kind: 'Patología', id: x.id, name: x.nombre, at: x.deleted_at }); });
+      (r[2].data || []).forEach(function(x){
+        if (pdel[x.patologia_id]) return;   // vuelve junto con su patología
+        items.push({ t: 'tratamientos_ejercicios', kind: 'Ejercicio', id: x.id, name: x.nombre, sub: pnames[x.patologia_id] || '', at: x.deleted_at });
+      });
+      items.sort(function(a, b){ return a.at < b.at ? 1 : -1; });
+      return items;
+    });
+  }
+  function renderTrash(){
+    var body = $("trash-body");
+    loadTrash().then(function(items){
+      body.innerHTML = '';
+      if (!items.length){ body.appendChild(el('div', 'empty', 'La papelera está vacía.')); return; }
+      items.forEach(function(it){
+        var row = el('div', 'pac'), main = el('div', 'pac-main');
+        main.appendChild(el('div', 'pac-name', it.name));
+        main.appendChild(el('div', 'pac-note', it.kind + (it.sub ? ' de ' + it.sub : '') + ' · eliminado el ' + fmtDel(it.at)));
+        var b = el('button', 'btn', 'Recuperar'); b.type = 'button';
+        b.addEventListener('click', function(){
+          b.disabled = true;
+          supabaseClient.from(it.t).update({ deleted_at: null }).eq('id', it.id).then(throwIfError)
+            .then(function(){ toast('Recuperado: ' + it.name); return loadAndRender(); }).then(renderTrash)
+            .catch(function(err){ showError('No se pudo recuperar: ' + err.message); b.disabled = false; });
+        });
+        row.appendChild(main); row.appendChild(b); body.appendChild(row);
+      });
+    }).catch(function(err){ body.innerHTML = ''; body.appendChild(el('div', 'empty', 'No se pudo cargar la papelera: ' + err.message)); });
+  }
+  $("trash-close").addEventListener("click", function(){ $("trash-dialog").close(); });
+  $("menu-papelera").addEventListener("click", function(){ $("settings-dialog").close(); $("trash-dialog").showModal(); renderTrash(); });
   $("menu-notif").addEventListener("click", function(){ $("notif-dialog").showModal(); });
   // «Ver como» y «Tema» reutilizan el selector propio de sus <select> ocultos.
   $("menu-viewas").addEventListener("click", function(){ $("admin-select").nextElementSibling.click(); });
