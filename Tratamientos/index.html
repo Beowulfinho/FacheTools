@@ -1238,16 +1238,27 @@
     });
   }
   // entries: [{ p, info }] — info null para pacientes sin agenda (se muestran en su fecha de fin).
-  function dayBlock(iso, entries, cls){
+  function dayBlock(iso, entries, cls, split){
     var box = el('section', 'day ' + (cls || ''));
     var head = el('div', 'day-head');
     head.appendChild(el('span', 'day-title', dayTitle(iso)));
+    var isDone = function(e){ return !!(e.info && e.info.hecha); };
+    var pend = split ? entries.filter(function(e){ return !isDone(e); }) : entries;
+    var fin = split ? entries.filter(isDone) : [];
     var ses = entries.some(function(e){ return e.info; });
-    head.appendChild(el('span', 'day-sub', entries.length + (ses ? (entries.length === 1 ? ' sesión' : ' sesiones') : (entries.length === 1 ? ' paciente' : ' pacientes'))));
+    head.appendChild(el('span', 'day-sub', pend.length ? pend.length + (ses ? (pend.length === 1 ? ' sesión' : ' sesiones') : (pend.length === 1 ? ' paciente' : ' pacientes')) : 'Todas realizadas'));
     box.appendChild(head);
     var list = el('div', 'list');
-    sortEntries(entries).forEach(function(e){ list.appendChild(pacRow(e.p, e.info)); });
+    sortEntries(pend).forEach(function(e){ list.appendChild(pacRow(e.p, e.info)); });
     box.appendChild(list);
+    if (fin.length){
+      var det = el('details', 'done-box'), sum = el('summary', null, 'Terminados (' + fin.length + ')');
+      det.appendChild(sum);
+      var dl = el('div', 'list');
+      sortEntries(fin).forEach(function(e){ dl.appendChild(pacRow(e.p, e.info)); });
+      det.appendChild(dl);
+      box.appendChild(det);
+    }
     return box;
   }
 
@@ -1382,6 +1393,7 @@
     var root = $("list-root");
     root.innerHTML = '';
     var shown = active.filter(match);
+    var pastDone = {};
     if (listFilter){
       renderFiltered(root, match, today);
       $("done-box").hidden = true;
@@ -1412,22 +1424,38 @@
       }
       shown.forEach(function(p){
         var sc = scheduleOf(p);
-        if (sc) sc.forEach(function(s){ if (s.fecha >= weekStart) put(s.fecha, { p: p, info: sesInfo(p, s) }); });
+        if (sc) sc.forEach(function(s){
+          if (s.fecha < weekStart) return;
+          var info = sesInfo(p, s);
+          if (info.hecha && s.fecha < today){ (pastDone[s.fecha] = pastDone[s.fecha] || []).push({ p: p, info: info }); return; }   // día ya pasado: va al grupo final
+          put(s.fecha, { p: p, info: info });
+        });
         else put(p.fechaFin, { p: p, info: null });
       });
       dates.sort();
-      if (!dates.length) root.appendChild(el('div', 'empty', 'No hay sesiones desde esta semana en adelante.'));
+      if (!dates.length && !Object.keys(pastDone).length) root.appendChild(el('div', 'empty', 'No hay sesiones desde esta semana en adelante.'));
       dates.forEach(function(iso){
         var cls = iso < today ? 'is-late' : (iso === today ? 'is-today' : '');
-        root.appendChild(dayBlock(iso, groups[iso], cls));
+        root.appendChild(dayBlock(iso, groups[iso], cls, true));
       });
     }
 
     var done = pacientes.filter(function(p){ return p.terminado; }).filter(match).sort(function(a, b){ return a.fechaFin < b.fechaFin ? 1 : -1; });
-    $("done-box").hidden = !done.length;
-    $("done-summary").textContent = 'Tratamientos terminados (' + done.length + ')';
+    var pdDates = Object.keys(pastDone).sort().reverse(), pdN = 0;
+    pdDates.forEach(function(d){ pdN += pastDone[d].length; });
+    $("done-box").hidden = !done.length && !pdN;
+    $("done-summary").textContent = 'Terminados (' + (pdN + done.length) + ')';
     var dl = $("done-list");
     dl.innerHTML = '';
+    if (pdN){
+      dl.appendChild(el('div', 'dash-sec', 'Sesiones realizadas (' + pdN + ')'));
+      pdDates.forEach(function(d){
+        var w = el('div'); w.appendChild(el('div', 'day-sub', dayTitle(d)));
+        sortEntries(pastDone[d]).forEach(function(e){ w.appendChild(pacRow(e.p, e.info)); });
+        dl.appendChild(w);
+      });
+    }
+    if (pdN && done.length) dl.appendChild(el('div', 'dash-sec', 'Tratamientos terminados (' + done.length + ')'));
     done.forEach(function(p){
       var wrap = el('div');
       var r = pacRow(p);
