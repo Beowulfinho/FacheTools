@@ -946,7 +946,7 @@
     <summary>Protocolo</summary>
     <div id="ses-proto"></div>
   </details>
-  <div class="field"><label for="ses-obs">Observaciones</label><textarea id="ses-obs" placeholder="Escribe aquí cómo fue la sesión…"></textarea></div>
+  <div class="field"><label for="ses-obs" id="ses-obs-lbl">Observaciones</label><textarea id="ses-obs" placeholder="Escribe aquí cómo fue la sesión…"></textarea></div>
   <details class="ses-sec" id="ses-foto-sec">
     <summary>Foto <span class="lib-n" id="ses-foto-n"></span></summary>
     <div class="ses-photo" id="ses-photo"></div>
@@ -2236,7 +2236,7 @@
       else if (HITOS.indexOf(s.numero) !== -1) tags.appendChild(el('span', 'badge-inf hito', 'Ejercicio nuevo'));
       else if (s.numero === 2) tags.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
       if (d.hecha) tags.appendChild(el('span', 'badge-inf done', 'Realizada'));
-      if (d.obs) tags.appendChild(el('span', 'badge-inf ses', 'Con notas'));
+      if (d.obs) tags.appendChild(el('span', 'badge-inf ses', s.numero === 1 ? 'Con valoración' : 'Con notas'));
       if (d.foto) tags.appendChild(el('span', 'badge-inf ses', 'Con foto'));
       if (tags.childNodes.length) b.appendChild(tags);
       b.addEventListener('click', function(){ openSession(p.id, s.numero); });
@@ -2254,6 +2254,8 @@
     ses = { pid: pid, numero: numero, hecha0: !!d.hecha, fechaOv: d.fecha || null, fecha0: d.fecha || null, obs0: d.obs || '', pendingBlob: null, delFoto: false, fotoPath: d.foto || null };
     $("ses-title").textContent = 'Sesión ' + numero + (p.total ? ' de ' + p.total : '');
     $("ses-sub").textContent = p.nombre;
+    $("ses-obs-lbl").textContent = numero === 1 ? 'Valoración' : 'Observaciones';   // la sesión 1 (en cualquier protocolo) lleva la valoración
+    $("ses-obs").placeholder = numero === 1 ? 'Escribe aquí la valoración del paciente…' : 'Escribe aquí cómo fue la sesión…';
     $("ses-obs").value = d.obs || '';
     $("ses-hecha").checked = !!d.hecha;
     $("ses-proto-sec").open = true; $("ses-foto-sec").open = false;
