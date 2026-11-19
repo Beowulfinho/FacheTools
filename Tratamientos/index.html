@@ -449,6 +449,13 @@
   .ses-sec > summary + * { margin-top: 10px; }
   .ses-sec > :last-child { margin-bottom: 12px; }
   .ses-sec .proto { border: none; background: none; padding: 0; margin-bottom: 0; }
+  .ses-doc { margin: 12px 0; }
+  .ses-doc[hidden] { display: none; }
+  .ses-doc .ses-doc-h { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 4px; }
+  .ses-doc textarea[hidden] { display: none; }
+  .ses-doc-row { display: flex; gap: 8px; margin-top: 8px; }
+  .ses-doc-row .btn { flex: 1; padding: 9px 8px; font-size: 13.5px; }
+  .ses-doc-row .btn[hidden] { display: none; }
   .ses-nav { display: flex; gap: 8px; margin-top: 12px; }
   .ses-nav .btn { flex: 1; padding: 9px 8px; font-size: 13.5px; }
   .ses-photo img { max-width: 100%; border-radius: 10px; display: block; margin-bottom: 6px; }
@@ -946,7 +953,9 @@
     <summary>Protocolo</summary>
     <div id="ses-proto"></div>
   </details>
-  <div class="field"><label for="ses-obs" id="ses-obs-lbl">Observaciones</label><textarea id="ses-obs" placeholder="Escribe aquí cómo fue la sesión…"></textarea></div>
+  <div id="sd-val" class="ses-doc" hidden></div>
+  <div id="sd-inf" class="ses-doc" hidden></div>
+  <div class="field" id="ses-obs-box"><label for="ses-obs" id="ses-obs-lbl">Observaciones</label><textarea id="ses-obs" placeholder="Escribe aquí cómo fue la sesión…"></textarea></div>
   <details class="ses-sec" id="ses-foto-sec">
     <summary>Foto <span class="lib-n" id="ses-foto-n"></span></summary>
     <div class="ses-photo" id="ses-photo"></div>
@@ -989,6 +998,8 @@
   </div>
   <div class="field"><label for="pe-plantilla">Valoración (plantilla)</label><textarea id="pe-plantilla" placeholder="Texto que aparecerá en la sesión 1 de los pacientes con esta patología"></textarea>
     <div class="fin-hint">Aparece en la valoración (sesión 1) de cada paciente con esta patología, y se puede editar para cada uno.</div></div>
+  <div class="field"><label for="pe-plantilla-inf">Informe terapéutico (plantilla)</label><textarea id="pe-plantilla-inf" placeholder="Texto que aparecerá en la última sesión de los pacientes con esta patología"></textarea>
+    <div class="fin-hint">Aparece en el informe terapéutico de la última sesión del paquete, y se puede editar para cada paciente.</div></div>
   <div class="field"><label for="pe-warm">Calentamiento (minutos)</label><input type="number" id="pe-warm" min="0" max="120" inputmode="numeric"></div>
   <p class="set-hint" id="pe-hint"></p>
   <div id="pe-ex"></div>
@@ -1043,6 +1054,7 @@
   <p class="set-hint" id="pn-hint">Elige primero el tipo de protocolo.</p>
   <div class="field"><label for="pn-nombre">Nombre</label><input type="text" id="pn-nombre" placeholder="Ej. Lumbalgia" autocomplete="off" disabled></div>
   <div class="field"><label for="pn-plantilla">Valoración (plantilla)</label><textarea id="pn-plantilla" placeholder="Texto que aparecerá en la sesión 1 de los pacientes con esta patología" disabled></textarea></div>
+  <div class="field"><label for="pn-plantilla-inf">Informe terapéutico (plantilla)</label><textarea id="pn-plantilla-inf" placeholder="Texto que aparecerá en la última sesión de los pacientes con esta patología" disabled></textarea></div>
   <div class="field"><label for="pn-warm">Calentamiento (minutos)</label><input type="number" id="pn-warm" min="0" max="120" inputmode="numeric" value="15" disabled></div>
   <div class="dlg-actions"><span></span><button type="button" class="btn btn-primary" id="pn-crear" disabled>Crear patología</button></div>
 </dialog>
@@ -1922,7 +1934,7 @@
     ]).then(function(r){
       throwIfError(r[0]); throwIfError(r[1]); throwIfError(r[2]);
       catalogo = (r[2].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, descripcion: x.descripcion, accesorio: x.accesorio, dosis: x.dosis }; });
-      patologias = (r[0].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, calentamiento: x.calentamiento_min, modo: x.modo === 'libre' ? 'libre' : 'esquema', plantilla: x.plantilla_valoracion || '' }; });
+      patologias = (r[0].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, calentamiento: x.calentamiento_min, modo: x.modo === 'libre' ? 'libre' : 'esquema', plantilla: x.plantilla_valoracion || '', plantillaInf: x.plantilla_informe || '' }; });
       ejercicios = (r[1].data || []).map(function(x){
         var c = x.catalogo_id ? catById(x.catalogo_id) : null;   // el catálogo manda sobre las copias guardadas en la fila
         return { id: x.id, patologiaId: x.patologia_id, tipo: x.tipo, hito: x.sesion_hito, dia: x.dia_semana, catId: c ? c.id : null,
@@ -1938,7 +1950,7 @@
     }
     return page(0).then(function(){
       sesMap = {};
-      all.forEach(function(r){ (sesMap[r.paciente_id] = sesMap[r.paciente_id] || {})[r.numero] = { fecha: r.fecha, obs: r.observaciones || '', foto: r.foto_path, hecha: !!r.hecha }; });
+      all.forEach(function(r){ (sesMap[r.paciente_id] = sesMap[r.paciente_id] || {})[r.numero] = { fecha: r.fecha, obs: r.observaciones || '', informe: r.informe || '', foto: r.foto_path, hecha: !!r.hecha }; });
     });
   }
   function patById(id){ return patologias.filter(function(x){ return x.id === id; })[0] || null; }
@@ -2241,6 +2253,7 @@
       else if (s.numero === 2) tags.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
       if (d.hecha) tags.appendChild(el('span', 'badge-inf done', 'Realizada'));
       if (d.obs) tags.appendChild(el('span', 'badge-inf ses', s.numero === 1 ? 'Con valoración' : 'Con notas'));
+      if (d.informe) tags.appendChild(el('span', 'badge-inf ses', 'Con informe'));
       if (d.foto) tags.appendChild(el('span', 'badge-inf ses', 'Con foto'));
       if (tags.childNodes.length) b.appendChild(tags);
       b.addEventListener('click', function(){ openSession(p.id, s.numero); });
@@ -2255,20 +2268,82 @@
   function openSession(pid, numero){
     var p = pacById(pid); if (!p) return;
     var d = (sesMap[pid] || {})[numero] || {};
-    var pt0 = patById(p.patologiaId), obsIni = d.obs || '';
-    if (numero === 1 && !obsIni && pt0 && pt0.plantilla) obsIni = pt0.plantilla;   // plantilla de valoración de la patología (editable)
-    ses = { pid: pid, numero: numero, hecha0: !!d.hecha, fechaOv: d.fecha || null, fecha0: d.fecha || null, obs0: obsIni, pendingBlob: null, delFoto: false, fotoPath: d.foto || null };
+    ses = { pid: pid, numero: numero, hecha0: !!d.hecha, fechaOv: d.fecha || null, fecha0: d.fecha || null, obs0: d.obs || '', pendingBlob: null, delFoto: false, fotoPath: d.foto || null, docs: {} };
     $("ses-title").textContent = 'Sesión ' + numero + (p.total ? ' de ' + p.total : '');
     $("ses-sub").textContent = p.nombre;
-    $("ses-obs-lbl").textContent = numero === 1 ? 'Valoración' : 'Observaciones';   // la sesión 1 (en cualquier protocolo) lleva la valoración
-    $("ses-obs").placeholder = numero === 1 ? 'Escribe aquí la valoración del paciente…' : 'Escribe aquí cómo fue la sesión…';
-    $("ses-obs").value = obsIni;
+    // Sesión 1: valoración (con la plantilla de la patología). Última sesión: informe terapéutico (con su plantilla) + observaciones.
+    var pt0 = patById(p.patologiaId);
+    ['val', 'inf'].forEach(function(k){
+      var c = DOCS[k], on = c.applies(p, numero);
+      $("sd-" + k).hidden = !on;
+      if (!on) return;
+      var stored = d[c.key] || '', tpl = (pt0 && pt0[c.tplKey]) || '';
+      ses.docs[k] = { stored: stored, tpl: tpl, txt0: stored || tpl };
+      $("sd-" + k + "-txt").value = stored || tpl;
+      setDocState(k, stored ? 'saved' : 'edit');
+    });
+    $("ses-obs-box").hidden = numero === 1;   // en la sesión 1 el campo de texto es la valoración
+    $("ses-obs-lbl").textContent = 'Observaciones';
+    $("ses-obs").placeholder = 'Escribe aquí cómo fue la sesión…';
+    $("ses-obs").value = d.obs || '';
     $("ses-hecha").checked = !!d.hecha;
     $("ses-proto-sec").open = true; $("ses-foto-sec").open = false;
     paintSesFecha();
     paintSesPhoto();
     $("ses-dialog").showModal();
   }
+  // Documentos de la sesión con plantilla: valoración (sesión 1, en observaciones) e informe terapéutico (última sesión).
+  // Estados: 'edit' = campo editable + Guardar; 'saved' = colapsado con Copiar / Ver; 'view' = texto visible solo lectura + Copiar / Editar / Ocultar.
+  var DOCS = {
+    val: { title: 'Valoración', save: 'Guardar valoración', copy: 'Copiar valoración', view: 'Ver valoración', col: 'observaciones', key: 'obs', tplKey: 'plantilla', ph: 'Escribe aquí la valoración del paciente…', saved: 'Valoración guardada', copied: 'Valoración copiada',
+      applies: function(p, n){ return n === 1; } },
+    inf: { title: 'Informe terapéutico', save: 'Guardar informe', copy: 'Copiar informe', view: 'Ver informe', col: 'informe', key: 'informe', tplKey: 'plantillaInf', ph: 'Escribe aquí el informe terapéutico…', saved: 'Informe guardado', copied: 'Informe copiado',
+      applies: function(p, n){ return !!p.total && n === p.total; } }
+  };
+  var docBtn = {};
+  function buildDocUI(k){
+    var c = DOCS[k], root = $("sd-" + k), b = docBtn[k] = {};
+    root.appendChild(el('div', 'ses-doc-h', c.title));
+    var ta = el('textarea'); ta.id = 'sd-' + k + '-txt'; ta.placeholder = c.ph; root.appendChild(ta);
+    var row = el('div', 'ses-doc-row');
+    function mk(key, label, cls, fn){ var x = el('button', 'btn' + (cls ? ' ' + cls : ''), label); x.type = 'button'; x.addEventListener('click', fn); b[key] = x; row.appendChild(x); }
+    mk('cancel', 'Cancelar', '', function(){ ta.value = ses.docs[k].stored; setDocState(k, 'saved'); });
+    mk('save', c.save, 'btn-primary', function(){ saveDoc(k); });
+    mk('copy', c.copy, '', function(){ copyText(ta.value).then(function(){ toast(c.copied); }, function(){ toast('No se pudo copiar'); }); });
+    mk('view', c.view, '', function(){ setDocState(k, 'view'); });
+    mk('edit', 'Editar', '', function(){ setDocState(k, 'edit'); });
+    mk('hide', 'Ocultar', '', function(){ setDocState(k, 'saved'); });
+    root.appendChild(row);
+  }
+  function setDocState(k, st){
+    var d = ses.docs[k], b = docBtn[k], ta = $("sd-" + k + "-txt");
+    d.st = st;
+    ta.hidden = st === 'saved'; ta.readOnly = st === 'view';
+    b.cancel.hidden = !(st === 'edit' && d.stored); b.save.hidden = st !== 'edit';
+    b.copy.hidden = st === 'edit'; b.view.hidden = st !== 'saved'; b.edit.hidden = st !== 'view'; b.hide.hidden = st !== 'view';
+  }
+  function saveDoc(k){
+    var c = DOCS[k], cur = ses, ta = $("sd-" + k + "-txt"), txt = ta.value.trim();
+    if (!txt){ toast('Escribe algo antes de guardar'); return; }
+    var row = { paciente_id: cur.pid, user_id: viewId, numero: cur.numero, updated_at: new Date().toISOString() };
+    row[c.col] = txt;
+    docBtn[k].save.disabled = true;
+    supabaseClient.from('tratamientos_sesiones').upsert(row, { onConflict: 'paciente_id,numero' }).then(throwIfError).then(function(){
+      var d = cur.docs[k]; d.stored = txt; d.txt0 = txt; ta.value = txt;
+      var sm = (sesMap[cur.pid] = sesMap[cur.pid] || {})[cur.numero]; if (sm) sm[c.key] = txt;
+      if (ses === cur) setDocState(k, 'saved');
+      toast(c.saved);
+      loadAndRender();
+    }).catch(function(err){ showError('No se pudo guardar: ' + (err.message || err)); })
+      .then(function(){ docBtn[k].save.disabled = false; });
+  }
+  // Valor que se guarda con «Guardar» de la sesión: una plantilla sin tocar no cuenta como texto escrito.
+  function docPersist(k){
+    var d = ses.docs[k], t = $("sd-" + k + "-txt").value.trim();
+    if (d.st === 'edit' && !d.stored && t === d.tpl.trim()) return null;
+    return t || null;
+  }
+  buildDocUI('val'); buildDocUI('inf');
   function sesDate(){ return ses.fechaOv || todayStr(); }
   function paintHechaLock(){
     var why = sesLockReason(pacById(ses.pid), sesDate(), ses.hecha0);
@@ -2322,7 +2397,9 @@
   });
   $("ses-ficha").addEventListener("click", function(){ if (ses) openEdit(ses.pid); });
   function sesDirty(){
-    return !!ses && ($("ses-obs").value !== ses.obs0 || $("ses-hecha").checked !== ses.hecha0 || (ses.fechaOv || null) !== ses.fecha0 || !!ses.pendingBlob || ses.delFoto);
+    if (!ses) return false;
+    var docDirty = Object.keys(ses.docs).some(function(k){ return $("sd-" + k + "-txt").value !== ses.docs[k].txt0; });
+    return docDirty || ($("ses-obs").value !== ses.obs0 || $("ses-hecha").checked !== ses.hecha0 || (ses.fechaOv || null) !== ses.fecha0 || !!ses.pendingBlob || ses.delFoto);
   }
   // Ver sesiones: cierra esta sesión y abre la lista del paquete para elegir otra (avisa si hay cambios sin guardar).
   $("ses-ver").addEventListener("click", function(){
@@ -2353,10 +2430,12 @@
       step = bucket.upload(newPath, cur.pendingBlob, { contentType: 'image/jpeg' }).then(throwIfError);
     } else if (cur.delFoto){ newPath = null; }
     step.then(function(){
-      return supabaseClient.from('tratamientos_sesiones').upsert({
+      var row = {
         paciente_id: cur.pid, user_id: viewId, numero: cur.numero, fecha: cur.fechaOv || null,
-        observaciones: $("ses-obs").value.trim() || null, foto_path: newPath, hecha: $("ses-hecha").checked, updated_at: new Date().toISOString()
-      }, { onConflict: 'paciente_id,numero' });
+        observaciones: (cur.docs.val ? docPersist('val') : ($("ses-obs").value.trim() || null)), foto_path: newPath, hecha: $("ses-hecha").checked, updated_at: new Date().toISOString()
+      };
+      if (cur.docs.inf) row.informe = docPersist('inf');
+      return supabaseClient.from('tratamientos_sesiones').upsert(row, { onConflict: 'paciente_id,numero' });
     }).then(throwIfError).then(function(){
       if (oldPath && oldPath !== newPath) bucket.remove([oldPath]);
       $("ses-dialog").close();
@@ -2468,14 +2547,14 @@
   // Nueva patología: primero se elige Esquema o Libre; eso desbloquea el nombre y el resto del formulario.
   function paintPatNew(){
     var m = $("pn-modo").value, on = !!m;
-    $("pn-nombre").disabled = !on; $("pn-warm").disabled = !on; $("pn-plantilla").disabled = !on;
+    $("pn-nombre").disabled = !on; $("pn-warm").disabled = !on; $("pn-plantilla").disabled = !on; $("pn-plantilla-inf").disabled = !on;
     $("pn-hint").textContent = m === 'libre'
       ? 'Libre: tú repartes los ejercicios (del catálogo) en las sesiones 1 a 15; pueden repetirse y no hay límite por sesión.'
       : (m === 'esquema' ? 'Esquema: ejercicios base para todas las sesiones y un extra nuevo en las sesiones 3, 7, 10 y 13.' : 'Elige primero el tipo de protocolo.');
     $("pn-crear").disabled = !on || !$("pn-nombre").value.trim();
   }
   $("pat-new-open").addEventListener("click", function(){
-    $("pn-modo").value = ''; $("pn-nombre").value = ''; $("pn-plantilla").value = ''; $("pn-warm").value = 15;
+    $("pn-modo").value = ''; $("pn-nombre").value = ''; $("pn-plantilla").value = ''; $("pn-plantilla-inf").value = ''; $("pn-warm").value = 15;
     paintPatNew(); $("patnew-dialog").showModal();
   });
   $("pn-modo").addEventListener("change", function(){ paintPatNew(); if ($("pn-modo").value) $("pn-nombre").focus(); });
@@ -2485,7 +2564,7 @@
     var nombre = $("pn-nombre").value.trim(), modo = $("pn-modo").value; if (!nombre || !modo) return;
     var warm = Number($("pn-warm").value); if (!(warm >= 0)) warm = 15;
     $("pn-crear").disabled = true;
-    supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre, modo: modo, calentamiento_min: warm, plantilla_valoracion: $("pn-plantilla").value.trim() || null }).select().then(throwIfError).then(function(res){
+    supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre, modo: modo, calentamiento_min: warm, plantilla_valoracion: $("pn-plantilla").value.trim() || null, plantilla_informe: $("pn-plantilla-inf").value.trim() || null }).select().then(throwIfError).then(function(res){
       $("patnew-dialog").close();
       return loadAndRender().then(function(){ if (res.data && res.data[0]) openPatEdit(res.data[0].id); });
     }).catch(function(err){ showError('No se pudo crear: ' + err.message); $("pn-crear").disabled = false; });
@@ -2498,7 +2577,7 @@
   function openPatEdit(id){
     var pt = patById(id); if (!pt) return;
     patEditId = id;
-    $("pe-nombre").value = pt.nombre; $("pe-warm").value = pt.calentamiento; $("pe-modo").value = pt.modo; $("pe-plantilla").value = pt.plantilla || '';
+    $("pe-nombre").value = pt.nombre; $("pe-warm").value = pt.calentamiento; $("pe-modo").value = pt.modo; $("pe-plantilla").value = pt.plantilla || ''; $("pe-plantilla-inf").value = pt.plantillaInf || '';
     paintPeHint(); renderPatEx();
     if (!$("patedit-dialog").open) $("patedit-dialog").showModal();
   }
@@ -2566,7 +2645,7 @@
   $("pe-save").addEventListener("click", function(){
     var nombre = $("pe-nombre").value.trim(); if (!nombre){ toast('Falta el nombre'); return; }
     var warm = Number($("pe-warm").value); if (!(warm >= 0)) warm = 15;
-    supabaseClient.from('tratamientos_patologias').update({ nombre: nombre, calentamiento_min: warm, modo: $("pe-modo").value, plantilla_valoracion: $("pe-plantilla").value.trim() || null }).eq('id', patEditId)
+    supabaseClient.from('tratamientos_patologias').update({ nombre: nombre, calentamiento_min: warm, modo: $("pe-modo").value, plantilla_valoracion: $("pe-plantilla").value.trim() || null, plantilla_informe: $("pe-plantilla-inf").value.trim() || null }).eq('id', patEditId)
       .then(throwIfError).then(function(){ $("patedit-dialog").close(); toast('Patología guardada'); return loadAndRender(); })
       .catch(function(err){ showError('No se pudo guardar: ' + err.message); });
   });
