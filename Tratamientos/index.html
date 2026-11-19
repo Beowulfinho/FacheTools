@@ -1303,7 +1303,7 @@
       var cur = !p.terminado ? currentSession(p) : null;
       if (cur) main.appendChild(el('div', 'pac-note', cur));
     }
-    main.addEventListener('click', function(){ if (info) openSession(p.id, info.numero); else openEdit(p.id); });
+    main.addEventListener('click', function(){ if (info) openSession(p.id, info.numero); else openPersona(p.personaId); });   // sin sesión: ficha del paciente (lista de paquetes), aunque tenga uno solo
     var chk = el('button', 'check-btn');
     chk.type = 'button';
     chk.innerHTML = CHECK_SVG;
