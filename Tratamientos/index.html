@@ -383,7 +383,7 @@
     border: 1px solid var(--line); border-radius: 8px; padding: 10px 11px; min-width: 0;
   }
   .date-btn:disabled { opacity: 0.6; cursor: default; }
-  #edit-dialog, #ses-dialog, #ses-list-dialog, #pat-dialog, #patedit-dialog, #ex-dialog { margin: 5vh auto auto; max-height: 90vh; overflow-y: auto; }
+  #edit-dialog, #ses-dialog, #ses-list-dialog, #pat-dialog, #patedit-dialog, #ex-dialog, #cat-dialog, #catpick-dialog { margin: 5vh auto auto; max-height: 90vh; overflow-y: auto; }
   .dias { display: flex; gap: 6px; }
   .dias button {
     flex: 1; padding: 9px 0; border: 1px solid var(--line); border-radius: 9px; background: var(--paper);
@@ -447,6 +447,18 @@
   .grp-head { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px; }
   .grp-head h3 { margin: 0; font-size: 13px; font-family: 'Archivo', sans-serif; }
   .grp-head .btn { padding: 5px 10px; font-size: 12.5px; }
+  #cp-list { max-height: 50vh; overflow-y: auto; margin-top: 8px; }
+  .lib-ses { border: 1px solid var(--line); border-radius: 10px; margin: 6px 0; background: var(--paper); }
+  .lib-ses > summary { padding: 9px 12px; cursor: pointer; font-weight: 600; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; }
+  .lib-ses .lib-n { font-weight: 500; color: var(--ink-faint); font-size: 12.5px; }
+  .lib-ses .lib-body { padding: 0 12px 10px; }
+  .lib-item { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); }
+  .lib-item .lib-t { flex: 1; min-width: 0; font-size: 13.5px; }
+  .lib-item .lib-t small { display: block; color: var(--ink-faint); }
+  .lib-item .btn, .lib-body > .btn { padding: 5px 10px; font-size: 12.5px; }
+  .lib-body > .btn { margin-top: 6px; }
+  .ex-info { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; background: var(--paper); font-size: 13.5px; }
+  .ex-info small { display: block; color: var(--ink-faint); margin-top: 3px; }
 
   /* Tema oscuro forzado desde Configuración (el automático sigue al celular) */
   :root[data-theme="dark"] {
@@ -679,12 +691,19 @@
     <!-- ===== Página: Protocolos (patologías y ejercicios) ===== -->
     <div class="tab-page" id="page-pat" hidden>
       <div class="cal-head"><span class="cal-title">Protocolos</span></div>
-      <p class="set-hint">Cada patología tiene su calentamiento, sus ejercicios base y los extras que se suman en las sesiones 3, 7, 10 y 13.</p>
+      <p class="set-hint">Cada patología tiene su calentamiento y sus ejercicios, que salen del catálogo. «Esquema»: ejercicios base y extras que se suman en las sesiones 3, 7, 10 y 13. «Libre»: tú repartes los ejercicios en las sesiones 1 a 15.</p>
+      <button type="button" class="btn" id="cat-open" style="width:100%; margin-bottom:10px;">Catálogo de ejercicios</button>
       <div id="pat-list"></div>
       <div class="capture" style="margin-top:14px;">
         <div class="field">
           <label for="pat-new-name">Nueva patología</label>
           <input type="text" id="pat-new-name" placeholder="Ej. Lumbalgia" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Tipo de protocolo</label>
+          <div class="seg" id="pat-new-modo" role="group" aria-label="Tipo de protocolo" data-def="esquema">
+            <button type="button" data-v="esquema" class="on">Esquema</button><button type="button" data-v="libre">Libre</button>
+          </div>
         </div>
         <button type="button" class="btn btn-primary add-btn" id="pat-new-btn" style="margin-top:8px;">Crear patología</button>
       </div>
@@ -922,7 +941,7 @@
     <label>Fecha de la sesión</label>
     <div class="fecha-row">
       <button type="button" class="date-btn" id="ses-fecha"></button>
-      <button type="button" class="btn" id="ses-copiar" style="white-space:nowrap;">Copiar devolución</button>
+      <button type="button" class="btn" id="ses-copiar" style="white-space:nowrap;">Copiar evolución</button>
     </div>
   </div>
   <div id="ses-proto"></div>
@@ -961,8 +980,14 @@
 <dialog id="patedit-dialog">
   <h2>Patología</h2>
   <div class="field"><label for="pe-nombre">Nombre</label><input type="text" id="pe-nombre" autocomplete="off"></div>
+  <div class="field">
+    <label>Tipo de protocolo</label>
+    <div class="seg" id="pe-modo" role="group" aria-label="Tipo de protocolo" data-def="esquema">
+      <button type="button" data-v="esquema" class="on">Esquema</button><button type="button" data-v="libre">Libre</button>
+    </div>
+  </div>
   <div class="field"><label for="pe-warm">Calentamiento (minutos)</label><input type="number" id="pe-warm" min="0" max="120" inputmode="numeric"></div>
-  <p class="set-hint">Los extras se suman de forma acumulada desde su sesión (3, 7, 10 y 13). Si un extra tiene día de la semana, solo aplica ese día.</p>
+  <p class="set-hint" id="pe-hint"></p>
   <div id="pe-ex"></div>
   <div class="dlg-actions">
     <button type="button" class="btn btn-danger" id="pe-delete">Eliminar</button>
@@ -989,14 +1014,40 @@
       <option value="">Cualquier día</option><option value="1">Lunes</option><option value="2">Martes</option>
       <option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option>
     </select></div>
-  <div class="field"><label for="ex-desc">Descripción</label><textarea id="ex-desc"></textarea></div>
-  <div class="field"><label for="ex-acc">Accesorio</label><input type="text" id="ex-acc" autocomplete="off"></div>
-  <div class="field"><label for="ex-dosis">Series / repeticiones</label><input type="text" id="ex-dosis" autocomplete="off"></div>
+  <div class="field"><label>Ejercicio</label>
+    <div class="ex-info" id="ex-info"></div>
+    <button type="button" class="btn" id="ex-edit-cat" style="width:100%;">Editar ejercicio del catálogo</button>
+  </div>
   <div class="dlg-actions">
     <button type="button" class="btn btn-danger" id="ex-delete">Eliminar</button>
     <div class="right">
       <button type="button" class="btn" id="ex-cancel">Cancelar</button>
       <button type="button" class="btn btn-primary" id="ex-save">Guardar</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="catpick-dialog">
+  <div class="dlg-head"><h2 id="cp-title">Catálogo de ejercicios</h2>
+    <button type="button" class="dlg-x" id="cp-x" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <input type="text" class="search" id="cp-search" placeholder="Buscar ejercicio…" autocomplete="off" style="margin-bottom:0;">
+  <div id="cp-list"></div>
+  <button type="button" class="btn btn-primary" id="cp-new" style="width:100%; margin-top:10px;">Nuevo ejercicio</button>
+</dialog>
+
+<dialog id="cat-dialog">
+  <h2 id="cat-title">Ejercicio</h2>
+  <div class="field"><label for="cat-nombre">Nombre</label><input type="text" id="cat-nombre" autocomplete="off"></div>
+  <div class="field"><label for="cat-desc">Descripción</label><textarea id="cat-desc"></textarea></div>
+  <div class="field"><label for="cat-acc">Accesorio</label><input type="text" id="cat-acc" autocomplete="off"></div>
+  <div class="field"><label for="cat-dosis">Series / repeticiones</label><input type="text" id="cat-dosis" autocomplete="off"></div>
+  <p class="set-hint" id="cat-hint">Los cambios se aplican en todas las patologías que usan este ejercicio.</p>
+  <div class="dlg-actions">
+    <button type="button" class="btn btn-danger" id="cat-delete">Eliminar</button>
+    <div class="right">
+      <button type="button" class="btn" id="cat-cancel">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="cat-save">Guardar</button>
     </div>
   </div>
 </dialog>
@@ -1105,6 +1156,8 @@
       renderPatSelects(); render(); scheduleNotifications();
       if ($("ses-list-dialog").open) renderSesList();
       if ($("patedit-dialog").open) renderPatEx();
+      if ($("ex-dialog").open) paintExInfo();
+      if ($("catpick-dialog").open) renderCatPick();
       if (!$("page-pat").hidden) renderPatList();
       if (!$("page-dash").hidden) renderDash();
     }).catch(function(err){
@@ -1188,7 +1241,7 @@
     if (info){
       main.appendChild(el('span', 'badge-inf ses', 'Sesión ' + info.numero + (p.total ? ' de ' + p.total : '')));
       main.appendChild(el('span', 'badge-inf ' + tag[1], tag[0])); // informe: siempre visible, haya o no ejercicio extra
-      if (info.numero === 2) main.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
+      if (info.numero === 2 && !esLibre(p)) main.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
       if (info.hecha) main.appendChild(el('span', 'badge-inf done', 'Realizada'));
       if (info.hito){
         row.classList.add('extra-ses');
@@ -1225,7 +1278,7 @@
 
   // Datos de una sesión para pintarla: número, si ya se hizo y el ejercicio extra nuevo (sesiones 3, 7, 10, 13).
   function sesInfo(p, s){
-    var x = extraNuevo(p, s.numero, s.fecha), esHito = HITOS.indexOf(s.numero) !== -1;
+    var libre = esLibre(p), x = libre ? null : extraNuevo(p, s.numero, s.fecha), esHito = !libre && HITOS.indexOf(s.numero) !== -1;
     return {
       numero: s.numero, fecha: s.fecha, hecha: !!((sesMap[p.id] || {})[s.numero] || {}).hecha, hito: esHito,
       extra: x ? (x.all ? 'Elige uno: ' : '') + extraText(x) : (esHito ? 'Ejercicio extra nuevo (sin ejercicio cargado en el protocolo)' : '')
@@ -1759,12 +1812,12 @@
     var today = todayStr(), counts = {};
     Array.prototype.forEach.call($("cal-filters").querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.f === calFilter); });
     var filtering = calFilter !== 'all';
-    function pasa(n){ return calFilter === 'all' || (calFilter === 'extra' ? HITOS.indexOf(n) !== -1 : n === Number(calFilter)); }
+    function pasa(n, p){ return calFilter === 'all' || (calFilter === 'extra' ? (HITOS.indexOf(n) !== -1 && !esLibre(p)) : n === Number(calFilter)); }
     // Con agenda: cuenta las sesiones de cada día (con filtro, solo las que pasan). Sin agenda (pacientes antiguos): el día de fin.
     pacientes.forEach(function(p){
       if (p.terminado) return;
       var sc = scheduleOf(p);
-      if (sc) sc.forEach(function(s){ if (pasa(s.numero)) counts[s.fecha] = (counts[s.fecha] || 0) + 1; });
+      if (sc) sc.forEach(function(s){ if (pasa(s.numero, p)) counts[s.fecha] = (counts[s.fecha] || 0) + 1; });
       else if (!filtering) counts[p.fechaFin] = (counts[p.fechaFin] || 0) + 1;
     });
     var html = '';
@@ -1786,7 +1839,7 @@
         var dayItems = [];
         pacientes.forEach(function(p){
           var sc = p.terminado ? null : scheduleOf(p); if (!sc) return;
-          sc.forEach(function(s){ if (s.fecha === d && pasa(s.numero)) dayItems.push({ p: p, info: sesInfo(p, s) }); });
+          sc.forEach(function(s){ if (s.fecha === d && pasa(s.numero, p)) dayItems.push({ p: p, info: sesInfo(p, s) }); });
         });
         if (!dayItems.length) continue;
         total += dayItems.length;
@@ -1836,17 +1889,23 @@
   var AVISO_SESIONES = [2, 3, 7, 10, 13]; // sesiones que la app destaca y avisa
   var DIAS_CHIP = [[1, 'L'], [2, 'M'], [3, 'X'], [4, 'J'], [5, 'V'], [6, 'S'], [0, 'D']];
   var DIAS_LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  var patologias = [], ejercicios = [], sesMap = {};
+  var patologias = [], ejercicios = [], catalogo = [], sesMap = {};
+  function catById(id){ return catalogo.filter(function(c){ return c.id === id; })[0] || null; }
+  function cap1(t){ t = String(t || '').trim(); return t.charAt(0).toUpperCase() + t.slice(1); }
 
   function loadPatologias(){
     return Promise.all([
       supabaseClient.from('tratamientos_patologias').select('*').eq('user_id', viewId).is('deleted_at', null).order('nombre'),
-      supabaseClient.from('tratamientos_ejercicios').select('*').eq('user_id', viewId).is('deleted_at', null).order('orden')
+      supabaseClient.from('tratamientos_ejercicios').select('*').eq('user_id', viewId).is('deleted_at', null).order('orden'),
+      supabaseClient.from('tratamientos_catalogo').select('*').eq('user_id', viewId).is('deleted_at', null).order('nombre')
     ]).then(function(r){
-      throwIfError(r[0]); throwIfError(r[1]);
-      patologias = (r[0].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, calentamiento: x.calentamiento_min }; });
+      throwIfError(r[0]); throwIfError(r[1]); throwIfError(r[2]);
+      catalogo = (r[2].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, descripcion: x.descripcion, accesorio: x.accesorio, dosis: x.dosis }; });
+      patologias = (r[0].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, calentamiento: x.calentamiento_min, modo: x.modo === 'libre' ? 'libre' : 'esquema' }; });
       ejercicios = (r[1].data || []).map(function(x){
-        return { id: x.id, patologiaId: x.patologia_id, tipo: x.tipo, hito: x.sesion_hito, dia: x.dia_semana, nombre: x.nombre, descripcion: x.descripcion, accesorio: x.accesorio, dosis: x.dosis, orden: x.orden };
+        var c = x.catalogo_id ? catById(x.catalogo_id) : null;   // el catálogo manda sobre las copias guardadas en la fila
+        return { id: x.id, patologiaId: x.patologia_id, tipo: x.tipo, hito: x.sesion_hito, dia: x.dia_semana, catId: c ? c.id : null,
+          nombre: c ? c.nombre : x.nombre, descripcion: c ? c.descripcion : x.descripcion, accesorio: c ? c.accesorio : x.accesorio, dosis: c ? c.dosis : x.dosis, orden: x.orden };
       });
     });
   }
@@ -1862,6 +1921,7 @@
     });
   }
   function patById(id){ return patologias.filter(function(x){ return x.id === id; })[0] || null; }
+  function esLibre(p){ var pt = p && patById(p.patologiaId); return !!pt && pt.modo === 'libre'; }
   function pacById(id){ return pacientes.filter(function(x){ return x.id === id; })[0] || null; }
 
   // Fechas de las sesiones: la 1ª es el primer día de asistencia desde el inicio; cada una siguiente, el
@@ -2059,7 +2119,7 @@
   // --- Protocolo de una sesión ---
   function exLine(e){
     var d = el('div', 'ex-line');
-    d.appendChild(el('b', null, e.nombre));
+    d.appendChild(el('b', null, cap1(e.nombre)));
     var bits = [e.accesorio ? 'Accesorio: ' + e.accesorio : '', e.dosis || ''].filter(Boolean).join(' · ');
     if (e.descripcion) d.appendChild(el('small', null, e.descripcion));
     if (bits) d.appendChild(el('small', null, bits));
@@ -2067,12 +2127,18 @@
   }
   function buildProtocol(p, numero, fecha){
     var box = el('div', 'proto');
-    if (numero === 1){ box.appendChild(el('p', null, 'Sesión 1: valoración.')); return box; }
     var pat = patById(p.patologiaId);
+    var libre = pat && pat.modo === 'libre', lib = libre ? libreDe(pat.id, numero) : [];
+    if (numero === 1 && !lib.length){ box.appendChild(el('p', null, 'Sesión 1: valoración.')); return box; }
     if (!pat){ box.appendChild(el('p', null, 'Asigna una patología en la ficha del paciente para ver el protocolo de esta sesión.')); return box; }
-    var ex = ejercicios.filter(function(e){ return e.patologiaId === pat.id; });
     box.appendChild(el('h3', null, 'Calentamiento · ' + pat.nombre));
     box.appendChild(el('p', null, pat.calentamiento + ' minutos'));
+    if (libre){
+      if (!lib.length) box.appendChild(el('p', null, 'Esta sesión no tiene ejercicios asignados en el protocolo.'));
+      else { box.appendChild(el('h3', null, 'Ejercicios de la sesión ' + numero)); lib.forEach(function(e){ box.appendChild(exLine(e)); }); }
+      return box;
+    }
+    var ex = ejercicios.filter(function(e){ return e.patologiaId === pat.id; });
     var base = ex.filter(function(e){ return e.tipo === 'base'; });
     if (base.length){ box.appendChild(el('h3', null, 'Ejercicios base')); base.forEach(function(e){ box.appendChild(exLine(e)); }); }
     var dow = parseIso(fecha).getDay();
@@ -2089,11 +2155,17 @@
     });
     return box;
   }
+  // Ejercicios asignados a una sesión de un protocolo libre (en orden).
+  function libreDe(patId, numero){
+    return ejercicios.filter(function(e){ return e.patologiaId === patId && e.tipo === 'libre' && e.hito === numero; })
+      .sort(function(a, b){ return (a.orden || 0) - (b.orden || 0); });
+  }
 
-  // Devolución (evolución) de la sesión, para pegar en el sistema de la empresa: sin bullets, ejercicios separados por " / ".
-  function devolucionText(p, numero, fecha){
-    var pat = patById(p.patologiaId); if (!pat) return null;
-    var flat = function(t){ return String(t || '').replace(/\s*[\r\n]+\s*/g, ' ').replace(/\s+/g, ' ').trim(); };
+  // Evolución de la sesión, para pegar en el sistema de la empresa: sin bullets, ejercicios separados por " / ".
+  // Devuelve null sin patología; list vacío si la sesión no tiene ejercicios (valoración).
+  function sesEjList(pat, numero, fecha){
+    if (pat.modo === 'libre') return libreDe(pat.id, numero);
+    if (numero === 1) return [];
     var ex = ejercicios.filter(function(e){ return e.patologiaId === pat.id; }), list = [];
     ex.filter(function(e){ return e.tipo === 'base'; }).forEach(function(e){ list.push(e); });
     var dow = parseIso(fecha).getDay();
@@ -2105,10 +2177,15 @@
       if (!pick.length) pick = opts.filter(function(e){ return e.dia == null; });
       (pick.length ? pick : opts).forEach(function(e){ list.push(e); });
     });
-    var items = ['Calentamiento'].concat(list.map(function(e){
-      return [e.nombre, e.descripcion, e.accesorio, e.dosis].map(flat).filter(Boolean).join(', ');
+    return list;
+  }
+  function evolucionText(p, numero, fecha){
+    var pat = patById(p.patologiaId); if (!pat) return null;
+    var flat = function(t){ return String(t || '').replace(/\s*[\r\n]+\s*/g, ' ').replace(/\s+/g, ' ').trim(); };
+    var items = ['Calentamiento'].concat(sesEjList(pat, numero, fecha).map(function(e){
+      return [cap1(flat(e.nombre)), flat(e.descripcion), flat(e.accesorio), flat(e.dosis)].filter(Boolean).join(', ');
     }));
-    return 'ingresa usuario en buenas condiciones generales en sesión de terápia acuática, realizando:\n' + items.join(' / ') + '\nfinaliza sesión sin complicaciones';
+    return 'Ingresa usuario en buenas condiciones generales en sesión de terápia acuática, realizando:\n' + items.join(' / ') + '\nfinaliza sesión sin complicaciones';
   }
   function copyText(t){
     if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
@@ -2138,7 +2215,8 @@
       b.type = 'button';
       b.appendChild(el('div', 'ses-t', 'Sesión ' + s.numero + (s.numero === 1 ? ' · valoración' : '') + ' · ' + longDate(s.fecha)));
       var tags = el('div');
-      if (HITOS.indexOf(s.numero) !== -1) tags.appendChild(el('span', 'badge-inf hito', 'Ejercicio nuevo'));
+      if (esLibre(p)) { /* protocolo libre: sin hitos */ }
+      else if (HITOS.indexOf(s.numero) !== -1) tags.appendChild(el('span', 'badge-inf hito', 'Ejercicio nuevo'));
       else if (s.numero === 2) tags.appendChild(el('span', 'badge-inf hito', 'Inicia ejercicios'));
       if (d.hecha) tags.appendChild(el('span', 'badge-inf done', 'Realizada'));
       if (d.obs) tags.appendChild(el('span', 'badge-inf ses', 'Con notas'));
@@ -2216,10 +2294,11 @@
   $("ses-ficha").addEventListener("click", function(){ if (ses) openEdit(ses.pid); });
   $("ses-copiar").addEventListener("click", function(){
     if (!ses) return;
-    if (ses.numero === 1){ toast('La sesión 1 es la valoración: no tiene devolución de ejercicios'); return; }
-    var t = devolucionText(pacById(ses.pid), ses.numero, sesDate());
-    if (!t){ toast('Asigna una patología al paquete para generar la devolución'); return; }
-    copyText(t).then(function(){ toast('Devolución copiada'); }, function(){ toast('No se pudo copiar'); });
+    var pp = pacById(ses.pid), pt = pp && patById(pp.patologiaId);
+    if (ses.numero === 1 && (!pt || !sesEjList(pt, 1, sesDate()).length)){ toast('La sesión 1 es la valoración: no tiene evolución de ejercicios'); return; }
+    var t = evolucionText(pp, ses.numero, sesDate());
+    if (!t){ toast('Asigna una patología al paquete para generar la evolución'); return; }
+    copyText(t).then(function(){ toast('Evolución copiada'); }, function(){ toast('No se pudo copiar'); });
   });
   $("ses-cancel").addEventListener("click", function(){ $("ses-dialog").close(); });
   $("ses-save").addEventListener("click", function(){
@@ -2247,62 +2326,189 @@
       .then(function(){ btn.disabled = false; });
   });
 
+  // --- Control de dos opciones de texto (Esquema / Libre): .value es 'esquema' o 'libre' ---
+  function enhanceModo(box){
+    var val = box.dataset.def || 'esquema';
+    function paint(){ Array.prototype.forEach.call(box.querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.v === val); }); }
+    Object.defineProperty(box, 'value', { get: function(){ return val; }, set: function(v){ val = v === 'libre' ? 'libre' : 'esquema'; paint(); } });
+    box.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b || b.dataset.v === val) return;
+      val = b.dataset.v; paint(); box.dispatchEvent(new Event('change'));
+    });
+    paint();
+  }
+  enhanceModo($("pat-new-modo")); enhanceModo($("pe-modo"));
+
+  // --- Catálogo de ejercicios ---
+  var catEditId = null, catThen = null, pickCb = null;
+  function renderCatPick(){
+    var q = norm($("cp-search").value.trim()), box = $("cp-list"); box.innerHTML = '';
+    var list = catalogo.filter(function(c){ return !q || norm(c.nombre + ' ' + (c.accesorio || '')).indexOf(q) !== -1; });
+    if (!list.length) box.appendChild(el('div', 'empty', catalogo.length ? 'Ningún ejercicio coincide con esa búsqueda.' : 'Aún no hay ejercicios. Crea el primero con «Nuevo ejercicio».'));
+    list.forEach(function(c){
+      var b = el('button', 'ses-row'); b.type = 'button';
+      b.appendChild(el('div', 'ses-t', cap1(c.nombre)));
+      var sub = [c.accesorio, c.dosis].filter(Boolean).join(' · ');
+      if (sub) b.appendChild(el('div', 'pac-note', sub));
+      b.addEventListener('click', function(){
+        if (pickCb){ var cb = pickCb; pickCb = null; $("catpick-dialog").close(); cb(c); }
+        else openCat(c.id);
+      });
+      box.appendChild(b);
+    });
+  }
+  function openCatPick(cb){
+    pickCb = cb || null;
+    $("cp-title").textContent = cb ? 'Elegir ejercicio' : 'Catálogo de ejercicios';
+    $("cp-search").value = ''; renderCatPick();
+    if (!$("catpick-dialog").open) $("catpick-dialog").showModal();
+  }
+  $("cat-open").addEventListener("click", function(){ openCatPick(null); });
+  $("cp-search").addEventListener("input", renderCatPick);
+  $("cp-x").addEventListener("click", function(){ pickCb = null; $("catpick-dialog").close(); });
+  $("catpick-dialog").addEventListener("click", function(e){ if (e.target === $("catpick-dialog")){ pickCb = null; $("catpick-dialog").close(); } });
+  $("cp-new").addEventListener("click", function(){ openCat(null, pickCb); });
+  function openCat(id, then){
+    catEditId = id; catThen = then || null;
+    var c = id ? catById(id) : null;
+    $("cat-title").textContent = c ? 'Editar ejercicio' : 'Nuevo ejercicio';
+    $("cat-nombre").value = c ? c.nombre : '';
+    $("cat-desc").value = c ? (c.descripcion || '') : '';
+    $("cat-acc").value = c ? (c.accesorio || '') : '';
+    $("cat-dosis").value = c ? (c.dosis || '') : '';
+    $("cat-delete").hidden = !c; $("cat-hint").hidden = !c;
+    $("cat-dialog").showModal();
+  }
+  $("cat-cancel").addEventListener("click", function(){ $("cat-dialog").close(); });
+  $("cat-save").addEventListener("click", function(){
+    var nombre = $("cat-nombre").value.trim(); if (!nombre){ toast('Falta el nombre'); return; }
+    var vals = { nombre: nombre, descripcion: $("cat-desc").value.trim() || null, accesorio: $("cat-acc").value.trim() || null, dosis: $("cat-dosis").value.trim() || null };
+    var id = catEditId, then = catThen, q;
+    if (id){
+      // las copias guardadas en cada ejercicio de patología se mantienen al día (la app vieja en caché las lee)
+      q = supabaseClient.from('tratamientos_catalogo').update(vals).eq('id', id).then(throwIfError).then(function(){
+        return supabaseClient.from('tratamientos_ejercicios').update(vals).eq('catalogo_id', id).then(throwIfError);
+      }).then(function(){ return id; });
+    } else {
+      q = supabaseClient.from('tratamientos_catalogo').insert(Object.assign({ user_id: viewId }, vals)).select().then(throwIfError).then(function(res){ return res.data[0].id; });
+    }
+    q.then(function(newId){
+      $("cat-dialog").close();
+      return loadAndRender().then(function(){
+        if (!id && then){ var c = catById(newId); if (c){ if ($("catpick-dialog").open) $("catpick-dialog").close(); pickCb = null; then(c); } }
+      });
+    }).catch(function(err){ showError('No se pudo guardar el ejercicio: ' + err.message); });
+  });
+  $("cat-delete").addEventListener("click", function(){
+    var id = catEditId, c = catById(id); if (!c) return;
+    askConfirm('¿Eliminar «' + cap1(c.nombre) + '» del catálogo? Las patologías que ya lo usan lo conservan. Podrás recuperarlo desde la papelera.').then(function(ok){
+      if (!ok) return;
+      supabaseClient.from('tratamientos_catalogo').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+        .then(throwIfError).then(function(){ $("cat-dialog").close(); return loadAndRender(); })
+        .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
+    });
+  });
+
   // --- Patologías y ejercicios (editor) ---
-  var patEditId = null, exEditId = null, exPat = null;
+  var patEditId = null, exEditId = null, exCatId = null, libreOpen = {};
+  var LIBRE_SESIONES = 15;
   function renderPatList(){
     var root = $("pat-list"); root.innerHTML = '';
     if (!patologias.length) root.appendChild(el('div', 'empty', 'Aún no hay patologías.'));
     patologias.forEach(function(pt){
-      var n = ejercicios.filter(function(e){ return e.patologiaId === pt.id; }).length;
+      var n = ejercicios.filter(function(e){ return e.patologiaId === pt.id && (pt.modo === 'libre' ? e.tipo === 'libre' : e.tipo !== 'libre'); }).length;
       var b = el('button', 'ses-row');
       b.type = 'button';
       b.appendChild(el('div', 'ses-t', pt.nombre));
-      b.appendChild(el('div', 'pac-note', n + (n === 1 ? ' ejercicio' : ' ejercicios') + ' · calentamiento ' + pt.calentamiento + ' min'));
+      b.appendChild(el('div', 'pac-note', (pt.modo === 'libre' ? 'Libre' : 'Esquema') + ' · ' + n + (n === 1 ? ' ejercicio' : ' ejercicios') + ' · calentamiento ' + pt.calentamiento + ' min'));
       b.addEventListener('click', function(){ openPatEdit(pt.id); });
       root.appendChild(b);
     });
   }
   $("pat-new-btn").addEventListener("click", function(){
     var nombre = $("pat-new-name").value.trim(); if (!nombre) return;
-    supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre }).select().then(throwIfError).then(function(res){
-      $("pat-new-name").value = '';
+    supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre, modo: $("pat-new-modo").value }).select().then(throwIfError).then(function(res){
+      $("pat-new-name").value = ''; $("pat-new-modo").value = 'esquema';
       return loadAndRender().then(function(){ if (res.data && res.data[0]) openPatEdit(res.data[0].id); });
     }).catch(function(err){ showError('No se pudo crear: ' + err.message); });
   });
+  function paintPeHint(){
+    $("pe-hint").textContent = $("pe-modo").value === 'libre'
+      ? 'Reparte los ejercicios en las sesiones 1 a 15; un mismo ejercicio puede repetirse y no hay límite por sesión. Los ejercicios salen del catálogo.'
+      : 'Los extras se suman de forma acumulada desde su sesión (3, 7, 10 y 13). Si un extra tiene día de la semana, solo aplica ese día.';
+  }
   function openPatEdit(id){
     var pt = patById(id); if (!pt) return;
     patEditId = id;
-    $("pe-nombre").value = pt.nombre; $("pe-warm").value = pt.calentamiento;
-    renderPatEx();
+    $("pe-nombre").value = pt.nombre; $("pe-warm").value = pt.calentamiento; $("pe-modo").value = pt.modo;
+    paintPeHint(); renderPatEx();
     if (!$("patedit-dialog").open) $("patedit-dialog").showModal();
   }
+  $("pe-modo").addEventListener("change", function(){ paintPeHint(); renderPatEx(); });
+  function exSub(e){ return [e.dia ? DIAS_LARGO[e.dia] : (e.tipo === 'extra' ? 'Cualquier día' : ''), e.dosis || ''].filter(Boolean).join(' · '); }
   function renderPatEx(){
     var root = $("pe-ex"); root.innerHTML = '';
     var ex = ejercicios.filter(function(e){ return e.patologiaId === patEditId; });
+    if ($("pe-modo").value === 'libre') return renderLibre(root, ex.filter(function(e){ return e.tipo === 'libre'; }));
     [[0, 'Ejercicios base']].concat(HITOS.map(function(h){ return [h, 'Extra de la sesión ' + h]; })).forEach(function(g){
       var head = el('div', 'grp-head');
       head.appendChild(el('h3', null, g[1]));
       var add = el('button', 'btn', 'Agregar'); add.type = 'button';
-      add.addEventListener('click', function(){ openEx(null, g[0]); });
+      add.addEventListener('click', function(){ openCatPick(function(c){ openEx(null, g[0], c.id); }); });
       head.appendChild(add);
       root.appendChild(head);
       var list = ex.filter(function(e){ return g[0] === 0 ? e.tipo === 'base' : (e.tipo === 'extra' && e.hito === g[0]); });
       if (!list.length) root.appendChild(el('div', 'pac-note', 'Sin ejercicios.'));
       list.forEach(function(e){
         var b = el('button', 'ses-row'); b.type = 'button';
-        b.appendChild(el('div', 'ses-t', e.nombre));
-        var sub = [e.dia ? DIAS_LARGO[e.dia] : (e.tipo === 'extra' ? 'Cualquier día' : ''), e.dosis || ''].filter(Boolean).join(' · ');
+        b.appendChild(el('div', 'ses-t', cap1(e.nombre)));
+        var sub = exSub(e);
         if (sub) b.appendChild(el('div', 'pac-note', sub));
         b.addEventListener('click', function(){ openEx(e.id, g[0]); });
         root.appendChild(b);
       });
     });
   }
+  // Protocolo libre: 15 sesiones, cada una con los ejercicios que se quiera (del catálogo, repetibles).
+  function renderLibre(root, ex){
+    for (var n = 1; n <= LIBRE_SESIONES; n++) (function(n){
+      var list = ex.filter(function(e){ return e.hito === n; }).sort(function(a, b){ return (a.orden || 0) - (b.orden || 0); });
+      var d = el('details', 'lib-ses'); if (libreOpen[n]) d.open = true;
+      d.addEventListener('toggle', function(){ libreOpen[n] = d.open; });
+      var sm = el('summary'); sm.appendChild(el('span', null, 'Sesión ' + n)); sm.appendChild(el('span', 'lib-n', list.length ? list.length + (list.length === 1 ? ' ejercicio' : ' ejercicios') : 'Sin ejercicios'));
+      d.appendChild(sm);
+      var body = el('div', 'lib-body');
+      list.forEach(function(e){
+        var r = el('div', 'lib-item'), t = el('div', 'lib-t');
+        t.appendChild(el('b', null, cap1(e.nombre)));
+        var sub = [e.accesorio, e.dosis].filter(Boolean).join(' · ');
+        if (sub) t.appendChild(el('small', null, sub));
+        var q = el('button', 'btn btn-danger', 'Quitar'); q.type = 'button';
+        q.addEventListener('click', function(){
+          supabaseClient.from('tratamientos_ejercicios').delete().eq('id', e.id).then(throwIfError).then(loadAndRender)
+            .catch(function(err){ showError('No se pudo quitar: ' + err.message); });
+        });
+        r.appendChild(t); r.appendChild(q); body.appendChild(r);
+      });
+      var add = el('button', 'btn', 'Agregar ejercicio'); add.type = 'button';
+      add.addEventListener('click', function(){ openCatPick(function(c){ addLibre(n, c); }); });
+      body.appendChild(add);
+      d.appendChild(body); root.appendChild(d);
+    })(n);
+  }
+  function addLibre(n, c){
+    libreOpen[n] = true;
+    var orden = ejercicios.filter(function(e){ return e.patologiaId === patEditId; }).reduce(function(m, e){ return Math.max(m, e.orden || 0); }, 0) + 1;
+    supabaseClient.from('tratamientos_ejercicios').insert({
+      user_id: viewId, patologia_id: patEditId, tipo: 'libre', sesion_hito: n, dia_semana: null, catalogo_id: c.id,
+      nombre: c.nombre, descripcion: c.descripcion, accesorio: c.accesorio, dosis: c.dosis, orden: orden
+    }).then(throwIfError).then(loadAndRender).catch(function(err){ showError('No se pudo agregar el ejercicio: ' + err.message); });
+  }
   $("pe-cancel").addEventListener("click", function(){ $("patedit-dialog").close(); });
   $("pe-save").addEventListener("click", function(){
     var nombre = $("pe-nombre").value.trim(); if (!nombre){ toast('Falta el nombre'); return; }
     var warm = Number($("pe-warm").value); if (!(warm >= 0)) warm = 15;
-    supabaseClient.from('tratamientos_patologias').update({ nombre: nombre, calentamiento_min: warm }).eq('id', patEditId)
+    supabaseClient.from('tratamientos_patologias').update({ nombre: nombre, calentamiento_min: warm, modo: $("pe-modo").value }).eq('id', patEditId)
       .then(throwIfError).then(function(){ $("patedit-dialog").close(); toast('Patología guardada'); return loadAndRender(); })
       .catch(function(err){ showError('No se pudo guardar: ' + err.message); });
   });
@@ -2317,34 +2523,44 @@
         .catch(function(err){ showError('No se pudo eliminar: ' + err.message); });
     });
   });
-  function openEx(id, hito){
+  // Ejercicio de un esquema: el ejercicio (del catálogo) más dónde entra (tipo y día de la semana).
+  function openEx(id, hito, catId){
     exEditId = id;
     var e = id ? ejercicios.filter(function(x){ return x.id === id; })[0] : null;
-    $("ex-title").textContent = e ? 'Editar ejercicio' : 'Nuevo ejercicio';
-    $("ex-nombre").value = e ? e.nombre : '';
+    exCatId = e ? e.catId : (catId || null);
+    $("ex-title").textContent = e ? 'Editar ejercicio' : 'Agregar ejercicio';
     $("ex-hito").value = String(e ? (e.tipo === 'base' ? 0 : e.hito) : hito);
     $("ex-dia").value = e && e.dia ? String(e.dia) : '';
-    $("ex-desc").value = e ? (e.descripcion || '') : '';
-    $("ex-acc").value = e ? (e.accesorio || '') : '';
-    $("ex-dosis").value = e ? (e.dosis || '') : '';
     $("ex-delete").hidden = !e;
     $("ex-dia-box").hidden = $("ex-hito").value === '0';
+    paintExInfo();
     $("ex-dialog").showModal();
   }
+  function paintExInfo(){
+    var e = exEditId ? ejercicios.filter(function(x){ return x.id === exEditId; })[0] : null;
+    var src = e || catById(exCatId), box = $("ex-info"); box.innerHTML = '';
+    if (!src) return;
+    box.appendChild(el('b', null, cap1(src.nombre)));
+    if (src.descripcion) box.appendChild(el('small', null, src.descripcion));
+    var sub = [src.accesorio ? 'Accesorio: ' + src.accesorio : '', src.dosis || ''].filter(Boolean).join(' · ');
+    if (sub) box.appendChild(el('small', null, sub));
+    $("ex-edit-cat").hidden = !(e ? e.catId : exCatId);
+  }
+  $("ex-edit-cat").addEventListener("click", function(){
+    var e = exEditId ? ejercicios.filter(function(x){ return x.id === exEditId; })[0] : null;
+    var cid = e ? e.catId : exCatId; if (cid) openCat(cid);
+  });
   $("ex-hito").addEventListener("change", function(){ $("ex-dia-box").hidden = this.value === '0'; });
   $("ex-cancel").addEventListener("click", function(){ $("ex-dialog").close(); });
   $("ex-save").addEventListener("click", function(){
-    var nombre = $("ex-nombre").value.trim(); if (!nombre){ toast('Falta el nombre'); return; }
     var h = Number($("ex-hito").value), base = h === 0;
-    var row = {
-      tipo: base ? 'base' : 'extra', sesion_hito: base ? null : h, dia_semana: base ? null : (Number($("ex-dia").value) || null),
-      nombre: nombre, descripcion: $("ex-desc").value.trim() || null, accesorio: $("ex-acc").value.trim() || null, dosis: $("ex-dosis").value.trim() || null
-    };
+    var row = { tipo: base ? 'base' : 'extra', sesion_hito: base ? null : h, dia_semana: base ? null : (Number($("ex-dia").value) || null) };
     var q;
     if (exEditId) q = supabaseClient.from('tratamientos_ejercicios').update(row).eq('id', exEditId);
     else {
-      row.user_id = viewId; row.patologia_id = patEditId;
-      row.orden = ejercicios.filter(function(e){ return e.patologiaId === patEditId; }).length + 1;
+      var c = catById(exCatId); if (!c){ toast('Falta elegir el ejercicio'); return; }
+      Object.assign(row, { user_id: viewId, patologia_id: patEditId, catalogo_id: c.id, nombre: c.nombre, descripcion: c.descripcion, accesorio: c.accesorio, dosis: c.dosis,
+        orden: ejercicios.filter(function(e){ return e.patologiaId === patEditId; }).reduce(function(m, e){ return Math.max(m, e.orden || 0); }, 0) + 1 });
       q = supabaseClient.from('tratamientos_ejercicios').insert(row);
     }
     q.then(throwIfError).then(function(){ $("ex-dialog").close(); return loadAndRender(); })
@@ -2352,7 +2568,7 @@
   });
   $("ex-delete").addEventListener("click", function(){
     var id = exEditId;
-    askConfirm('¿Eliminar este ejercicio? Podrás recuperarlo desde la papelera.').then(function(ok){
+    askConfirm('¿Quitar este ejercicio de la patología? Podrás recuperarlo desde la papelera.').then(function(ok){
       if (!ok) return;
       supabaseClient.from('tratamientos_ejercicios').update({ deleted_at: new Date().toISOString() }).eq('id', id)
         .then(throwIfError).then(function(){ $("ex-dialog").close(); return loadAndRender(); })
@@ -2539,7 +2755,8 @@
     var T = function(t, cols){ return supabaseClient.from(t).select(cols).eq('user_id', viewId).not('deleted_at', 'is', null).order('deleted_at', { ascending: false }); };
     return Promise.all([T('tratamientos_pacientes', 'id,nombre,persona_id,deleted_at'), T('tratamientos_patologias', 'id,nombre,deleted_at'),
       T('tratamientos_ejercicios', 'id,nombre,patologia_id,deleted_at'), supabaseClient.from('tratamientos_patologias').select('id,nombre,deleted_at').eq('user_id', viewId),
-      supabaseClient.from('tratamientos_personas').select('id,nombre,deleted_at').eq('user_id', viewId)
+      supabaseClient.from('tratamientos_personas').select('id,nombre,deleted_at').eq('user_id', viewId),
+      T('tratamientos_catalogo', 'id,nombre,deleted_at')
     ]).then(function(r){
       r.forEach(throwIfError);
       var pnames = {}, pdel = {};
@@ -2560,6 +2777,7 @@
         if (pdel[x.patologia_id]) return;   // vuelve junto con su patología
         items.push({ t: 'tratamientos_ejercicios', kind: 'Ejercicio', id: x.id, name: x.nombre, sub: pnames[x.patologia_id] || '', at: x.deleted_at });
       });
+      (r[5].data || []).forEach(function(x){ items.push({ t: 'tratamientos_catalogo', kind: 'Ejercicio del catálogo', id: x.id, name: cap1(x.nombre), at: x.deleted_at }); });
       items.sort(function(a, b){ return a.at < b.at ? 1 : -1; });
       return items;
     });
