@@ -383,7 +383,7 @@
     border: 1px solid var(--line); border-radius: 8px; padding: 10px 11px; min-width: 0;
   }
   .date-btn:disabled { opacity: 0.6; cursor: default; }
-  #edit-dialog, #ses-dialog, #ses-list-dialog, #pat-dialog, #patedit-dialog, #ex-dialog, #cat-dialog, #catpick-dialog { margin: 5vh auto auto; max-height: 90vh; overflow-y: auto; }
+  #edit-dialog, #ses-dialog, #ses-list-dialog, #pat-dialog, #patedit-dialog, #ex-dialog, #cat-dialog, #catpick-dialog, #patnew-dialog { margin: 5vh auto auto; max-height: 90vh; overflow-y: auto; }
   .dias { display: flex; gap: 6px; }
   .dias button {
     flex: 1; padding: 9px 0; border: 1px solid var(--line); border-radius: 9px; background: var(--paper);
@@ -441,6 +441,16 @@
   }
   .ses-row.today { border-color: var(--accent); }
   .ses-row .ses-t { font-weight: 600; font-size: 14.5px; }
+  .ses-sub { font-size: 13px; color: var(--ink-faint); margin-top: 2px; }
+  .ses-sec { border: 1px solid var(--line); border-radius: 10px; margin: 12px 0; background: var(--paper); }
+  .ses-sec > summary { padding: 9px 12px; cursor: pointer; font-weight: 600; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; }
+  .ses-sec[open] > summary { border-bottom: 1px solid var(--line); }
+  .ses-sec > :not(summary) { margin-left: 12px; margin-right: 12px; }
+  .ses-sec > summary + * { margin-top: 10px; }
+  .ses-sec > :last-child { margin-bottom: 12px; }
+  .ses-sec .proto { border: none; background: none; padding: 0; margin-bottom: 0; }
+  .ses-nav { display: flex; gap: 8px; margin-top: 12px; }
+  .ses-nav .btn { flex: 1; padding: 9px 8px; font-size: 13.5px; }
   .ses-photo img { max-width: 100%; border-radius: 10px; display: block; margin-bottom: 6px; }
   .ses-photo-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .ses-photo-actions .btn { padding: 8px 12px; }
@@ -692,21 +702,9 @@
     <div class="tab-page" id="page-pat" hidden>
       <div class="cal-head"><span class="cal-title">Protocolos</span></div>
       <p class="set-hint">Cada patología tiene su calentamiento y sus ejercicios, que salen del catálogo. «Esquema»: ejercicios base y extras que se suman en las sesiones 3, 7, 10 y 13. «Libre»: tú repartes los ejercicios en las sesiones 1 a 15.</p>
+      <button type="button" class="btn btn-primary" id="pat-new-open" style="width:100%; margin-bottom:8px;">Nueva patología</button>
       <button type="button" class="btn" id="cat-open" style="width:100%; margin-bottom:10px;">Catálogo de ejercicios</button>
       <div id="pat-list"></div>
-      <div class="capture" style="margin-top:14px;">
-        <div class="field">
-          <label for="pat-new-name">Nueva patología</label>
-          <input type="text" id="pat-new-name" placeholder="Ej. Lumbalgia" autocomplete="off">
-        </div>
-        <div class="field">
-          <label>Tipo de protocolo</label>
-          <div class="seg" id="pat-new-modo" role="group" aria-label="Tipo de protocolo" data-def="esquema">
-            <button type="button" data-v="esquema" class="on">Esquema</button><button type="button" data-v="libre">Libre</button>
-          </div>
-        </div>
-        <button type="button" class="btn btn-primary add-btn" id="pat-new-btn" style="margin-top:8px;">Crear patología</button>
-      </div>
     </div>
 
     <!-- ===== Página: Dashboard ===== -->
@@ -936,32 +934,35 @@
 </dialog>
 
 <dialog id="ses-dialog">
-  <h2 id="ses-title">Sesión</h2>
-  <div class="field">
-    <label>Fecha de la sesión</label>
-    <div class="fecha-row">
-      <button type="button" class="date-btn" id="ses-fecha"></button>
-      <button type="button" class="btn" id="ses-copiar" style="white-space:nowrap;">Copiar evolución</button>
-    </div>
+  <div class="dlg-head">
+    <div><h2 id="ses-title">Sesión</h2><div class="ses-sub" id="ses-sub"></div></div>
+    <button type="button" class="dlg-x" id="ses-x" aria-label="Cerrar sin guardar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
-  <div id="ses-proto"></div>
-  <div class="field"><label for="ses-obs">Observaciones de la sesión</label><textarea id="ses-obs" placeholder="Escribe aquí cómo fue la sesión…"></textarea></div>
-  <div class="field">
-    <label>Foto</label>
+  <div class="fecha-row">
+    <button type="button" class="date-btn" id="ses-fecha" aria-label="Fecha de la sesión"></button>
+    <button type="button" class="btn" id="ses-copiar" style="white-space:nowrap;">Copiar evolución</button>
+  </div>
+  <details class="ses-sec" id="ses-proto-sec" open>
+    <summary>Protocolo</summary>
+    <div id="ses-proto"></div>
+  </details>
+  <div class="field"><label for="ses-obs">Observaciones</label><textarea id="ses-obs" placeholder="Escribe aquí cómo fue la sesión…"></textarea></div>
+  <details class="ses-sec" id="ses-foto-sec">
+    <summary>Foto <span class="lib-n" id="ses-foto-n"></span></summary>
     <div class="ses-photo" id="ses-photo"></div>
     <div class="ses-photo-actions">
       <button type="button" class="btn" id="ses-foto-btn">Tomar foto</button>
       <button type="button" class="btn btn-danger" id="ses-foto-del" hidden>Quitar foto</button>
     </div>
     <input type="file" id="ses-foto-file" accept="image/*" capture="environment" hidden>
-  </div>
+  </details>
   <label class="check-row"><input type="checkbox" id="ses-hecha"> Sesión realizada</label>
   <div class="fin-hint" id="ses-hecha-hint" hidden>Las sesiones futuras no se pueden marcar como realizadas.</div>
-  <button type="button" class="btn" id="ses-ficha" style="width:100%; margin-top:10px;">Ver ficha del paciente</button>
-  <div class="dlg-actions">
-    <button type="button" class="btn" id="ses-cancel">Cancelar</button>
-    <button type="button" class="btn btn-primary" id="ses-save">Guardar</button>
+  <div class="ses-nav">
+    <button type="button" class="btn" id="ses-ver">Ver sesiones</button>
+    <button type="button" class="btn" id="ses-ficha">Ficha del paciente</button>
   </div>
+  <div class="dlg-actions"><button type="button" class="btn btn-primary" id="ses-save" style="width:100%;">Guardar</button></div>
 </dialog>
 
 <dialog id="sel-dialog">
@@ -1025,6 +1026,22 @@
       <button type="button" class="btn btn-primary" id="ex-save">Guardar</button>
     </div>
   </div>
+</dialog>
+
+<dialog id="patnew-dialog">
+  <div class="dlg-head"><h2>Nueva patología</h2>
+    <button type="button" class="dlg-x" id="pn-x" aria-label="Cerrar sin guardar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="field">
+    <label>Tipo de protocolo</label>
+    <div class="seg" id="pn-modo" role="group" aria-label="Tipo de protocolo" data-def="">
+      <button type="button" data-v="esquema">Esquema</button><button type="button" data-v="libre">Libre</button>
+    </div>
+  </div>
+  <p class="set-hint" id="pn-hint">Elige primero el tipo de protocolo.</p>
+  <div class="field"><label for="pn-nombre">Nombre</label><input type="text" id="pn-nombre" placeholder="Ej. Lumbalgia" autocomplete="off" disabled></div>
+  <div class="field"><label for="pn-warm">Calentamiento (minutos)</label><input type="number" id="pn-warm" min="0" max="120" inputmode="numeric" value="15" disabled></div>
+  <div class="dlg-actions"><span></span><button type="button" class="btn btn-primary" id="pn-crear" disabled>Crear patología</button></div>
 </dialog>
 
 <dialog id="catpick-dialog">
@@ -2234,10 +2251,12 @@
   function openSession(pid, numero){
     var p = pacById(pid); if (!p) return;
     var d = (sesMap[pid] || {})[numero] || {};
-    ses = { pid: pid, numero: numero, hecha0: !!d.hecha, fechaOv: d.fecha || null, pendingBlob: null, delFoto: false, fotoPath: d.foto || null };
-    $("ses-title").textContent = 'Sesión ' + numero + (p.total ? ' de ' + p.total : '') + ' · ' + p.nombre;
+    ses = { pid: pid, numero: numero, hecha0: !!d.hecha, fechaOv: d.fecha || null, fecha0: d.fecha || null, obs0: d.obs || '', pendingBlob: null, delFoto: false, fotoPath: d.foto || null };
+    $("ses-title").textContent = 'Sesión ' + numero + (p.total ? ' de ' + p.total : '');
+    $("ses-sub").textContent = p.nombre;
     $("ses-obs").value = d.obs || '';
     $("ses-hecha").checked = !!d.hecha;
+    $("ses-proto-sec").open = true; $("ses-foto-sec").open = false;
     paintSesFecha();
     paintSesPhoto();
     $("ses-dialog").showModal();
@@ -2261,6 +2280,8 @@
     var has = (ses.pendingBlob || (ses.fotoPath && !ses.delFoto));
     $("ses-foto-btn").textContent = has ? 'Tomar otra foto' : 'Tomar foto';
     $("ses-foto-del").hidden = !has;
+    $("ses-foto-n").textContent = has ? '1 foto' : 'Sin foto';
+    if (has) $("ses-foto-sec").open = true;
     if (ses.pendingBlob){
       var im = el('img'); im.alt = 'Foto de la sesión'; im.src = URL.createObjectURL(ses.pendingBlob); box.appendChild(im);
     } else if (ses.fotoPath && !ses.delFoto){
@@ -2292,6 +2313,17 @@
     img.src = url;
   });
   $("ses-ficha").addEventListener("click", function(){ if (ses) openEdit(ses.pid); });
+  function sesDirty(){
+    return !!ses && ($("ses-obs").value !== ses.obs0 || $("ses-hecha").checked !== ses.hecha0 || (ses.fechaOv || null) !== ses.fecha0 || !!ses.pendingBlob || ses.delFoto);
+  }
+  // Ver sesiones: cierra esta sesión y abre la lista del paquete para elegir otra (avisa si hay cambios sin guardar).
+  $("ses-ver").addEventListener("click", function(){
+    if (!ses) return;
+    var pid = ses.pid;
+    function go(){ $("ses-dialog").close(); openSesList(pid); }
+    if (sesDirty()) askConfirm('Hay cambios sin guardar en esta sesión. ¿Salir sin guardarlos?', 'Salir sin guardar').then(function(ok){ if (ok) go(); });
+    else go();
+  });
   $("ses-copiar").addEventListener("click", function(){
     if (!ses) return;
     var pp = pacById(ses.pid), pt = pp && patById(pp.patologiaId);
@@ -2300,7 +2332,7 @@
     if (!t){ toast('Asigna una patología al paquete para generar la evolución'); return; }
     copyText(t).then(function(){ toast('Evolución copiada'); }, function(){ toast('No se pudo copiar'); });
   });
-  $("ses-cancel").addEventListener("click", function(){ $("ses-dialog").close(); });
+  $("ses-x").addEventListener("click", function(){ $("ses-dialog").close(); });
   $("ses-save").addEventListener("click", function(){
     var p = pacById(ses.pid), cur = ses; if (!p) return;
     if ($("ses-hecha").checked && sesLockReason(p, sesDate(), cur.hecha0)) return;
@@ -2328,16 +2360,16 @@
 
   // --- Control de dos opciones de texto (Esquema / Libre): .value es 'esquema' o 'libre' ---
   function enhanceModo(box){
-    var val = box.dataset.def || 'esquema';
+    var val = box.dataset.def !== undefined ? box.dataset.def : 'esquema';   // '' = sin elegir
     function paint(){ Array.prototype.forEach.call(box.querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.v === val); }); }
-    Object.defineProperty(box, 'value', { get: function(){ return val; }, set: function(v){ val = v === 'libre' ? 'libre' : 'esquema'; paint(); } });
+    Object.defineProperty(box, 'value', { get: function(){ return val; }, set: function(v){ val = v === 'libre' ? 'libre' : (v === 'esquema' ? 'esquema' : ''); paint(); } });
     box.addEventListener('click', function(e){
       var b = e.target.closest('button'); if (!b || b.dataset.v === val) return;
       val = b.dataset.v; paint(); box.dispatchEvent(new Event('change'));
     });
     paint();
   }
-  enhanceModo($("pat-new-modo")); enhanceModo($("pe-modo"));
+  enhanceModo($("pn-modo")); enhanceModo($("pe-modo"));
 
   // --- Catálogo de ejercicios ---
   var catEditId = null, catThen = null, pickCb = null;
@@ -2425,12 +2457,30 @@
       root.appendChild(b);
     });
   }
-  $("pat-new-btn").addEventListener("click", function(){
-    var nombre = $("pat-new-name").value.trim(); if (!nombre) return;
-    supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre, modo: $("pat-new-modo").value }).select().then(throwIfError).then(function(res){
-      $("pat-new-name").value = ''; $("pat-new-modo").value = 'esquema';
+  // Nueva patología: primero se elige Esquema o Libre; eso desbloquea el nombre y el resto del formulario.
+  function paintPatNew(){
+    var m = $("pn-modo").value, on = !!m;
+    $("pn-nombre").disabled = !on; $("pn-warm").disabled = !on;
+    $("pn-hint").textContent = m === 'libre'
+      ? 'Libre: tú repartes los ejercicios (del catálogo) en las sesiones 1 a 15; pueden repetirse y no hay límite por sesión.'
+      : (m === 'esquema' ? 'Esquema: ejercicios base para todas las sesiones y un extra nuevo en las sesiones 3, 7, 10 y 13.' : 'Elige primero el tipo de protocolo.');
+    $("pn-crear").disabled = !on || !$("pn-nombre").value.trim();
+  }
+  $("pat-new-open").addEventListener("click", function(){
+    $("pn-modo").value = ''; $("pn-nombre").value = ''; $("pn-warm").value = 15;
+    paintPatNew(); $("patnew-dialog").showModal();
+  });
+  $("pn-modo").addEventListener("change", function(){ paintPatNew(); if ($("pn-modo").value) $("pn-nombre").focus(); });
+  $("pn-nombre").addEventListener("input", paintPatNew);
+  $("pn-x").addEventListener("click", function(){ $("patnew-dialog").close(); });
+  $("pn-crear").addEventListener("click", function(){
+    var nombre = $("pn-nombre").value.trim(), modo = $("pn-modo").value; if (!nombre || !modo) return;
+    var warm = Number($("pn-warm").value); if (!(warm >= 0)) warm = 15;
+    $("pn-crear").disabled = true;
+    supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre, modo: modo, calentamiento_min: warm }).select().then(throwIfError).then(function(res){
+      $("patnew-dialog").close();
       return loadAndRender().then(function(){ if (res.data && res.data[0]) openPatEdit(res.data[0].id); });
-    }).catch(function(err){ showError('No se pudo crear: ' + err.message); });
+    }).catch(function(err){ showError('No se pudo crear: ' + err.message); $("pn-crear").disabled = false; });
   });
   function paintPeHint(){
     $("pe-hint").textContent = $("pe-modo").value === 'libre'
@@ -3060,6 +3110,36 @@
     SB.setOverlaysWebView({ overlay: false }).catch(function(){});
     SB.setBackgroundColor({ color: "#C2417B" }).catch(function(){});
     SB.setStyle({ style: "DARK" }).catch(function(){});
+  })();
+
+  // ---------- Botón / gesto «atrás» del celular ----------
+  // Se deja siempre una entrada de historial «guardia» encima: al tocar atrás, la app (no el sistema) decide qué cierra:
+  // el panel/formulario abierto más reciente, el filtro temporal, la pestaña (vuelve a Pacientes) y, al final, sale con un segundo toque.
+  (function(){
+    var z = 0, GUARD = { g: 1 }, exitTimer = null;
+    var _show = HTMLDialogElement.prototype.showModal;
+    HTMLDialogElement.prototype.showModal = function(){ this.__z = ++z; return _show.apply(this, arguments); };
+    function topDialog(){
+      var best = null;
+      Array.prototype.forEach.call(document.querySelectorAll('dialog[open]'), function(d){ if (!best || (d.__z || 0) >= (best.__z || 0)) best = d; });
+      return best;
+    }
+    function arm(){ try { history.pushState(GUARD, ''); } catch (e) {} }
+    try { if (!(history.state && history.state.g)){ history.replaceState({ r: 1 }, ''); arm(); } } catch (e) {}
+    window.addEventListener('popstate', function(){
+      if ($("connectedView").style.display === 'none') return;   // sin sesión iniciada: atrás sale normal
+      var d = topDialog();
+      if (d){
+        var ev = new Event('cancel', { cancelable: true });
+        d.dispatchEvent(ev);
+        if (d.open && !ev.defaultPrevented) d.close();
+        arm(); return;
+      }
+      if (listFilter){ setListFilter(null); render(); arm(); return; }
+      if ($("page-lista").hidden){ showPage('lista'); arm(); return; }
+      toast('Toca atrás otra vez para salir');
+      clearTimeout(exitTimer); exitTimer = setTimeout(arm, 2500);   // sin segundo toque, se vuelve a proteger
+    });
   })();
 
   tick();
