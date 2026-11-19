@@ -1243,7 +1243,7 @@
   function sesLockReason(p, fecha, hecha){
     if (hecha) return '';
     if (fecha && fecha > todayStr()) return 'Las sesiones futuras no se pueden marcar como realizadas.';
-    var f = faltan(p);
+    var f = faltan(p, true);
     if (f.length) return 'Completa primero la ficha del paciente (falta: ' + f.join(', ') + ').';
     return '';
   }
@@ -1361,9 +1361,10 @@
   }
 
   // Campos del formulario que le faltan a un paciente (los mismos que exige «Agregar»).
-  function faltan(p){
+  // sinPat: no cuenta la patología (se puede crear el paquete y registrar sesiones sin saberla; sí pesa para dar el tratamiento por terminado).
+  function faltan(p, sinPat){
     var f = [];
-    if (!p.patologiaId) f.push('patología');
+    if (!p.patologiaId && !sinPat) f.push('patología');
     if (!p.total) f.push('total de sesiones');
     else if (!scheduleOf(p)) f.push('fechas de las sesiones');
     return f;
@@ -1697,7 +1698,7 @@
   enhanceDateField($("edit-fecha"));
 
   // ---------- Formulario ----------
-  // «Agregar» solo se habilita con todo lleno (la valoración es lo único opcional).
+  // «Agregar» solo se habilita con todo lleno (la patología y el informe son opcionales).
   var addMode = 'nuevo';
   function refreshAddBtn(){
     var ok;
@@ -1705,7 +1706,7 @@
       var n = $("nombre-input").value.trim();
       ok = n && !findExact(n);   // el informe es opcional: puede quedar «Sin registrar»
     } else {
-      ok = (draftCtx || addPersonaId) && $("add-pat").value && Number($("add-total").value) > 0 && fechasComplete('add');
+      ok = (draftCtx || addPersonaId) && Number($("add-total").value) > 0 && fechasComplete('add');
     }
     $("add-btn").disabled = !ok;
   }
