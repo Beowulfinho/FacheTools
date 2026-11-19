@@ -452,6 +452,7 @@
   .ses-doc { margin: 12px 0; }
   .ses-doc[hidden] { display: none; }
   .ses-doc .ses-doc-h { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 4px; }
+  .ses-doc textarea { width: 100%; box-sizing: border-box; min-height: 90px; }
   .ses-doc textarea[hidden] { display: none; }
   .ses-doc-row { display: flex; gap: 8px; margin-top: 8px; }
   .ses-doc-row .btn { flex: 1; padding: 9px 8px; font-size: 13.5px; }
@@ -823,17 +824,18 @@
 </dialog>
 
 <dialog id="pers-dialog">
-  <div class="dlg-head"><h2>Paciente</h2>
+  <div class="dlg-head"><h2>Ficha del paciente</h2>
     <button type="button" class="dlg-x" id="pers-x" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="field"><label for="pers-nombre">Nombre</label><input type="text" id="pers-nombre" autocomplete="off" autocapitalize="words"></div>
+  <div class="field"><label>Patología</label><div class="ex-info" id="pers-pat"></div></div>
+  <div class="field"><label>Paquetes</label><div id="pers-hist"></div></div>
   <div class="field">
     <label>¿Necesita informe terapéutico?</label>
     <div class="seg" id="pers-informe" role="group" aria-label="Necesita informe terapéutico">
       <button type="button" data-v="1">Sí</button><button type="button" data-v="0">No</button>
     </div>
   </div>
-  <div class="field"><label>Historial de paquetes</label><div id="pers-hist"></div></div>
   <div class="dlg-actions">
     <button type="button" class="btn btn-danger" id="pers-delete">Eliminar</button>
     <div class="right"><button type="button" class="btn btn-primary" id="pers-save">Guardar</button></div>
@@ -1625,6 +1627,9 @@
   // Todos los paquetes del paciente (del más antiguo al más reciente), con patología, variación y avance.
   function renderPersHist(){
     var box = $("pers-hist"), g = groupById(persId); box.innerHTML = '';
+    var pn = [];   // patologías del paciente, la del paquete más reciente primero
+    if (g) g.paqs.slice().reverse().forEach(function(p){ var t = patById(p.patologiaId); if (t && pn.indexOf(t.nombre) === -1) pn.push(t.nombre); });
+    $("pers-pat").textContent = pn.length ? pn.join(' · ') : 'Sin patología';
     if (!g || !g.paqs.length){ box.appendChild(el('div', 'pac-note', 'Aún no tiene paquetes.')); return; }
     g.paqs.forEach(function(p){
       var pt = patById(p.patologiaId), sm = sesMap[p.id] || {};
@@ -2441,7 +2446,7 @@
     img.onerror = function(){ URL.revokeObjectURL(url); toast('No se pudo leer la foto'); };
     img.src = url;
   });
-  $("ses-ficha").addEventListener("click", function(){ if (ses) openEdit(ses.pid); });
+  $("ses-ficha").addEventListener("click", function(){ var pp = ses && pacById(ses.pid); if (pp) openPersona(pp.personaId); });
   function sesDirty(){
     if (!ses) return false;
     var docDirty = Object.keys(ses.docs).some(function(k){ return $("sd-" + k + "-txt").value !== ses.docs[k].txt0; });
@@ -3268,10 +3273,10 @@
   })();
 
   // ---------- Botón / gesto «atrás» del celular ----------
-  // Se deja siempre una entrada de historial «guardia» encima: al tocar atrás, la app (no el sistema) decide qué cierra:
-  // el panel/formulario abierto más reciente, el filtro temporal, la pestaña (vuelve a Pacientes) y, al final, sale con un segundo toque.
+  // En la app Android el botón atrás llega por el plugin @capacitor/app (sin él, Android cierra la app directamente).
+  // handleBack() cierra lo último abierto: panel/formulario, filtro temporal o pestaña (vuelve a Pacientes). En Pacientes, un segundo toque sale.
   (function(){
-    var z = 0, GUARD = { g: 1 }, exitTimer = null;
+    var z = 0, exitArmed = false, exitTimer = null;
     var _show = HTMLDialogElement.prototype.showModal;
     HTMLDialogElement.prototype.showModal = function(){ this.__z = ++z; return _show.apply(this, arguments); };
     function topDialog(){
@@ -3279,21 +3284,40 @@
       Array.prototype.forEach.call(document.querySelectorAll('dialog[open]'), function(d){ if (!best || (d.__z || 0) >= (best.__z || 0)) best = d; });
       return best;
     }
-    function arm(){ try { history.pushState(GUARD, ''); } catch (e) {} }
-    try { if (!(history.state && history.state.g)){ history.replaceState({ r: 1 }, ''); arm(); } } catch (e) {}
-    window.addEventListener('popstate', function(){
-      if ($("connectedView").style.display === 'none') return;   // sin sesión iniciada: atrás sale normal
+    function handleBack(){
       var d = topDialog();
       if (d){
         var ev = new Event('cancel', { cancelable: true });
         d.dispatchEvent(ev);
         if (d.open && !ev.defaultPrevented) d.close();
-        arm(); return;
+        return true;
       }
-      if (listFilter){ setListFilter(null); render(); arm(); return; }
-      if ($("page-lista").hidden){ showPage('lista'); arm(); return; }
+      if (listFilter){ setListFilter(null); render(); return true; }
+      if ($("page-lista").hidden){ showPage('lista'); return true; }
+      return false;
+    }
+    var native = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+    var capApp = native && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (capApp && capApp.addListener){
+      capApp.addListener('backButton', function(){
+        if ($("connectedView").style.display === 'none'){ capApp.exitApp(); return; }
+        if (handleBack()) return;
+        if (exitArmed){ capApp.exitApp(); return; }
+        exitArmed = true; toast('Toca atrás otra vez para salir');
+        clearTimeout(exitTimer); exitTimer = setTimeout(function(){ exitArmed = false; }, 2500);
+      });
+      return;
+    }
+    // Sin el plugin (navegador, o app instalada antes de añadirlo): historial con una entrada «guardia».
+    // Los navegadores ignoran las entradas creadas sin interacción del usuario, así que se arma con el primer toque.
+    var GUARD = { g: 1 };
+    function arm(){ try { if (!(history.state && history.state.g)) history.pushState(GUARD, ''); } catch (e) {} }
+    document.addEventListener('click', arm, true);
+    document.addEventListener('touchend', arm, true);
+    window.addEventListener('popstate', function(){
+      if ($("connectedView").style.display === 'none') return;
+      if (handleBack()){ arm(); return; }
       toast('Toca atrás otra vez para salir');
-      clearTimeout(exitTimer); exitTimer = setTimeout(arm, 2500);   // sin segundo toque, se vuelve a proteger
     });
   })();
 
