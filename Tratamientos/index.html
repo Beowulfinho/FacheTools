@@ -920,7 +920,10 @@
   <h2 id="ses-title">Sesión</h2>
   <div class="field">
     <label>Fecha de la sesión</label>
-    <button type="button" class="date-btn" id="ses-fecha"></button>
+    <div class="fecha-row">
+      <button type="button" class="date-btn" id="ses-fecha"></button>
+      <button type="button" class="btn" id="ses-copiar" style="white-space:nowrap;">Copiar devolución</button>
+    </div>
   </div>
   <div id="ses-proto"></div>
   <div class="field"><label for="ses-obs">Observaciones de la sesión</label><textarea id="ses-obs" placeholder="Escribe aquí cómo fue la sesión…"></textarea></div>
@@ -2087,6 +2090,36 @@
     return box;
   }
 
+  // Devolución (evolución) de la sesión, para pegar en el sistema de la empresa: sin bullets, ejercicios separados por " / ".
+  function devolucionText(p, numero, fecha){
+    var pat = patById(p.patologiaId); if (!pat) return null;
+    var flat = function(t){ return String(t || '').replace(/\s*[\r\n]+\s*/g, ' ').replace(/\s+/g, ' ').trim(); };
+    var ex = ejercicios.filter(function(e){ return e.patologiaId === pat.id; }), list = [];
+    ex.filter(function(e){ return e.tipo === 'base'; }).forEach(function(e){ list.push(e); });
+    var dow = parseIso(fecha).getDay();
+    HITOS.forEach(function(h){
+      if (h > numero) return;
+      var opts = ex.filter(function(e){ return e.tipo === 'extra' && e.hito === h; });
+      if (!opts.length) return;
+      var pick = opts.filter(function(e){ return e.dia === dow; });
+      if (!pick.length) pick = opts.filter(function(e){ return e.dia == null; });
+      (pick.length ? pick : opts).forEach(function(e){ list.push(e); });
+    });
+    var items = ['Calentamiento'].concat(list.map(function(e){
+      return [e.nombre, e.descripcion, e.accesorio, e.dosis].map(flat).filter(Boolean).join(', ');
+    }));
+    return 'ingresa usuario en buenas condiciones generales en sesión de terápia acuática, realizando:\n' + items.join(' / ') + '\nfinaliza sesión sin complicaciones';
+  }
+  function copyText(t){
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+    return new Promise(function(res, rej){
+      var ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+      ta.remove(); ok ? res() : rej();
+    });
+  }
+
   // --- Lista de sesiones de un paciente ---
   var slPid = null;
   function openSesList(pid){ slPid = pid; renderSesList(); if (!$("ses-list-dialog").open) $("ses-list-dialog").showModal(); }
@@ -2181,6 +2214,13 @@
     img.src = url;
   });
   $("ses-ficha").addEventListener("click", function(){ if (ses) openEdit(ses.pid); });
+  $("ses-copiar").addEventListener("click", function(){
+    if (!ses) return;
+    if (ses.numero === 1){ toast('La sesión 1 es la valoración: no tiene devolución de ejercicios'); return; }
+    var t = devolucionText(pacById(ses.pid), ses.numero, sesDate());
+    if (!t){ toast('Asigna una patología al paquete para generar la devolución'); return; }
+    copyText(t).then(function(){ toast('Devolución copiada'); }, function(){ toast('No se pudo copiar'); });
+  });
   $("ses-cancel").addEventListener("click", function(){ $("ses-dialog").close(); });
   $("ses-save").addEventListener("click", function(){
     var p = pacById(ses.pid), cur = ses; if (!p) return;
