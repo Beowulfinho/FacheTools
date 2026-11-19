@@ -987,6 +987,8 @@
       <button type="button" data-v="esquema" class="on">Esquema</button><button type="button" data-v="libre">Libre</button>
     </div>
   </div>
+  <div class="field"><label for="pe-plantilla">Valoración (plantilla)</label><textarea id="pe-plantilla" placeholder="Texto que aparecerá en la sesión 1 de los pacientes con esta patología"></textarea>
+    <div class="fin-hint">Aparece en la valoración (sesión 1) de cada paciente con esta patología, y se puede editar para cada uno.</div></div>
   <div class="field"><label for="pe-warm">Calentamiento (minutos)</label><input type="number" id="pe-warm" min="0" max="120" inputmode="numeric"></div>
   <p class="set-hint" id="pe-hint"></p>
   <div id="pe-ex"></div>
@@ -1040,6 +1042,7 @@
   </div>
   <p class="set-hint" id="pn-hint">Elige primero el tipo de protocolo.</p>
   <div class="field"><label for="pn-nombre">Nombre</label><input type="text" id="pn-nombre" placeholder="Ej. Lumbalgia" autocomplete="off" disabled></div>
+  <div class="field"><label for="pn-plantilla">Valoración (plantilla)</label><textarea id="pn-plantilla" placeholder="Texto que aparecerá en la sesión 1 de los pacientes con esta patología" disabled></textarea></div>
   <div class="field"><label for="pn-warm">Calentamiento (minutos)</label><input type="number" id="pn-warm" min="0" max="120" inputmode="numeric" value="15" disabled></div>
   <div class="dlg-actions"><span></span><button type="button" class="btn btn-primary" id="pn-crear" disabled>Crear patología</button></div>
 </dialog>
@@ -1919,7 +1922,7 @@
     ]).then(function(r){
       throwIfError(r[0]); throwIfError(r[1]); throwIfError(r[2]);
       catalogo = (r[2].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, descripcion: x.descripcion, accesorio: x.accesorio, dosis: x.dosis }; });
-      patologias = (r[0].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, calentamiento: x.calentamiento_min, modo: x.modo === 'libre' ? 'libre' : 'esquema' }; });
+      patologias = (r[0].data || []).map(function(x){ return { id: x.id, nombre: x.nombre, calentamiento: x.calentamiento_min, modo: x.modo === 'libre' ? 'libre' : 'esquema', plantilla: x.plantilla_valoracion || '' }; });
       ejercicios = (r[1].data || []).map(function(x){
         var c = x.catalogo_id ? catById(x.catalogo_id) : null;   // el catálogo manda sobre las copias guardadas en la fila
         return { id: x.id, patologiaId: x.patologia_id, tipo: x.tipo, hito: x.sesion_hito, dia: x.dia_semana, catId: c ? c.id : null,
@@ -2252,12 +2255,14 @@
   function openSession(pid, numero){
     var p = pacById(pid); if (!p) return;
     var d = (sesMap[pid] || {})[numero] || {};
-    ses = { pid: pid, numero: numero, hecha0: !!d.hecha, fechaOv: d.fecha || null, fecha0: d.fecha || null, obs0: d.obs || '', pendingBlob: null, delFoto: false, fotoPath: d.foto || null };
+    var pt0 = patById(p.patologiaId), obsIni = d.obs || '';
+    if (numero === 1 && !obsIni && pt0 && pt0.plantilla) obsIni = pt0.plantilla;   // plantilla de valoración de la patología (editable)
+    ses = { pid: pid, numero: numero, hecha0: !!d.hecha, fechaOv: d.fecha || null, fecha0: d.fecha || null, obs0: obsIni, pendingBlob: null, delFoto: false, fotoPath: d.foto || null };
     $("ses-title").textContent = 'Sesión ' + numero + (p.total ? ' de ' + p.total : '');
     $("ses-sub").textContent = p.nombre;
     $("ses-obs-lbl").textContent = numero === 1 ? 'Valoración' : 'Observaciones';   // la sesión 1 (en cualquier protocolo) lleva la valoración
     $("ses-obs").placeholder = numero === 1 ? 'Escribe aquí la valoración del paciente…' : 'Escribe aquí cómo fue la sesión…';
-    $("ses-obs").value = d.obs || '';
+    $("ses-obs").value = obsIni;
     $("ses-hecha").checked = !!d.hecha;
     $("ses-proto-sec").open = true; $("ses-foto-sec").open = false;
     paintSesFecha();
@@ -2463,14 +2468,14 @@
   // Nueva patología: primero se elige Esquema o Libre; eso desbloquea el nombre y el resto del formulario.
   function paintPatNew(){
     var m = $("pn-modo").value, on = !!m;
-    $("pn-nombre").disabled = !on; $("pn-warm").disabled = !on;
+    $("pn-nombre").disabled = !on; $("pn-warm").disabled = !on; $("pn-plantilla").disabled = !on;
     $("pn-hint").textContent = m === 'libre'
       ? 'Libre: tú repartes los ejercicios (del catálogo) en las sesiones 1 a 15; pueden repetirse y no hay límite por sesión.'
       : (m === 'esquema' ? 'Esquema: ejercicios base para todas las sesiones y un extra nuevo en las sesiones 3, 7, 10 y 13.' : 'Elige primero el tipo de protocolo.');
     $("pn-crear").disabled = !on || !$("pn-nombre").value.trim();
   }
   $("pat-new-open").addEventListener("click", function(){
-    $("pn-modo").value = ''; $("pn-nombre").value = ''; $("pn-warm").value = 15;
+    $("pn-modo").value = ''; $("pn-nombre").value = ''; $("pn-plantilla").value = ''; $("pn-warm").value = 15;
     paintPatNew(); $("patnew-dialog").showModal();
   });
   $("pn-modo").addEventListener("change", function(){ paintPatNew(); if ($("pn-modo").value) $("pn-nombre").focus(); });
@@ -2480,7 +2485,7 @@
     var nombre = $("pn-nombre").value.trim(), modo = $("pn-modo").value; if (!nombre || !modo) return;
     var warm = Number($("pn-warm").value); if (!(warm >= 0)) warm = 15;
     $("pn-crear").disabled = true;
-    supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre, modo: modo, calentamiento_min: warm }).select().then(throwIfError).then(function(res){
+    supabaseClient.from('tratamientos_patologias').insert({ user_id: viewId, nombre: nombre, modo: modo, calentamiento_min: warm, plantilla_valoracion: $("pn-plantilla").value.trim() || null }).select().then(throwIfError).then(function(res){
       $("patnew-dialog").close();
       return loadAndRender().then(function(){ if (res.data && res.data[0]) openPatEdit(res.data[0].id); });
     }).catch(function(err){ showError('No se pudo crear: ' + err.message); $("pn-crear").disabled = false; });
@@ -2493,7 +2498,7 @@
   function openPatEdit(id){
     var pt = patById(id); if (!pt) return;
     patEditId = id;
-    $("pe-nombre").value = pt.nombre; $("pe-warm").value = pt.calentamiento; $("pe-modo").value = pt.modo;
+    $("pe-nombre").value = pt.nombre; $("pe-warm").value = pt.calentamiento; $("pe-modo").value = pt.modo; $("pe-plantilla").value = pt.plantilla || '';
     paintPeHint(); renderPatEx();
     if (!$("patedit-dialog").open) $("patedit-dialog").showModal();
   }
@@ -2561,7 +2566,7 @@
   $("pe-save").addEventListener("click", function(){
     var nombre = $("pe-nombre").value.trim(); if (!nombre){ toast('Falta el nombre'); return; }
     var warm = Number($("pe-warm").value); if (!(warm >= 0)) warm = 15;
-    supabaseClient.from('tratamientos_patologias').update({ nombre: nombre, calentamiento_min: warm, modo: $("pe-modo").value }).eq('id', patEditId)
+    supabaseClient.from('tratamientos_patologias').update({ nombre: nombre, calentamiento_min: warm, modo: $("pe-modo").value, plantilla_valoracion: $("pe-plantilla").value.trim() || null }).eq('id', patEditId)
       .then(throwIfError).then(function(){ $("patedit-dialog").close(); toast('Patología guardada'); return loadAndRender(); })
       .catch(function(err){ showError('No se pudo guardar: ' + err.message); });
   });
